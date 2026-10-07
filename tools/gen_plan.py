@@ -18,7 +18,7 @@ CHUNKS = [
      "A running skeleton that every later chunk builds on.", "-",
      "`docker compose up` starts all services; CI is green on a trivial API and web test.",
      [("Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs", "OPS", "S", ""),
-      ("Docker Compose: Postgres, Redis, MinIO, ClamAV, Mailpit", "OPS", "S", "INT-03, INT-04"),
+      ("Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit", "OPS", "S", "INT-03, INT-04"),
       ("CI on every pull request: lint, type-check, unit tests", "OPS", "S", ""),
       ("Config from environment; logger that never writes personal identifiers", "API", "S", "NFR-SE-06"),
       ("Alembic baseline; UTC storage and India-time display helpers", "DB", "S", "NFR-AU-01")]),
@@ -43,7 +43,7 @@ CHUNKS = [
     ("C03", "R1", "Audit log core",
      "Append-only, hash-chained audit trail that all later chunks write to.", "C01",
      "A scripted set of actions produces the expected entries with no gaps.",
-     [("audit_entries table; database blocks update and delete", "DB", "M", "FR-AU-02"),
+     [("audit_entries table; MySQL triggers and revoked privileges block update and delete", "DB", "M", "FR-AU-02"),
       ("Hash-chain writer (previous hash plus entry hash)", "API", "M", "FR-AU-03"),
       ("audit() helper and middleware: sign-in, failures, denied requests", "API", "M", "FR-AU-01")]),
 
@@ -75,7 +75,7 @@ CHUNKS = [
     ("C07", "R1", "Clients: create",
      "Clients exist with a unique 6-digit client ID, validated and de-duplicated.", "C05, C03",
      "Duplicate PAN or GSTIN is blocked and links to the existing client; every client has a 6-digit ID.",
-     [("clients and contacts tables; client_id from a database sequence starting at 100001 (6 digits, unique, immutable, never reused)", "DB", "S", "CR-01"),
+     [("clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused)", "DB", "S", "CR-01"),
       ("PAN and GSTIN validators", "API", "S", "FR-CL-01"),
       ("Create-client API: required fields, duplicate block pointing to existing record", "API", "M", "FR-CL-01, FR-CL-02, CR-01"),
       ("Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log", "API", "S", "FR-CL-03, FR-AL-08"),
@@ -92,7 +92,7 @@ CHUNKS = [
     ("C09", "R1", "Cycles and tickets",
      "Every task is a ticket with an ID; stages follow the BRD and illegal moves are refused.", "C07, C06",
      "No stage can be skipped; every cycle has a TKT ID; each stage change emits a state_changed event.",
-     [("tickets table: TKT-000001 style ID from a sequence; type FILING or TASK; linked to client", "DB", "M", "CR-02"),
+     [("tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client", "DB", "M", "CR-02"),
       ("cycles table linked one-to-one to FILING tickets; package version recorded", "DB", "M", "FR-PK-05, FR-CY-02"),
       ("Stage list and legal-transition table", "API", "M", "FR-CY-02"),
       ("Transition endpoint: server refuses illegal moves; writes history and audit", "API", "M", "FR-CY-02, FR-AU-01"),
@@ -212,7 +212,7 @@ CHUNKS = [
      "Fee plans, gapless invoices and tax.", "C07, C05",
      "No invoice number is skipped or reused; invoice totals match the test set.",
      [("Fee plan from package; client-specific override with Administrator approval", "API", "M", "FR-FE-01"),
-      ("Invoice series with gapless numbers", "API", "M", "FR-FE-02"),
+      ("Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction)", "API", "M", "FR-FE-02"),
       ("Configurable tax rates (GST)", "API", "S", "FR-FE-09"),
       ("Invoice scheduler for monthly, quarterly, yearly, one-time", "JOB", "M", "FR-FE-02"),
       ("Fee plan and invoice screens", "WEB", "M", "")]),
@@ -329,13 +329,13 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; PostgreSQL; Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 
 | What | Format | Rule |
 | --- | --- | --- |
-| Client ID | 6 digits, e.g. `100001` | Assigned automatically on save from a database sequence starting at 100001. Unique, never changes, never reused, even for closed clients. |
+| Client ID | 6 digits, e.g. `100001` | Assigned automatically on save from an AUTO_INCREMENT counter starting at 100001. Unique, never changes, never reused, even for closed clients. |
 | Task ticket ID | `TKT-000001` | Every filing cycle and every ad hoc task gets one automatically. |
 | Dev ticket ID | `LL-001` | Tickets in this plan. |
 

@@ -14,13 +14,13 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; PostgreSQL; Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 
 | What | Format | Rule |
 | --- | --- | --- |
-| Client ID | 6 digits, e.g. `100001` | Assigned automatically on save from a database sequence starting at 100001. Unique, never changes, never reused, even for closed clients. |
+| Client ID | 6 digits, e.g. `100001` | Assigned automatically on save from an AUTO_INCREMENT counter starting at 100001. Unique, never changes, never reused, even for closed clients. |
 | Task ticket ID | `TKT-000001` | Every filing cycle and every ad hoc task gets one automatically. |
 | Dev ticket ID | `LL-001` | Tickets in this plan. |
 
@@ -83,7 +83,7 @@ Total: 146 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-001 | OPS | S | Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs | - |
-| LL-002 | OPS | S | Docker Compose: Postgres, Redis, MinIO, ClamAV, Mailpit | INT-03, INT-04 |
+| LL-002 | OPS | S | Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit | INT-03, INT-04 |
 | LL-003 | OPS | S | CI on every pull request: lint, type-check, unit tests | - |
 | LL-004 | API | S | Config from environment; logger that never writes personal identifiers | NFR-SE-06 |
 | LL-005 | DB | S | Alembic baseline; UTC storage and India-time display helpers | NFR-AU-01 |
@@ -126,7 +126,7 @@ Total: 146 tickets.
 
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
-| LL-015 | DB | M | audit_entries table; database blocks update and delete | FR-AU-02 |
+| LL-015 | DB | M | audit_entries table; MySQL triggers and revoked privileges block update and delete | FR-AU-02 |
 | LL-016 | API | M | Hash-chain writer (previous hash plus entry hash) | FR-AU-03 |
 | LL-017 | API | M | audit() helper and middleware: sign-in, failures, denied requests | FR-AU-01 |
 
@@ -182,7 +182,7 @@ Total: 146 tickets.
 
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
-| LL-031 | DB | S | clients and contacts tables; client_id from a database sequence starting at 100001 (6 digits, unique, immutable, never reused) | CR-01 |
+| LL-031 | DB | S | clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused) | CR-01 |
 | LL-032 | API | S | PAN and GSTIN validators | FR-CL-01 |
 | LL-033 | API | M | Create-client API: required fields, duplicate block pointing to existing record | FR-CL-01, FR-CL-02, CR-01 |
 | LL-034 | API | S | Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log | FR-CL-03, FR-AL-08 |
@@ -211,7 +211,7 @@ Total: 146 tickets.
 
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
-| LL-040 | DB | M | tickets table: TKT-000001 style ID from a sequence; type FILING or TASK; linked to client | CR-02 |
+| LL-040 | DB | M | tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client | CR-02 |
 | LL-041 | DB | M | cycles table linked one-to-one to FILING tickets; package version recorded | FR-PK-05, FR-CY-02 |
 | LL-042 | API | M | Stage list and legal-transition table | FR-CY-02 |
 | LL-043 | API | M | Transition endpoint: server refuses illegal moves; writes history and audit | FR-CY-02, FR-AU-01 |
@@ -421,7 +421,7 @@ Total: 146 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-099 | API | M | Fee plan from package; client-specific override with Administrator approval | FR-FE-01 |
-| LL-100 | API | M | Invoice series with gapless numbers | FR-FE-02 |
+| LL-100 | API | M | Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction) | FR-FE-02 |
 | LL-101 | API | S | Configurable tax rates (GST) | FR-FE-09 |
 | LL-102 | JOB | M | Invoice scheduler for monthly, quarterly, yearly, one-time | FR-FE-02 |
 | LL-103 | WEB | M | Fee plan and invoice screens | - |

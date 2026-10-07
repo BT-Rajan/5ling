@@ -1,6 +1,6 @@
 ticket_id,chunk,release,chunk_title,title,type,size,brd_refs,status
 LL-001,C00,R1,Foundation,"Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs",OPS,S,,Todo
-LL-002,C00,R1,Foundation,"Docker Compose: Postgres, Redis, MinIO, ClamAV, Mailpit",OPS,S,"INT-03, INT-04",Todo
+LL-002,C00,R1,Foundation,"Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit",OPS,S,"INT-03, INT-04",Todo
 LL-003,C00,R1,Foundation,"CI on every pull request: lint, type-check, unit tests",OPS,S,,Todo
 LL-004,C00,R1,Foundation,Config from environment; logger that never writes personal identifiers,API,S,NFR-SE-06,Todo
 LL-005,C00,R1,Foundation,Alembic baseline; UTC storage and India-time display helpers,DB,S,NFR-AU-01,Todo
@@ -13,7 +13,7 @@ LL-011,C02,R1,Two-step sign-in and sessions,TOTP enrolment and verification for 
 LL-012,C02,R1,Two-step sign-in and sessions,20-minute idle timeout; sessions end on disable or password change,API,S,"NFR-SE-03, FR-AC-02",Todo
 LL-013,C02,R1,Two-step sign-in and sessions,Enrolment and code-entry screens,WEB,S,,Todo
 LL-014,C02,R1,Two-step sign-in and sessions,Authorization test harness: every role against every endpoint,TEST,M,"NFR-SE-01, FR-AC-01",Todo
-LL-015,C03,R1,Audit log core,audit_entries table; database blocks update and delete,DB,M,FR-AU-02,Todo
+LL-015,C03,R1,Audit log core,audit_entries table; MySQL triggers and revoked privileges block update and delete,DB,M,FR-AU-02,Todo
 LL-016,C03,R1,Audit log core,Hash-chain writer (previous hash plus entry hash),API,M,FR-AU-03,Todo
 LL-017,C03,R1,Audit log core,"audit() helper and middleware: sign-in, failures, denied requests",API,M,FR-AU-01,Todo
 LL-018,C04,R1,Audit verification and viewer,Chain verification service and on-demand endpoint,API,S,FR-AU-03,Todo
@@ -29,7 +29,7 @@ LL-027,C06,R1,Due-date engine,"Due-date rule evaluator for monthly, quarterly, y
 LL-028,C06,R1,Due-date engine,"Alert date: default 4 and 21 days, quarterly set by Admin, per-entry override, holiday rule",API,M,"FR-PK-03, FR-PK-04",Todo
 LL-029,C06,R1,Due-date engine,Full-year due-date preview before saving a calendar,WEB,S,FR-PK-02,Todo
 LL-030,C06,R1,Due-date engine,Month-end and holiday test cases,TEST,S,NFR-AU-01,Todo
-LL-031,C07,R1,Clients: create,"clients and contacts tables; client_id from a database sequence starting at 100001 (6 digits, unique, immutable, never reused)",DB,S,CR-01,Todo
+LL-031,C07,R1,Clients: create,"clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused)",DB,S,CR-01,Todo
 LL-032,C07,R1,Clients: create,PAN and GSTIN validators,API,S,FR-CL-01,Todo
 LL-033,C07,R1,Clients: create,"Create-client API: required fields, duplicate block pointing to existing record",API,M,"FR-CL-01, FR-CL-02, CR-01",Todo
 LL-034,C07,R1,Clients: create,"Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log",API,S,"FR-CL-03, FR-AL-08",Todo
@@ -38,7 +38,7 @@ LL-036,C08,R1,"Clients: change, search, reassign","Change owner, package or stat
 LL-037,C08,R1,"Clients: change, search, reassign","Search and filter by name, PAN, owner, package, status; staff see own clients only; client ID searchable",API,M,"FR-CL-06, CR-01",Todo
 LL-038,C08,R1,"Clients: change, search, reassign",Reassign moves access immediately,API,S,FR-AC-03,Todo
 LL-039,C08,R1,"Clients: change, search, reassign",Client list and client detail with history,WEB,M,,Todo
-LL-040,C09,R1,Cycles and tickets,tickets table: TKT-000001 style ID from a sequence; type FILING or TASK; linked to client,DB,M,CR-02,Todo
+LL-040,C09,R1,Cycles and tickets,tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client,DB,M,CR-02,Todo
 LL-041,C09,R1,Cycles and tickets,cycles table linked one-to-one to FILING tickets; package version recorded,DB,M,"FR-PK-05, FR-CY-02",Todo
 LL-042,C09,R1,Cycles and tickets,Stage list and legal-transition table,API,M,FR-CY-02,Todo
 LL-043,C09,R1,Cycles and tickets,Transition endpoint: server refuses illegal moves; writes history and audit,API,M,"FR-CY-02, FR-AU-01",Todo
@@ -98,7 +98,7 @@ LL-096,C23,R1,Filing and closure,Filed requires uploaded acknowledgement and ref
 LL-097,C23,R1,Filing and closure,Close ticket: consultant access ends automatically; next cycle already scheduled,API,S,"FR-WF-02, BRD s6",Todo
 LL-098,C23,R1,Filing and closure,"End-to-end lifecycle test: Scheduled to Closed, with a draft at every state change",TEST,M,"FR-CY-02, CR-03",Todo
 LL-099,C24,R1,Fees: plans and invoices,Fee plan from package; client-specific override with Administrator approval,API,M,FR-FE-01,Todo
-LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers,API,M,FR-FE-02,Todo
+LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction),API,M,FR-FE-02,Todo
 LL-101,C24,R1,Fees: plans and invoices,Configurable tax rates (GST),API,S,FR-FE-09,Todo
 LL-102,C24,R1,Fees: plans and invoices,"Invoice scheduler for monthly, quarterly, yearly, one-time",JOB,M,FR-FE-02,Todo
 LL-103,C24,R1,Fees: plans and invoices,Fee plan and invoice screens,WEB,M,,Todo
