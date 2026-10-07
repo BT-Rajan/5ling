@@ -16,9 +16,9 @@ import os
 CHUNKS = [
     ("C00", "R1", "Foundation",
      "A running skeleton that every later chunk builds on.", "-",
-     "`docker compose up` starts all services; CI is green on a trivial API and web test.",
+     "`./scripts/dev-up` starts MySQL, Redis, MinIO, ClamAV, Mailpit, the API and the web client on a clean machine; CI is green on a trivial API and web test.",
      [("Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs", "OPS", "S", ""),
-      ("Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit", "OPS", "S", "INT-03, INT-04"),
+      ("Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything", "OPS", "S", "INT-03, INT-04"),
       ("CI on every pull request: lint, type-check, unit tests", "OPS", "S", ""),
       ("Config from environment; logger that never writes personal identifiers", "API", "S", "NFR-SE-06"),
       ("Alembic baseline; UTC storage and India-time display helpers", "DB", "S", "NFR-AU-01")]),
@@ -329,7 +329,7 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 

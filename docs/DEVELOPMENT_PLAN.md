@@ -14,7 +14,7 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 
@@ -83,12 +83,12 @@ Total: 146 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-001 | OPS | S | Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs | - |
-| LL-002 | OPS | S | Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit | INT-03, INT-04 |
+| LL-002 | OPS | S | Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything | INT-03, INT-04 |
 | LL-003 | OPS | S | CI on every pull request: lint, type-check, unit tests | - |
 | LL-004 | API | S | Config from environment; logger that never writes personal identifiers | NFR-SE-06 |
 | LL-005 | DB | S | Alembic baseline; UTC storage and India-time display helpers | NFR-AU-01 |
 
-**Done when:** `docker compose up` starts all services; CI is green on a trivial API and web test.
+**Done when:** `./scripts/dev-up` starts MySQL, Redis, MinIO, ClamAV, Mailpit, the API and the web client on a clean machine; CI is green on a trivial API and web test.
 
 ### C01 - Users and roles (R1)
 

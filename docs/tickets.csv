@@ -1,6 +1,6 @@
 ticket_id,chunk,release,chunk_title,title,type,size,brd_refs,status
 LL-001,C00,R1,Foundation,"Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs",OPS,S,,Todo
-LL-002,C00,R1,Foundation,"Docker Compose: MySQL 8, Redis, MinIO, ClamAV, Mailpit",OPS,S,"INT-03, INT-04",Todo
+LL-002,C00,R1,Foundation,"Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything",OPS,S,"INT-03, INT-04",Todo
 LL-003,C00,R1,Foundation,"CI on every pull request: lint, type-check, unit tests",OPS,S,,Todo
 LL-004,C00,R1,Foundation,Config from environment; logger that never writes personal identifiers,API,S,NFR-SE-06,Todo
 LL-005,C00,R1,Foundation,Alembic baseline; UTC storage and India-time display helpers,DB,S,NFR-AU-01,Todo
