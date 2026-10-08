@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# One-time (and safe to re-run) native setup for development. No Docker.
+# Debian/Ubuntu. Installs MySQL 8, Redis, ClamAV from apt; Mailpit as a pinned, checksummed binary
+# into .dev/bin; creates the databases and a .env with random secrets; installs Python and Node deps.
+# Set SKIP_CLAMAV=1 to skip the virus scanner for now (needed from chunk C16).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+MISSING=()
+say()  { printf '\n== %s\n' "$*"; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; }
+
+command -v apt-get >/dev/null || { echo "dev-setup supports Debian and Ubuntu (apt). See README for other systems."; exit 1; }
+command -v node >/dev/null || { echo "Node.js 20 or newer is required. Install it, then re-run."; exit 1; }
+[ "$(node -p 'process.versions.node.split(".")[0]')" -ge 20 ] || { echo "Node.js 20 or newer is required."; exit 1; }
+
+say "System packages"
+PKGS=(mysql-server redis-server python3-venv python3-pip curl ca-certificates openssl tar)
+[ "${SKIP_CLAMAV:-0}" = "1" ] || PKGS+=(clamav clamav-daemon)
+$SUDO apt-get update -qq
+$SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${PKGS[@]}"
+
+start_service() {
+  if command -v systemctl >/dev/null && [ -d /run/systemd/system ]; then $SUDO systemctl start "$1"
+  else $SUDO service "$1" start; fi
+}
+say "Starting MySQL and Redis"
+start_service mysql
+start_service redis-server || warn "could not start redis-server"
+
+case "$(uname -m)" in
+  x86_64|amd64) ARCH=amd64 ;;
+  aarch64|arm64) ARCH=arm64 ;;
+  *) ARCH=""; warn "unknown CPU $(uname -m): skipping the Mailpit download" ;;
+esac
+
+mkdir -p .dev/bin
+fetch() { # fetch URL DEST
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 --max-time 300 -o "$2" "$1"
+}
+# Mailpit is pinned to one version and its SHA-256 (the project publishes no checksum file).
+# To upgrade: download the new tarballs yourself, compute sha256sum, update these three lines.
+MAILPIT_VERSION="v1.31.4"
+MAILPIT_SHA256_amd64="30942c4605c2ca8b9f759b1bb4e3ab6a12bdfdf66e5c94644ec2c75ac41e88e7"
+MAILPIT_SHA256_arm64="010a346a8b9d454f6fa22d4fd2dbd5bf5eb7104688412b9c130d0ba33a3579c4"
+if [ -n "$ARCH" ]; then
+  say "Mailpit (local email catcher)"
+  if [ ! -x .dev/bin/mailpit ]; then
+    tmp="$(mktemp -d)"
+    want="MAILPIT_SHA256_$ARCH"; want="${!want}"
+    url="https://github.com/axllent/mailpit/releases/download/$MAILPIT_VERSION/mailpit-linux-$ARCH.tar.gz"
+    if fetch "$url" "$tmp/m.tgz"; then
+      have="$(sha256sum "$tmp/m.tgz" | cut -d' ' -f1)"
+      if [ "$want" = "$have" ]; then
+        tar -xzf "$tmp/m.tgz" -C "$tmp" mailpit && install -m 0755 "$tmp/mailpit" .dev/bin/mailpit
+      else warn "Mailpit checksum mismatch; not installed"; MISSING+=(mailpit); fi
+    else warn "could not download Mailpit"; MISSING+=(mailpit); fi
+    rm -rf "$tmp"
+  fi
+fi
+
+say "Databases and .env"
+if [ ! -f .env ]; then
+  APP_PW="$(openssl rand -hex 24)"
+  cat <<SQL | $SUDO mysql
+CREATE DATABASE IF NOT EXISTS ledgerline      CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE IF NOT EXISTS ledgerline_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER IF NOT EXISTS 'ledgerline_app'@'localhost' IDENTIFIED BY '$APP_PW';
+ALTER USER 'ledgerline_app'@'localhost' IDENTIFIED BY '$APP_PW';
+GRANT ALL ON ledgerline.*      TO 'ledgerline_app'@'localhost';
+GRANT ALL ON ledgerline_test.* TO 'ledgerline_app'@'localhost';
+SQL
+  umask 077
+  cat > .env <<ENV
+LL_ENV=development
+LL_DATABASE_URL=mysql+pymysql://ledgerline_app:$APP_PW@127.0.0.1:3306/ledgerline?charset=utf8mb4
+LL_TEST_DATABASE_URL=mysql+pymysql://ledgerline_app:$APP_PW@127.0.0.1:3306/ledgerline_test?charset=utf8mb4
+LL_SECRET_KEY=$(openssl rand -hex 32)
+LL_ALLOWED_HOSTS=localhost,127.0.0.1
+LL_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+ENV
+  echo "Created .env (private to you, never committed)."
+else
+  echo ".env already exists: leaving credentials alone."
+  printf 'CREATE DATABASE IF NOT EXISTS ledgerline CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\nCREATE DATABASE IF NOT EXISTS ledgerline_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\n' | $SUDO mysql
+fi
+
+say "API dependencies"
+[ -d api/.venv ] || python3 -m venv api/.venv
+api/.venv/bin/pip install --quiet --upgrade pip
+api/.venv/bin/pip install --quiet -r api/requirements-dev.txt -c api/constraints.txt
+
+say "Web dependencies"
+(cd web && npm ci --no-audit --no-fund)
+
+if [ "${SKIP_CLAMAV:-0}" != "1" ]; then
+  say "ClamAV (virus scanner)"
+  start_service clamav-daemon || warn "ClamAV not started yet (first start downloads signatures; try again in a few minutes)"
+fi
+
+say "Done"
+if [ ${#MISSING[@]} -gt 0 ]; then
+  warn "not installed: ${MISSING[*]} (only needed from chunk C13). Re-run to retry."
+fi
+echo "Start everything with: scripts/dev-up"

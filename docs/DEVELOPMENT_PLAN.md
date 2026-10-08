@@ -14,7 +14,7 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (the development backend is chosen in C16); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 
@@ -32,7 +32,7 @@ Every cycle stage change and every client status change creates a **draft** emai
 
 | Chunk | Release | Title | Tickets | Depends on |
 | --- | --- | --- | --- | --- |
-| C00 | R1 | Foundation | 5 | - |
+| C00 | R1 | Foundation | 8 | - |
 | C01 | R1 | Users and roles | 5 | C00 |
 | C02 | R1 | Two-step sign-in and sessions | 4 | C01 |
 | C03 | R1 | Audit log core | 3 | C01 |
@@ -71,11 +71,11 @@ Every cycle stage change and every client status change creates a **draft** emai
 | C36 | R2 | WhatsApp or SMS | 2 | C18 |
 | C37 | R2 | Package exceptions and access review | 2 | C08, C29 |
 
-Total: 146 tickets.
+Total: 149 tickets.
 
 ## Chunks
 
-### C00 - Foundation (R1)
+### C00 - Foundation (R1) - DONE
 
 **Goal:** A running skeleton that every later chunk builds on.  
 **Depends on:** -
@@ -83,12 +83,15 @@ Total: 146 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-001 | OPS | S | Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs | - |
-| LL-002 | OPS | S | Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything | INT-03, INT-04 |
+| LL-002 | OPS | S | Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, ClamAV and a pinned, checksummed Mailpit; Procfile and scripts/dev-up start everything on 127.0.0.1 | INT-03 |
 | LL-003 | OPS | S | CI on every pull request: lint, type-check, unit tests | - |
 | LL-004 | API | S | Config from environment; logger that never writes personal identifiers | NFR-SE-06 |
 | LL-005 | DB | S | Alembic baseline; UTC storage and India-time display helpers | NFR-AU-01 |
+| LL-147 | WEB | M | Web shell: Material 3 look, bottom bar on phones and rail on desktop, light and dark, installable on Android (PWA) | NFR-US-01 |
+| LL-148 | API | M | Security baseline: headers, host and origin allow-lists, body-size limit, safe errors, strict CSP, nginx example, SECURITY.md | NFR-SE-05, NFR-SE-06 |
+| LL-149 | OPS | S | CI security gates: bandit, pip-audit, npm audit, secret scan, Dependabot, pinned dependencies | NFR-SE-07 |
 
-**Done when:** `./scripts/dev-up` starts MySQL, Redis, MinIO, ClamAV, Mailpit, the API and the web client on a clean machine; CI is green on a trivial API and web test.
+**Done when:** `./scripts/dev-up` starts MySQL, Redis, Mailpit, the API and the web client on a clean machine; CI is green on API and web tests; the API refuses to start with unsafe settings.
 
 ### C01 - Users and roles (R1)
 
@@ -309,7 +312,7 @@ Total: 146 tickets.
 
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
-| LL-068 | API | M | Encrypted object-storage adapter (India region); no public addresses | INT-04, NFR-SE-05, NFR-SE-04 |
+| LL-068 | API | M | Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server) | INT-04, NFR-SE-05, NFR-SE-04 |
 | LL-069 | API | M | documents and versions tables; upload never overwrites | FR-AL-05 |
 | LL-070 | JOB | M | Virus scan on upload; file held until clean; type and size limits | FR-AL-04, INT-03 |
 | LL-071 | API | M | Short-lived authorised download links; every view and download audited | NFR-SE-05, FR-AU-01 |

@@ -1,9 +1,12 @@
 ticket_id,chunk,release,chunk_title,title,type,size,brd_refs,status
-LL-001,C00,R1,Foundation,"Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs",OPS,S,,Todo
-LL-002,C00,R1,Foundation,"Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything",OPS,S,"INT-03, INT-04",Todo
-LL-003,C00,R1,Foundation,"CI on every pull request: lint, type-check, unit tests",OPS,S,,Todo
-LL-004,C00,R1,Foundation,Config from environment; logger that never writes personal identifiers,API,S,NFR-SE-06,Todo
-LL-005,C00,R1,Foundation,Alembic baseline; UTC storage and India-time display helpers,DB,S,NFR-AU-01,Todo
+LL-001,C00,R1,Foundation,"Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs",OPS,S,,Done
+LL-002,C00,R1,Foundation,"Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, ClamAV and a pinned, checksummed Mailpit; Procfile and scripts/dev-up start everything on 127.0.0.1",OPS,S,INT-03,Done
+LL-003,C00,R1,Foundation,"CI on every pull request: lint, type-check, unit tests",OPS,S,,Done
+LL-004,C00,R1,Foundation,Config from environment; logger that never writes personal identifiers,API,S,NFR-SE-06,Done
+LL-005,C00,R1,Foundation,Alembic baseline; UTC storage and India-time display helpers,DB,S,NFR-AU-01,Done
+LL-147,C00,R1,Foundation,"Web shell: Material 3 look, bottom bar on phones and rail on desktop, light and dark, installable on Android (PWA)",WEB,M,NFR-US-01,Done
+LL-148,C00,R1,Foundation,"Security baseline: headers, host and origin allow-lists, body-size limit, safe errors, strict CSP, nginx example, SECURITY.md",API,M,"NFR-SE-05, NFR-SE-06",Done
+LL-149,C00,R1,Foundation,"CI security gates: bandit, pip-audit, npm audit, secret scan, Dependabot, pinned dependencies",OPS,S,NFR-SE-07,Done
 LL-006,C01,R1,Users and roles,Users and roles tables,DB,S,FR-AC-01,Todo
 LL-007,C01,R1,Users and roles,Password sign-in with argon2 and session cookies,API,M,NFR-SE-02,Todo
 LL-008,C01,R1,Users and roles,Central authorization dependency: role plus assignment check on every route,API,M,NFR-SE-01,Todo
@@ -66,7 +69,7 @@ LL-064,C15,R1,Manual state-change emails,'Send update to client' button and draf
 LL-065,C15,R1,Manual state-change emails,"Client status changes (active, paused, closed) also create drafts",API,S,"CR-03, FR-CL-04",Todo
 LL-066,C15,R1,Manual state-change emails,Send goes to primary contact; other contacts copied only if chosen; send result audited,API,S,"FR-CL-03, FR-AU-01",Todo
 LL-067,C15,R1,Manual state-change emails,"Tests: no auto-send, one draft per change, double-click sends once, audit entries present",TEST,S,CR-03,Todo
-LL-068,C16,R1,Documents and storage,Encrypted object-storage adapter (India region); no public addresses,API,M,"INT-04, NFR-SE-05, NFR-SE-04",Todo
+LL-068,C16,R1,Documents and storage,Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server),API,M,"INT-04, NFR-SE-05, NFR-SE-04",Todo
 LL-069,C16,R1,Documents and storage,documents and versions tables; upload never overwrites,API,M,FR-AL-05,Todo
 LL-070,C16,R1,Documents and storage,Virus scan on upload; file held until clean; type and size limits,JOB,M,"FR-AL-04, INT-03",Todo
 LL-071,C16,R1,Documents and storage,Short-lived authorised download links; every view and download audited,API,M,"NFR-SE-05, FR-AU-01",Todo

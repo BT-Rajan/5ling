@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Run a local helper binary if it is installed; otherwise say so and idle (so the others keep running).
+bin="$1"; shift
+if [ -x "$bin" ]; then exec "$bin" "$@"; fi
+echo "$(basename "$bin") is not installed; skipping (run scripts/dev-setup to retry)."
+exec sleep infinity

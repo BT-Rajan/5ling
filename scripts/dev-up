@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Starts MySQL, Redis (and ClamAV if present), applies migrations, then runs the API, web client,
+# and Mailpit together. Everything listens on 127.0.0.1 only. Stop with Ctrl+C.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+[ -f .env ] || { echo "No .env yet. Run scripts/dev-setup first."; exit 1; }
+[ -x api/.venv/bin/honcho ] || { echo "Python dependencies missing. Run scripts/dev-setup."; exit 1; }
+[ -d web/node_modules ] || { echo "Web dependencies missing. Run scripts/dev-setup."; exit 1; }
+
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+ensure() { # ensure SERVICE
+  if command -v systemctl >/dev/null && [ -d /run/systemd/system ]; then
+    systemctl is-active --quiet "$1" || $SUDO systemctl start "$1"
+  else $SUDO service "$1" status >/dev/null 2>&1 || $SUDO service "$1" start; fi
+}
+ensure mysql
+ensure redis-server
+if dpkg -s clamav-daemon >/dev/null 2>&1; then ensure clamav-daemon || echo "ClamAV not ready yet (fine until chunk C16)"; fi
+
+set -a; . ./.env; set +a
+echo "Applying database migrations..."
+(cd api && .venv/bin/alembic upgrade head)
+
+echo "Web: http://localhost:5173   API docs: http://localhost:8000/api/docs   Mail: http://localhost:8025"
+exec api/.venv/bin/honcho start

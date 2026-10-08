@@ -16,12 +16,15 @@ import os
 CHUNKS = [
     ("C00", "R1", "Foundation",
      "A running skeleton that every later chunk builds on.", "-",
-     "`./scripts/dev-up` starts MySQL, Redis, MinIO, ClamAV, Mailpit, the API and the web client on a clean machine; CI is green on a trivial API and web test.",
+     "`./scripts/dev-up` starts MySQL, Redis, Mailpit, the API and the web client on a clean machine; CI is green on API and web tests; the API refuses to start with unsafe settings.",
      [("Monorepo skeleton: api (FastAPI), web (React, Vite, TypeScript), docs", "OPS", "S", ""),
-      ("Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, MinIO, ClamAV, Mailpit; Procfile and scripts/dev-up start everything", "OPS", "S", "INT-03, INT-04"),
+      ("Native dev setup, no Docker: scripts/dev-setup installs MySQL 8, Redis, ClamAV and a pinned, checksummed Mailpit; Procfile and scripts/dev-up start everything on 127.0.0.1", "OPS", "S", "INT-03"),
       ("CI on every pull request: lint, type-check, unit tests", "OPS", "S", ""),
       ("Config from environment; logger that never writes personal identifiers", "API", "S", "NFR-SE-06"),
-      ("Alembic baseline; UTC storage and India-time display helpers", "DB", "S", "NFR-AU-01")]),
+      ("Alembic baseline; UTC storage and India-time display helpers", "DB", "S", "NFR-AU-01"),
+      ("Web shell: Material 3 look, bottom bar on phones and rail on desktop, light and dark, installable on Android (PWA)", "WEB", "M", "NFR-US-01", "LL-147"),
+      ("Security baseline: headers, host and origin allow-lists, body-size limit, safe errors, strict CSP, nginx example, SECURITY.md", "API", "M", "NFR-SE-05, NFR-SE-06", "LL-148"),
+      ("CI security gates: bandit, pip-audit, npm audit, secret scan, Dependabot, pinned dependencies", "OPS", "S", "NFR-SE-07", "LL-149")]),
 
     ("C01", "R1", "Users and roles",
      "Staff, Administrator and Consultant accounts exist and every route is guarded on the server.", "C00",
@@ -148,7 +151,7 @@ CHUNKS = [
     ("C16", "R1", "Documents and storage",
      "Files are stored safely, never overwritten and scanned.", "C00, C03",
      "A new upload becomes version 2; an infected file is rejected and logged; no public file URL exists.",
-     [("Encrypted object-storage adapter (India region); no public addresses", "API", "M", "INT-04, NFR-SE-05, NFR-SE-04"),
+     [("Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server)", "API", "M", "INT-04, NFR-SE-05, NFR-SE-04"),
       ("documents and versions tables; upload never overwrites", "API", "M", "FR-AL-05"),
       ("Virus scan on upload; file held until clean; type and size limits", "JOB", "M", "FR-AL-04, INT-03"),
       ("Short-lived authorised download links; every view and download audited", "API", "M", "NFR-SE-05, FR-AU-01"),
@@ -329,7 +332,7 @@ This plan breaks R1 (all Must requirements) and R2 (Should requirements) into sm
 
 ## Proposed stack (confirm before C00)
 
-Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (MinIO in development); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
+Python 3.12 with FastAPI and SQLAlchemy; MySQL 8 (InnoDB, utf8mb4); Celery with Redis for jobs; React with Vite and TypeScript; S3-compatible object storage in an India region (the development backend is chosen in C16); ClamAV for virus scanning; Mailpit for local email. No Docker: services are installed natively for development and run as systemd services in production. This follows the BRD's Python and React direction.
 
 ## IDs used in the product (not to be confused with LL- dev tickets)
 
@@ -370,25 +373,36 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 """
 
 
+DONE_CHUNKS = {"C00"}
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     n = 0
     rows, out = [], []
     for cid, rel, title, goal, dep, done, tickets in CHUNKS:
-        out.append(f"### {cid} - {title} ({rel})\n")
+        state = " - DONE" if cid in DONE_CHUNKS else ""
+        out.append(f"### {cid} - {title} ({rel}){state}\n")
         out.append(f"**Goal:** {goal}  \n**Depends on:** {dep}\n")
         out.append("| Ticket | Type | Size | Task | BRD / CR |")
         out.append("| --- | --- | --- | --- | --- |")
-        for t, typ, size, refs in tickets:
-            n += 1
-            tid = f"LL-{n:03d}"
+        for ticket in tickets:
+            t, typ, size, refs = ticket[:4]
+            if len(ticket) == 5:
+                tid = ticket[4]  # explicit ID, appended after the original numbering
+            else:
+                n += 1
+                tid = f"LL-{n:03d}"
             out.append(f"| {tid} | {typ} | {size} | {t} | {refs or '-'} |")
-            rows.append([tid, cid, rel, title, t, typ, size, refs, "Todo"])
+            rows.append([tid, cid, rel, title, t, typ, size, refs, "Done" if cid in DONE_CHUNKS else "Todo"])
         out.append(f"\n**Done when:** {done}\n")
     summary = ["| Chunk | Release | Title | Tickets | Depends on |",
                "| --- | --- | --- | --- | --- |"]
     for cid, rel, title, goal, dep, done, tickets in CHUNKS:
         summary.append(f"| {cid} | {rel} | {title} | {len(tickets)} | {dep} |")
+    ids = [r[0] for r in rows]
+    assert len(ids) == len(set(ids)), "duplicate ticket id"
+    n = len(rows)
     body = (HEAD.replace("{{SUMMARY}}", "\n".join(summary))
                 .replace("{{CHUNKS}}", "\n".join(out))
                 .replace("{{TOTAL}}", str(n)))
