@@ -1,0 +1,17 @@
+# Secret-scan settings (used by CI and the pre-commit hook).
+[extend]
+useDefault = true
+
+# Test fixtures contain made-up passwords and keys. Only the generic "looks like a key" rule is
+# relaxed, and only inside test files. Specific rules (GitHub tokens, cloud keys, private keys)
+# still run there, and nothing is relaxed anywhere else. Trade-off: a generic-looking real key
+# pasted into a test file would not be flagged, so review test fixtures like any other code.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Made-up credentials in test fixtures"
+paths = [
+  '''^api/tests/.*\.py$''',
+  '''^web/src/.*\.test\.tsx?$''',
+]
