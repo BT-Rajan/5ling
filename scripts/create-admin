@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Creates the first (or another) Administrator. The password is typed at a hidden prompt.
+#   scripts/create-admin --email you@firm.in --name "Your Name"
+# For scripts: pipe the password in and add --password-stdin.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[ -f .env ] || { echo "No .env yet. Run scripts/dev-setup first."; exit 1; }
+set -a; . ./.env; set +a
+cd api
+exec .venv/bin/python -m app.cli create-admin "$@"

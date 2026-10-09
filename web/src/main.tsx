@@ -5,6 +5,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { AuthProvider } from "./auth/AuthProvider";
 import { theme } from "./theme";
 
 const root = document.getElementById("root");
@@ -14,9 +15,11 @@ createRoot(root).render(
   <StrictMode>
     <ThemeProvider theme={theme} defaultMode="system">
       <CssBaseline enableColorScheme />
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   </StrictMode>,
 );

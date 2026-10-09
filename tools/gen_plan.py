@@ -30,16 +30,17 @@ CHUNKS = [
      "Staff, Administrator and Consultant accounts exist and every route is guarded on the server.", "C00",
      "A staff user is refused on an admin route; a disabled user fails on the next request.",
      [("Users and roles tables", "DB", "S", "FR-AC-01"),
-      ("Password sign-in with argon2 and session cookies", "API", "M", "NFR-SE-02"),
-      ("Central authorization dependency: role plus assignment check on every route", "API", "M", "NFR-SE-01"),
+      ("Password sign-in: Argon2id, hardened session cookies, CSRF token, account lockout and per-address throttling", "API", "M", "NFR-SE-02"),
+      ("Central authorization on every route (a test fails if any route is unguarded) and a record-level check helper; owner and assignment data arrive in C07 and C21", "API", "M", "NFR-SE-01"),
       ("Administrator creates and disables staff and consultants; consultant agreement date recorded", "API", "M", "FR-AC-02, BRD s12"),
-      ("Sign-in page and app shell with role-aware navigation", "WEB", "M", "")]),
+      ("Sign-in page and app shell with role-aware navigation", "WEB", "M", ""),
+      ("Team screen: list, add, disable, enable and reset password (Administrator only)", "WEB", "M", "FR-AC-02", "LL-150")]),
 
     ("C02", "R1", "Two-step sign-in and sessions",
      "No staff or admin session without a second factor; sessions end when they should.", "C01",
      "Role-by-endpoint test matrix runs in CI and every forbidden action is refused.",
      [("TOTP enrolment and verification for Staff and Administrator", "API", "M", "NFR-SE-02"),
-      ("20-minute idle timeout; sessions end on disable or password change", "API", "S", "NFR-SE-03, FR-AC-02"),
+      ("20-minute idle timeout (sessions already end on disable and password change: done and tested in C01)", "API", "S", "NFR-SE-03"),
       ("Enrolment and code-entry screens", "WEB", "S", ""),
       ("Authorization test harness: every role against every endpoint", "TEST", "M", "NFR-SE-01, FR-AC-01")]),
 
@@ -373,7 +374,7 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 """
 
 
-DONE_CHUNKS = {"C00"}
+DONE_CHUNKS = {"C00", "C01"}
 
 
 def main():

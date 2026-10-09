@@ -1,4 +1,4 @@
-import { api, ApiError } from "./api";
+import { api, ApiError, setCsrfToken, setUnauthorizedHandler } from "./api";
 import { jsonResponse } from "./test-utils";
 
 describe("api()", () => {
@@ -53,5 +53,33 @@ describe("api()", () => {
       }),
     );
     await expect(api("/api/slow", { timeoutMs: 20 })).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("adds the CSRF token to state-changing requests only, and only once it is known", async () => {
+    const spy = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({})));
+    vi.stubGlobal("fetch", spy);
+    await api("/api/x", { method: "POST" });
+    setCsrfToken("tok-123");
+    await api("/api/x");
+    await api("/api/x", { method: "POST", json: { a: 1 } });
+    await api("/api/x", { method: "DELETE" });
+    const sent = spy.mock.calls.map((c) => (c[1] as RequestInit).headers as Headers);
+    expect(sent[0]?.has("X-CSRF-Token")).toBe(false);
+    expect(sent[1]?.has("X-CSRF-Token")).toBe(false);
+    expect(sent[2]?.get("X-CSRF-Token")).toBe("tok-123");
+    expect(sent[2]?.get("Content-Type")).toBe("application/json");
+    expect(sent[3]?.get("X-CSRF-Token")).toBe("tok-123");
+    expect((spy.mock.calls[2]?.[1] as RequestInit).body).toBe('{"a":1}');
+  });
+
+  it("tells the app when the session has ended, except for a failed sign-in", async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({ error: { code: "http_401", message: "no" } }, 401))));
+    await api("/api/anything").catch(() => undefined);
+    expect(handler).toHaveBeenCalledTimes(1);
+    await api("/api/auth/login", { method: "POST" }).catch(() => undefined);
+    expect(handler).toHaveBeenCalledTimes(1);
+    setUnauthorizedHandler(null);
   });
 });

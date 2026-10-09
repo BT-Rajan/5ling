@@ -33,7 +33,7 @@ Every cycle stage change and every client status change creates a **draft** emai
 | Chunk | Release | Title | Tickets | Depends on |
 | --- | --- | --- | --- | --- |
 | C00 | R1 | Foundation | 8 | - |
-| C01 | R1 | Users and roles | 5 | C00 |
+| C01 | R1 | Users and roles | 6 | C00 |
 | C02 | R1 | Two-step sign-in and sessions | 4 | C01 |
 | C03 | R1 | Audit log core | 3 | C01 |
 | C04 | R1 | Audit verification and viewer | 4 | C03 |
@@ -71,7 +71,7 @@ Every cycle stage change and every client status change creates a **draft** emai
 | C36 | R2 | WhatsApp or SMS | 2 | C18 |
 | C37 | R2 | Package exceptions and access review | 2 | C08, C29 |
 
-Total: 149 tickets.
+Total: 150 tickets.
 
 ## Chunks
 
@@ -93,7 +93,7 @@ Total: 149 tickets.
 
 **Done when:** `./scripts/dev-up` starts MySQL, Redis, Mailpit, the API and the web client on a clean machine; CI is green on API and web tests; the API refuses to start with unsafe settings.
 
-### C01 - Users and roles (R1)
+### C01 - Users and roles (R1) - DONE
 
 **Goal:** Staff, Administrator and Consultant accounts exist and every route is guarded on the server.  
 **Depends on:** C00
@@ -101,10 +101,11 @@ Total: 149 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-006 | DB | S | Users and roles tables | FR-AC-01 |
-| LL-007 | API | M | Password sign-in with argon2 and session cookies | NFR-SE-02 |
-| LL-008 | API | M | Central authorization dependency: role plus assignment check on every route | NFR-SE-01 |
+| LL-007 | API | M | Password sign-in: Argon2id, hardened session cookies, CSRF token, account lockout and per-address throttling | NFR-SE-02 |
+| LL-008 | API | M | Central authorization on every route (a test fails if any route is unguarded) and a record-level check helper; owner and assignment data arrive in C07 and C21 | NFR-SE-01 |
 | LL-009 | API | M | Administrator creates and disables staff and consultants; consultant agreement date recorded | FR-AC-02, BRD s12 |
 | LL-010 | WEB | M | Sign-in page and app shell with role-aware navigation | - |
+| LL-150 | WEB | M | Team screen: list, add, disable, enable and reset password (Administrator only) | FR-AC-02 |
 
 **Done when:** A staff user is refused on an admin route; a disabled user fails on the next request.
 
@@ -116,7 +117,7 @@ Total: 149 tickets.
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
 | LL-011 | API | M | TOTP enrolment and verification for Staff and Administrator | NFR-SE-02 |
-| LL-012 | API | S | 20-minute idle timeout; sessions end on disable or password change | NFR-SE-03, FR-AC-02 |
+| LL-012 | API | S | 20-minute idle timeout (sessions already end on disable and password change: done and tested in C01) | NFR-SE-03 |
 | LL-013 | WEB | S | Enrolment and code-entry screens | - |
 | LL-014 | TEST | M | Authorization test harness: every role against every endpoint | NFR-SE-01, FR-AC-01 |
 

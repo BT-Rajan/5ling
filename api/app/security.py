@@ -159,6 +159,33 @@ class TrustedHostMiddleware:
         await self.app(scope, receive, send)
 
 
+_UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+class OriginCheckMiddleware:
+    """Browsers send Origin on every state-changing request. If it is present and not ours, refuse.
+
+    This backs up SameSite cookies and the CSRF token, and also covers sign-in itself, which has
+    no session yet to carry a token.
+    """
+
+    def __init__(self, app: ASGIApp, *, allowed_origins: list[str]) -> None:
+        self.app = app
+        self.allowed = set(allowed_origins)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] in _UNSAFE_METHODS:
+            origin = dict(scope.get("headers", [])).get(b"origin")
+            if origin is not None and origin.decode("latin-1") not in self.allowed:
+                log.warning("origin rejected", extra={"ctx": {"event": "origin.rejected"}})
+                rid = scope.get("state", {}).get("request_id")
+                await send_error(
+                    send, 403, "bad_origin", "This request came from an untrusted site.", rid
+                )
+                return
+        await self.app(scope, receive, send)
+
+
 class _TooLarge(Exception):
     pass
 

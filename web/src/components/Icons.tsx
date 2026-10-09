@@ -22,6 +22,10 @@ export const ClientsIcon = (p: SvgIconProps) => (
   />
 );
 
+export const TeamIcon = (p: SvgIconProps) => (
+  <Outline {...p} d="M12 12.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM5 20c0-3.6 3.1-5.8 7-5.8s7 2.2 7 5.8M3.5 9.5l1.5 1.5 3-3" />
+);
+
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Ledgerline">

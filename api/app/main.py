@@ -12,9 +12,10 @@ from sqlalchemy.engine import Engine
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
-from app.routers import health
+from app.routers import admin_users, auth, health
 from app.security import (
     BodyLimitMiddleware,
+    OriginCheckMiddleware,
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
     TrustedHostMiddleware,
@@ -79,6 +80,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(admin_users.router)
 
     # add_middleware puts the newest outermost; the first one added is closest to the app.
     app.add_middleware(
@@ -90,6 +93,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         max_age=600,
     )
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
+    app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(

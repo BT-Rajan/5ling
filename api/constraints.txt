@@ -2,6 +2,8 @@ alembic==1.20.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
 ast_serialize==0.12.1
 bandit==1.9.4
 boolean.py==5.0
@@ -13,6 +15,8 @@ click==8.5.0
 cryptography==50.0.2
 cyclonedx-python-lib==11.12.0
 defusedxml==0.7.1
+dnspython==2.8.0
+email-validator==2.3.0
 fastapi==0.142.3
 filelock==4.0.12
 h11==0.16.0

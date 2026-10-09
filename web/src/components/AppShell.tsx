@@ -1,11 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
-import { Link as RouterLink, Outlet, useLocation, useMatch } from "react-router-dom";
-import { destinations, type Destination } from "../nav";
+import { Link as RouterLink, Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
+import { useAuth, useUser, type Role } from "../auth/AuthProvider";
+import { destinations, pageTitle, type Destination } from "../nav";
 import { LogoMark } from "./Icons";
 
 function NavItem({ item, fill }: { item: Destination; fill: boolean }) {
@@ -48,7 +52,52 @@ function NavItem({ item, fill }: { item: Destination; fill: boolean }) {
   );
 }
 
+const ROLE_LABEL: Record<Role, string> = { administrator: "Administrator", staff: "Staff", consultant: "Consultant" };
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
+}
+
+function AccountMenu() {
+  const user = useUser();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  return (
+    <>
+      <IconButton
+        aria-label={`Account menu for ${user.full_name}`}
+        onClick={(e) => { setAnchor(e.currentTarget); setFailed(false); }}
+        sx={{ width: 48, height: 48, bgcolor: "primary.light", color: "primary.dark", fontSize: 15, fontWeight: 600 }}
+      >
+        {initials(user.full_name)}
+      </IconButton>
+      <Menu anchorEl={anchor} open={anchor !== null} onClose={() => { setAnchor(null); }}>
+        <MenuItem disabled sx={{ opacity: "1 !important", display: "block" }}>
+          <Typography sx={{ fontWeight: 500 }}>{user.full_name}</Typography>
+          <Typography variant="body2" color="text.secondary">{ROLE_LABEL[user.role]}</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => { setAnchor(null); void navigate("/account/password"); }}>Change password</MenuItem>
+        <MenuItem
+          onClick={() => {
+            logout().then(() => { setAnchor(null); }).catch(() => { setFailed(true); });
+          }}
+        >
+          Sign out
+        </MenuItem>
+        {failed && (
+          <MenuItem disabled sx={{ opacity: "1 !important", color: "error.main", whiteSpace: "normal", maxWidth: 260 }}>
+            Could not sign out. Check your connection and try again.
+          </MenuItem>
+        )}
+      </Menu>
+    </>
+  );
+}
+
 function Rail() {
+  const user = useUser();
   return (
     <Box
       component="nav"
@@ -71,9 +120,12 @@ function Rail() {
       <Box sx={{ mb: 3 }}>
         <LogoMark size={40} />
       </Box>
-      {destinations.map((d) => (
+      {destinations.filter((d) => d.roles.includes(user.role)).map((d) => (
         <NavItem key={d.to} item={d} fill={false} />
       ))}
+      <Box sx={{ mt: "auto", mb: 3 }}>
+        <AccountMenu />
+      </Box>
     </Box>
   );
 }
@@ -94,15 +146,17 @@ function TopBar({ title }: { title: string }) {
     >
       <Box sx={{ height: 64, px: 2, display: "flex", alignItems: "center", gap: 1.5 }}>
         <LogoMark size={28} />
-        <Typography variant="h2" component="p">
+        <Typography variant="h2" component="p" sx={{ flex: 1 }}>
           {title}
         </Typography>
+        <AccountMenu />
       </Box>
     </Box>
   );
 }
 
 function BottomBar() {
+  const user = useUser();
   return (
     <Box
       component="nav"
@@ -121,7 +175,7 @@ function BottomBar() {
         pb: "calc(8px + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      {destinations.map((d) => (
+      {destinations.filter((d) => d.roles.includes(user.role)).map((d) => (
         <NavItem key={d.to} item={d} fill />
       ))}
     </Box>
@@ -134,8 +188,7 @@ export function AppShell() {
   const { pathname } = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
-  const current = destinations.find((d) => (d.end ? pathname === d.to : pathname.startsWith(d.to)));
-  const title = current?.label ?? "Not found";
+  const title = pageTitle(pathname);
 
   useEffect(() => {
     document.title = `${title} · Ledgerline`;

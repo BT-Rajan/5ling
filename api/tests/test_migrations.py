@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 from alembic import command
+from alembic.autogenerate import compare_metadata
 from alembic.config import Config
-from app.db import make_engine
+from alembic.runtime.migration import MigrationContext
+from app.db import Base, make_engine
 from app.models import AppMeta
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
@@ -68,3 +70,13 @@ def test_strict_mode_rejects_oversized_value(clean_db: str) -> None:
         with pytest.raises(Exception, match=r"Data too long"):
             s.commit()
     engine.dispose()
+
+
+def test_models_and_migrations_agree(clean_db: str) -> None:
+    """If someone edits a model without writing a migration (or the reverse), this fails."""
+    command.upgrade(_cfg(clean_db), "head")
+    engine = create_engine(clean_db)
+    with engine.connect() as conn:
+        diff = compare_metadata(MigrationContext.configure(conn), Base.metadata)
+    engine.dispose()
+    assert diff == []

@@ -5,6 +5,9 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
+from alembic import command
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from app.config import Settings
 from app.main import create_app
 from fastapi import FastAPI
@@ -73,3 +76,48 @@ def clean_db(db_url: str) -> Iterator[str]:
     yield db_url
     wipe()
     engine.dispose()
+
+
+def _wipe(engine) -> None:  # type: ignore[no-untyped-def]
+    with engine.begin() as conn:
+        conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+        for (table,) in list(conn.execute(text("SHOW TABLES"))):
+            conn.execute(text(f"DROP TABLE IF EXISTS `{table}`"))
+        conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+
+
+@pytest.fixture
+def migrated_db(db_url: str) -> str:
+    """A test database at the latest migration with empty data tables (fast: no re-migrating)."""
+    database = make_url(db_url).database or ""
+    if not database.endswith("_test"):
+        pytest.fail(f"refusing to use '{database}': test database names must end in _test")
+    cfg = Config("alembic.ini")
+    cfg.attributes["url"] = db_url
+    head = ScriptDirectory.from_config(cfg).get_current_head()
+    engine = create_engine(db_url)
+    with engine.connect() as conn:
+        tables = {r[0] for r in conn.execute(text("SHOW TABLES"))}
+        current = (
+            conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+            if "alembic_version" in tables
+            else None
+        )
+    if current != head:
+        _wipe(engine)
+        command.upgrade(cfg, "head")
+    else:
+        with engine.begin() as conn:
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            for table in tables - {"alembic_version", "app_meta"}:
+                conn.execute(text(f"TRUNCATE TABLE `{table}`"))
+            conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+    engine.dispose()
+    return db_url
+
+
+@pytest.fixture
+def web(migrated_db: str) -> Iterator[TestClient]:
+    """The real app on the migrated test database."""
+    with TestClient(create_app(make_settings(database_url=migrated_db))) as client:
+        yield client

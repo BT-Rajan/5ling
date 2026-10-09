@@ -7,13 +7,14 @@ LL-005,C00,R1,Foundation,Alembic baseline; UTC storage and India-time display he
 LL-147,C00,R1,Foundation,"Web shell: Material 3 look, bottom bar on phones and rail on desktop, light and dark, installable on Android (PWA)",WEB,M,NFR-US-01,Done
 LL-148,C00,R1,Foundation,"Security baseline: headers, host and origin allow-lists, body-size limit, safe errors, strict CSP, nginx example, SECURITY.md",API,M,"NFR-SE-05, NFR-SE-06",Done
 LL-149,C00,R1,Foundation,"CI security gates: bandit, pip-audit, npm audit, secret scan, Dependabot, pinned dependencies",OPS,S,NFR-SE-07,Done
-LL-006,C01,R1,Users and roles,Users and roles tables,DB,S,FR-AC-01,Todo
-LL-007,C01,R1,Users and roles,Password sign-in with argon2 and session cookies,API,M,NFR-SE-02,Todo
-LL-008,C01,R1,Users and roles,Central authorization dependency: role plus assignment check on every route,API,M,NFR-SE-01,Todo
-LL-009,C01,R1,Users and roles,Administrator creates and disables staff and consultants; consultant agreement date recorded,API,M,"FR-AC-02, BRD s12",Todo
-LL-010,C01,R1,Users and roles,Sign-in page and app shell with role-aware navigation,WEB,M,,Todo
+LL-006,C01,R1,Users and roles,Users and roles tables,DB,S,FR-AC-01,Done
+LL-007,C01,R1,Users and roles,"Password sign-in: Argon2id, hardened session cookies, CSRF token, account lockout and per-address throttling",API,M,NFR-SE-02,Done
+LL-008,C01,R1,Users and roles,Central authorization on every route (a test fails if any route is unguarded) and a record-level check helper; owner and assignment data arrive in C07 and C21,API,M,NFR-SE-01,Done
+LL-009,C01,R1,Users and roles,Administrator creates and disables staff and consultants; consultant agreement date recorded,API,M,"FR-AC-02, BRD s12",Done
+LL-010,C01,R1,Users and roles,Sign-in page and app shell with role-aware navigation,WEB,M,,Done
+LL-150,C01,R1,Users and roles,"Team screen: list, add, disable, enable and reset password (Administrator only)",WEB,M,FR-AC-02,Done
 LL-011,C02,R1,Two-step sign-in and sessions,TOTP enrolment and verification for Staff and Administrator,API,M,NFR-SE-02,Todo
-LL-012,C02,R1,Two-step sign-in and sessions,20-minute idle timeout; sessions end on disable or password change,API,S,"NFR-SE-03, FR-AC-02",Todo
+LL-012,C02,R1,Two-step sign-in and sessions,20-minute idle timeout (sessions already end on disable and password change: done and tested in C01),API,S,NFR-SE-03,Todo
 LL-013,C02,R1,Two-step sign-in and sessions,Enrolment and code-entry screens,WEB,S,,Todo
 LL-014,C02,R1,Two-step sign-in and sessions,Authorization test harness: every role against every endpoint,TEST,M,"NFR-SE-01, FR-AC-01",Todo
 LL-015,C03,R1,Audit log core,audit_entries table; MySQL triggers and revoked privileges block update and delete,DB,M,FR-AU-02,Todo
