@@ -5,8 +5,16 @@ import { App } from "./App";
 import { AuthProvider, type User } from "./auth/AuthProvider";
 import { theme } from "./theme";
 
-export const staff: User = { id: 2, email: "asha@firm.in", full_name: "Asha Rao", role: "staff", must_change_password: false };
-export const admin: User = { id: 1, email: "boss@firm.in", full_name: "The Boss", role: "administrator", must_change_password: false };
+export const staff: User = { id: 2, email: "asha@firm.in", full_name: "Asha Rao", role: "staff", must_change_password: false, mfa_enabled: true };
+export const admin: User = { id: 1, email: "boss@firm.in", full_name: "The Boss", role: "administrator", must_change_password: false, mfa_enabled: true };
+
+export const session = (user: User, extra: Record<string, unknown> = {}) => ({
+  status: "signed_in" as const,
+  user,
+  csrf_token: "csrf-1",
+  recovery_codes_left: 10,
+  ...extra,
+});
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -27,16 +35,18 @@ export type Handler = (call: Call) => Response | Promise<Response>;
 interface MockOptions {
   /** Who is signed in when the app starts; null means nobody (the server answers 401). */
   user?: User | null;
+  /** Inactivity limit in milliseconds, for tests of the automatic sign-out. */
+  idleMs?: number;
   /** Extra or overriding routes, keyed like "POST /api/auth/login". A handler may throw to simulate a network failure. */
   handlers?: Record<string, Handler>;
 }
 
 /** Stands in for the server. Anything not handled is a 404 and is recorded, so tests can notice it. */
-export function mockApi({ user = staff, handlers = {} }: MockOptions = {}): { calls: Call[] } {
+export function mockApi({ user = staff, handlers = {} }: Pick<MockOptions, "user" | "handlers"> = {}): { calls: Call[] } {
   const calls: Call[] = [];
   const defaults: Record<string, Handler> = {
     "GET /api/auth/me": () =>
-      user ? jsonResponse({ user, csrf_token: "csrf-1" }) : errorResponse(401, "http_401", "Sign in to continue."),
+      user ? jsonResponse(session(user)) : errorResponse(401, "unauthenticated", "Sign in to continue."),
     "GET /api/health/ready": () => jsonResponse({ status: "ok", checks: { database: "ok" } }),
   };
   const routes = { ...defaults, ...handlers };
@@ -67,7 +77,7 @@ export function renderApp(path = "/", options: MockOptions = {}): ReturnType<typ
   const { calls } = mockApi(options);
   const utils = render(
     <ThemeProvider theme={theme}>
-      <AuthProvider>
+      <AuthProvider {...(options.idleMs !== undefined ? { idleMs: options.idleMs } : {})}>
         <MemoryRouter initialEntries={[path]}>
           <App />
         </MemoryRouter>

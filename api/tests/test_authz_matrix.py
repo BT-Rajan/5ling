@@ -1,0 +1,256 @@
+"""Every endpoint against every kind of caller (BRD FR-AC-01, NFR-SE-01).
+
+EXPECTED below is written by hand from the BRD, independently of the code. One test proves the
+code's own role markers agree with it; the rest call every endpoint as every kind of caller and
+check the result. A change to either side has to be deliberate.
+"""
+
+from __future__ import annotations
+
+import re
+import secrets
+from dataclasses import dataclass
+from datetime import timedelta
+
+import pytest
+from app.main import create_app
+from app.models import Role, User, UserSession
+from app.timeutil import utcnow
+from fastapi.testclient import TestClient
+from sqlalchemy import update
+
+from tests.brd_matrix import CAPABILITIES, SELF_SERVICE
+from tests.conftest import make_settings
+from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.routewalk import PUBLIC, protected_routes, unprotected_routes
+
+pytestmark = pytest.mark.requires_db
+
+ADMIN = frozenset({Role.ADMINISTRATOR})
+ADMIN_AND_STAFF = frozenset({Role.ADMINISTRATOR, Role.STAFF})
+EVERYONE = frozenset(Role)
+
+EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
+    ("GET", "/api/admin/users"): ADMIN,
+    ("POST", "/api/admin/users"): ADMIN,
+    ("POST", "/api/admin/users/{user_id}/disable"): ADMIN,
+    ("POST", "/api/admin/users/{user_id}/enable"): ADMIN,
+    ("POST", "/api/admin/users/{user_id}/reset-password"): ADMIN,
+    ("POST", "/api/admin/users/{user_id}/reset-mfa"): ADMIN,
+    ("GET", "/api/auth/me"): EVERYONE,
+    ("POST", "/api/auth/logout"): EVERYONE,
+    ("POST", "/api/auth/change-password"): EVERYONE,
+    ("POST", "/api/auth/mfa/recovery-codes"): ADMIN_AND_STAFF,
+}
+# Reachable while a temporary password is still waiting to be changed.
+REACHABLE_WHILE_PASSWORD_PENDING = {
+    ("GET", "/api/auth/me"),
+    ("POST", "/api/auth/logout"),
+    ("POST", "/api/auth/change-password"),
+}
+ROUTES = sorted(EXPECTED)
+UNSAFE = [r for r in ROUTES if r[0] in {"POST", "PUT", "PATCH", "DELETE"}]
+
+
+def url_for(path: str) -> str:
+    return path.replace("{user_id}", "999999")  # no such person: 404 once past the checks
+
+
+def call(client: TestClient, route: tuple[str, str], headers: dict[str, str] | None = None):  # type: ignore[no-untyped-def]
+    method, path = route
+    return client.request(method, url_for(path), json={}, headers=headers or {})
+
+
+def passed_the_checks(status: int) -> bool:
+    """401 and 403 are refusals. Anything else (404, 422, 204, 200...) got past authorization."""
+    return status not in (401, 403)
+
+
+@dataclass
+class World:
+    url: str
+    app_settings_url: str
+
+    def client(self) -> TestClient:
+        return TestClient(
+            create_app(make_settings(database_url=self.url)), raise_server_exceptions=False
+        )
+
+    def signed(
+        self, email: str, role: Role, *, must_change: bool = False
+    ) -> tuple[TestClient, Signed, int]:
+        user_id = make_user(self.url, email, role, must_change=must_change)
+        client = self.client()
+        return client, sign_in_directly(self.url, client, user_id), user_id
+
+
+@pytest.fixture
+def world(migrated_db: str) -> World:
+    return World(migrated_db, migrated_db)
+
+
+# ---- the code agrees with the hand-written table ---------------------------------------------
+
+
+def test_the_code_requires_exactly_the_roles_the_table_says() -> None:
+    app = create_app(make_settings())
+    actual = protected_routes(app)
+    assert set(actual) == set(EXPECTED), set(actual) ^ set(EXPECTED)
+    for route, roles in EXPECTED.items():
+        assert actual[route] == roles, route
+
+
+def test_public_routes_are_exactly_the_documented_ones() -> None:
+    assert unprotected_routes(create_app(make_settings())) == PUBLIC
+
+
+# ---- every route, every role -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("role", list(Role))
+@pytest.mark.parametrize("route", ROUTES, ids=lambda r: f"{r[0]} {r[1]}")
+def test_each_role_gets_in_only_where_the_table_allows(
+    world: World, route: tuple[str, str], role: Role
+) -> None:
+    client, signed, _ = world.signed(f"{role.value}@firm.in", role)
+    resp = call(client, route, signed.headers)
+    if role in EXPECTED[route]:
+        assert passed_the_checks(resp.status_code), (route, role, resp.status_code, resp.text)
+    else:
+        assert resp.status_code == 403, (route, role, resp.status_code)
+        assert resp.json()["error"]["code"] == "forbidden"
+
+
+@pytest.mark.parametrize("route", ROUTES, ids=lambda r: f"{r[0]} {r[1]}")
+def test_nobody_signed_in_is_refused_everywhere(world: World, route: tuple[str, str]) -> None:
+    resp = call(world.client(), route)
+    assert resp.status_code == 401
+
+
+@pytest.mark.parametrize("route", ROUTES, ids=lambda r: f"{r[0]} {r[1]}")
+def test_a_temporary_password_blocks_everything_except_changing_it(
+    world: World, route: tuple[str, str]
+) -> None:
+    client, signed, _ = world.signed("temp@firm.in", Role.STAFF, must_change=True)
+    resp = call(client, route, signed.headers)
+    if route in REACHABLE_WHILE_PASSWORD_PENDING:
+        assert passed_the_checks(resp.status_code), (route, resp.status_code)
+    else:
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "password_change_required"
+
+
+# ---- every route, every kind of dead session ---------------------------------------------------
+
+
+def _kill_disabled(url: str, user_id: int) -> None:
+    with db_session(url) as db:
+        db.execute(update(User).where(User.id == user_id).values(is_active=False))
+        db.commit()
+
+
+def _kill_revoked(url: str, user_id: int) -> None:
+    with db_session(url) as db:
+        db.execute(update(UserSession).values(revoked_at=utcnow()))
+        db.commit()
+
+
+def _kill_idle(url: str, user_id: int) -> None:
+    with db_session(url) as db:
+        db.execute(update(UserSession).values(last_seen_at=utcnow() - timedelta(minutes=21)))
+        db.commit()
+
+
+def _kill_expired(url: str, user_id: int) -> None:
+    with db_session(url) as db:
+        db.execute(update(UserSession).values(expires_at=utcnow() - timedelta(seconds=1)))
+        db.commit()
+
+
+DEAD = {
+    "disabled": _kill_disabled,
+    "revoked": _kill_revoked,
+    "idle for 21 minutes": _kill_idle,
+    "past the 12-hour limit": _kill_expired,
+}
+
+
+@pytest.mark.parametrize("how", list(DEAD))
+@pytest.mark.parametrize("route", ROUTES, ids=lambda r: f"{r[0]} {r[1]}")
+def test_dead_sessions_are_refused_everywhere(
+    world: World, route: tuple[str, str], how: str
+) -> None:
+    # An Administrator, so that every route would otherwise let this person in.
+    client, signed, user_id = world.signed("boss@firm.in", Role.ADMINISTRATOR)
+    DEAD[how](world.url, user_id)
+    resp = call(client, route, signed.headers)
+    assert resp.status_code == 401, (route, how, resp.status_code)
+
+
+@pytest.mark.parametrize("route", ROUTES, ids=lambda r: f"{r[0]} {r[1]}")
+def test_a_made_up_cookie_is_refused_everywhere(world: World, route: tuple[str, str]) -> None:
+    client = world.client()
+    client.cookies.set("ll_session", secrets.token_urlsafe(32))
+    assert call(client, route, {"X-CSRF-Token": "x"}).status_code == 401
+
+
+# ---- forged requests ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("route", UNSAFE, ids=lambda r: f"{r[0]} {r[1]}")
+def test_every_state_changing_route_needs_the_csrf_token(
+    world: World, route: tuple[str, str]
+) -> None:
+    allowed = sorted(EXPECTED[route], key=lambda r: r.value)[0]
+    client, signed, _ = world.signed(f"{allowed.value}@firm.in", allowed)
+    for headers in ({}, {"X-CSRF-Token": "not-the-token"}, {"X-CSRF-Token": signed.csrf[::-1]}):
+        resp = call(client, route, headers)
+        assert resp.status_code == 403, (route, headers)
+        assert resp.json()["error"]["code"] == "csrf_rejected"
+    assert passed_the_checks(call(client, route, signed.headers).status_code)
+
+
+@pytest.mark.parametrize("route", UNSAFE, ids=lambda r: f"{r[0]} {r[1]}")
+def test_every_state_changing_route_refuses_a_foreign_origin(
+    world: World, route: tuple[str, str]
+) -> None:
+    allowed = sorted(EXPECTED[route], key=lambda r: r.value)[0]
+    client, signed, _ = world.signed(f"{allowed.value}@firm.in", allowed)
+    resp = call(client, route, {**signed.headers, "Origin": "https://evil.example"})
+    assert resp.status_code == 403
+    assert resp.json()["error"]["code"] == "bad_origin"
+
+
+# ---- the BRD matrix is a checklist that cannot silently shrink ----------------------------------
+
+
+def test_all_sixteen_brd_capabilities_are_tracked() -> None:
+    assert len(CAPABILITIES) == 16
+    assert len({c.name for c in CAPABILITIES}) == 16
+    for cap in CAPABILITIES:
+        assert re.fullmatch(r"C\d\d", cap.built_in), cap.name
+
+
+def test_built_capabilities_use_exactly_the_roles_the_matrix_gives_them() -> None:
+    for cap in CAPABILITIES:
+        for route in cap.routes:
+            roles = EXPECTED[route]
+            if cap.consultant != "-":  # consultants are allowed only once their chunk is built
+                assert Role.CONSULTANT in roles, (cap.name, route)
+            else:
+                assert Role.CONSULTANT not in roles, (cap.name, route)
+            assert (Role.STAFF in roles) is cap.allowed("staff"), (cap.name, route)
+            assert (Role.ADMINISTRATOR in roles) is cap.allowed("admin"), (cap.name, route)
+
+
+def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> None:
+    claimed = {r for cap in CAPABILITIES for r in cap.routes} | set(SELF_SERVICE) | set(PUBLIC)
+    app = create_app(make_settings())
+    actual = set(protected_routes(app)) | unprotected_routes(app)
+    assert actual == claimed, ("unclaimed or missing:", actual ^ claimed)
+
+
+def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
+    pending = [c for c in CAPABILITIES if not c.routes]
+    assert len(pending) == 15  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C04", "C05", "C07", "C08", "C16", "C21", "C28"}

@@ -19,7 +19,7 @@ export const destinations: readonly Destination[] = [
   { to: "/team", label: "Team", Icon: TeamIcon, end: false, roles: ["administrator"] },
 ];
 
-const OTHER_TITLES: readonly (readonly [string, string])[] = [["/account/password", "Change password"]];
+const OTHER_TITLES: readonly (readonly [string, string])[] = [["/account", "Account security"]];
 
 export function pageTitle(pathname: string): string {
   const extra = OTHER_TITLES.find(([path]) => pathname === path);

@@ -11,6 +11,7 @@ const person = (over: Partial<Record<string, unknown>> = {}) => ({
   role: "staff",
   is_active: true,
   must_change_password: false,
+  mfa_enabled: true,
   agreement_signed_on: null,
   last_login_at: null,
   created_at: "2026-10-08T00:00:00Z",
@@ -191,5 +192,34 @@ describe("Team screen", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong.");
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("The Boss (you)")).toBeInTheDocument();
+  });
+
+  it("shows who has two-step on and offers a reset for those who do", async () => {
+    const posts: Call[] = [];
+    let reset = false;
+    renderApp("/team", {
+      user: admin,
+      handlers: {
+        ...noHealth,
+        "GET /api/admin/users": () => jsonResponse([boss, person({ mfa_enabled: !reset }), person({ id: 4, full_name: "C Associates", email: "c@ca.in", role: "consultant", mfa_enabled: false })]),
+        "POST /api/admin/users/2/reset-mfa": (c) => {
+          posts.push(c);
+          reset = true;
+          return jsonResponse(person({ mfa_enabled: false }));
+        },
+      },
+    });
+    expect(await screen.findByText(/asha@firm.in · Staff · Active · Two-step on/)).toBeInTheDocument();
+    expect(screen.getByText(/c@ca.in · Consultant · Active$/)).toBeInTheDocument(); // consultants have no two-step
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Asha Rao" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Reset two-step sign-in" }));
+    const dialog = await screen.findByRole("dialog", { name: /Reset two-step sign-in for Asha Rao/ });
+    expect(posts).toHaveLength(0);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reset two-step" }));
+    expect(await screen.findByText(/asha@firm.in · Staff · Active · Two-step not set up/)).toBeInTheDocument();
+    expect(posts[0]?.headers.get("X-CSRF-Token")).toBe("csrf-1");
+    // once reset there is nothing more to reset
+    await userEvent.click(screen.getByRole("button", { name: "Actions for Asha Rao" }));
+    expect(screen.queryByRole("menuitem", { name: "Reset two-step sign-in" })).not.toBeInTheDocument();
   });
 });

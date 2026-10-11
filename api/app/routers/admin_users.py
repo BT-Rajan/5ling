@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,7 @@ from app.auth import passwords, throttle
 from app.auth.deps import Principal, get_db, require_roles
 from app.auth.events import security_event
 from app.auth.sessions import revoke_all_for_user
-from app.models import Role, User
+from app.models import LoginChallenge, RecoveryCode, Role, User
 from app.timeutil import today_ist, utcnow
 
 router = APIRouter(prefix="/api/admin/users", tags=["admin: people"])
@@ -44,6 +44,7 @@ class PersonOut(BaseModel):
     role: Role
     is_active: bool
     must_change_password: bool
+    mfa_enabled: bool
     agreement_signed_on: date | None
     last_login_at: datetime | None
     created_at: datetime
@@ -66,6 +67,7 @@ def _out(user: User) -> PersonOut:
         role=user.role,
         is_active=user.is_active,
         must_change_password=user.must_change_password,
+        mfa_enabled=user.totp_enabled_at is not None,
         agreement_signed_on=user.agreement_signed_on,
         last_login_at=user.last_login_at,
         created_at=user.created_at,
@@ -196,3 +198,30 @@ def reset_password(
     db.commit()
     security_event("user.password_reset", actor_id=actor.user_id, user_id=user.id)
     return ResetOut(temporary_password=temp)
+
+
+@router.post("/{user_id}/reset-mfa")
+def reset_two_step(
+    user_id: int,
+    actor: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PersonOut:
+    """For a lost phone with no recovery codes. They sign in again and set up a new authenticator."""
+    user = _get(db, user_id)
+    if user.id == actor.user_id:
+        # Resetting your own second step from a live session would make it only as strong as that
+        # session. Use a recovery code, or ask another Administrator.
+        raise HTTPException(
+            status_code=409, detail="Ask another Administrator to reset your two-step sign-in."
+        )
+    if user.role is Role.CONSULTANT:
+        raise HTTPException(status_code=409, detail="Consultants do not use two-step codes.")
+    user.totp_secret_enc = None
+    user.totp_enabled_at = None
+    user.totp_last_step = None
+    db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+    db.execute(delete(LoginChallenge).where(LoginChallenge.user_id == user.id))
+    ended = revoke_all_for_user(db, user.id)
+    db.commit()
+    security_event("user.mfa_reset", actor_id=actor.user_id, user_id=user.id, sessions_ended=ended)
+    return _out(user)

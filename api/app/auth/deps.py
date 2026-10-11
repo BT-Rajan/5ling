@@ -9,12 +9,13 @@ import hmac
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, Request
 from sqlalchemy.orm import Session
 
 from app.auth.events import security_event
-from app.auth.sessions import cookie_name, load_session, touch
+from app.auth.sessions import cookie_name, load_session, revoke_session, touch
 from app.config import Settings
+from app.errors import ApiHTTPException
 from app.models import Role
 from app.timeutil import utcnow
 
@@ -50,17 +51,28 @@ def authenticate(
     token = request.cookies.get(cookie_name(settings))
     loaded = load_session(db, token) if token else None
     if loaded is None:
-        raise HTTPException(status_code=401, detail="Sign in to continue.")
-    session_row, user = loaded
+        raise ApiHTTPException(401, "Sign in to continue.", code="unauthenticated")
+    session_row, user = loaded.session, loaded.user
+    if loaded.idle:
+        revoke_session(db, session_row)
+        db.commit()
+        security_event("session.idle_expired", user_id=user.id)
+        raise ApiHTTPException(
+            401,
+            "You were signed out after 20 minutes of inactivity. Sign in again.",
+            code="session_idle",
+        )
 
     if request.method in UNSAFE_METHODS:
         sent = request.headers.get(CSRF_HEADER, "")
         if not hmac.compare_digest(sent.encode(), session_row.csrf_token.encode()):
             security_event("csrf.rejected", user_id=user.id, route=_route_label(request))
-            raise HTTPException(status_code=403, detail="This request could not be verified.")
+            raise ApiHTTPException(403, "This request could not be verified.", code="csrf_rejected")
 
     if user.must_change_password and not allow_password_change_pending:
-        raise HTTPException(status_code=403, detail="Change your password to continue.")
+        raise ApiHTTPException(
+            403, "Change your password to continue.", code="password_change_required"
+        )
 
     touch(db, session_row, utcnow())
     db.commit()
@@ -91,7 +103,7 @@ def require_roles(
                 role=principal.role.value,
                 route=_route_label(request),
             )
-            raise HTTPException(status_code=403, detail="You do not have access to this.")
+            raise ApiHTTPException(403, "You do not have access to this.", code="forbidden")
         return principal
 
     dependency.__authz__ = allowed  # type: ignore[attr-defined]  # marker read by the route-walk test

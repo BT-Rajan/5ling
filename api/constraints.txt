@@ -59,6 +59,7 @@ PyYAML==6.0.3
 requests==2.34.2
 rich==15.0.0
 ruff==0.16.10
+segno==1.6.6
 sortedcontainers==2.4.0
 SQLAlchemy==2.1.4
 starlette==1.7.0

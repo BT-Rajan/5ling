@@ -49,6 +49,10 @@ class User(Base):
         CheckConstraint(
             "role = 'consultant' OR password_hash IS NOT NULL", name="login_roles_have_password"
         ),
+        CheckConstraint(
+            "totp_secret_enc IS NULL OR totp_enabled_at IS NOT NULL",
+            name="totp_enabled_when_secret",
+        ),
         _TABLE,
     )
 
@@ -70,6 +74,10 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     last_login_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    # Two-step sign-in. The secret is stored encrypted (it must be readable to check codes).
+    totp_secret_enc: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     disabled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     created_by_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True

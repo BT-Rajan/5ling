@@ -2,17 +2,27 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.models import User, UserSession
+from app.models import Role, User, UserSession
 from app.timeutil import utcnow
 
 SESSION_LIFETIME = timedelta(hours=12)
-TOUCH_EVERY = timedelta(seconds=60)
+# BRD NFR-SE-03: Staff and Administrator sessions end after 20 minutes without activity.
+IDLE_TIMEOUT = timedelta(minutes=20)
+IDLE_ROLES = frozenset({Role.ADMINISTRATOR, Role.STAFF})
+
+
+@dataclass(frozen=True)
+class Loaded:
+    session: UserSession
+    user: User
+    idle: bool  # signed in, but has been inactive for too long
 
 
 def cookie_name(settings: Settings) -> str:
@@ -41,10 +51,8 @@ def create_session(db: Session, user: User, ip: str) -> tuple[str, UserSession]:
     return token, row
 
 
-def load_session(
-    db: Session, token: str, now: datetime | None = None
-) -> tuple[UserSession, User] | None:
-    """The live session and its user, or None if unknown, revoked, expired or the user is disabled."""
+def load_session(db: Session, token: str, now: datetime | None = None) -> Loaded | None:
+    """The live session, or None if unknown, revoked, expired or the user is disabled."""
     now = now or utcnow()
     row = db.scalar(select(UserSession).where(UserSession.token_hash == hash_token(token)))
     if row is None or row.revoked_at is not None or row.expires_at <= now:
@@ -52,13 +60,14 @@ def load_session(
     user = db.get(User, row.user_id)
     if user is None or not user.is_active:
         return None
-    return row, user
+    idle = user.role in IDLE_ROLES and now - row.last_seen_at > IDLE_TIMEOUT
+    return Loaded(row, user, idle)
 
 
 def touch(db: Session, row: UserSession, now: datetime) -> None:
-    if now - row.last_seen_at >= TOUCH_EVERY:
-        row.last_seen_at = now
-        db.flush()
+    """Record activity. Done on every request, so the 20 minutes are measured exactly."""
+    row.last_seen_at = now
+    db.flush()
 
 
 def revoke_session(db: Session, row: UserSession) -> None:

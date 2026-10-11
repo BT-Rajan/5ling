@@ -28,6 +28,7 @@ interface Person {
   role: Role;
   is_active: boolean;
   must_change_password: boolean;
+  mfa_enabled: boolean;
   agreement_signed_on: string | null;
 }
 
@@ -42,13 +43,13 @@ const ROLE_LABEL: Record<Role, string> = {
   consultant: "Consultant",
 };
 
-type Confirm = { kind: "disable" | "enable" | "reset"; person: Person };
+type Confirm = { kind: "disable" | "enable" | "reset" | "reset-mfa"; person: Person };
 type Secret = { heading: string; person: Person; password: string | null };
 
 function statusText(p: Person): string {
-  if (!p.is_active) return "Disabled";
-  if (p.must_change_password) return "Has not signed in yet";
-  return "Active";
+  const base = !p.is_active ? "Disabled" : p.must_change_password ? "Has not signed in yet" : "Active";
+  if (p.role === "consultant") return base;
+  return `${base} · Two-step ${p.mfa_enabled ? "on" : "not set up"}`;
 }
 
 function useFullScreen(): boolean {
@@ -192,6 +193,7 @@ function ConfirmDialog({ confirm, onCancel, onConfirm, busy, error }: {
     disable: [`Disable ${name}?`, "They are signed out straight away and cannot sign in until you enable them again.", "Disable"],
     enable: [`Enable ${name}?`, "They will be able to sign in again.", "Enable"],
     reset: [`Reset password for ${name}?`, "They are signed out, and need a new temporary password to get back in.", "Reset password"],
+    "reset-mfa": [`Reset two-step sign-in for ${name}?`, "Use this when they have lost their phone and their recovery codes. They are signed out, and set up a new authenticator the next time they sign in.", "Reset two-step"],
   }[confirm.kind];
   return (
     <Dialog open onClose={busy ? undefined : onCancel} aria-labelledby="confirm-title">
@@ -302,6 +304,9 @@ export function TeamPage() {
         )}
         {menu && menu.person.role !== "consultant" && menu.person.id !== me.id && (
           <MenuItem onClick={() => { setConfirm({ kind: "reset", person: menu.person }); setMenu(null); }}>Reset password</MenuItem>
+        )}
+        {menu && menu.person.role !== "consultant" && menu.person.id !== me.id && menu.person.mfa_enabled && (
+          <MenuItem onClick={() => { setConfirm({ kind: "reset-mfa", person: menu.person }); setMenu(null); }}>Reset two-step sign-in</MenuItem>
         )}
         {menu && menu.person.id === me.id && <MenuItem disabled>No actions on your own account</MenuItem>}
       </Menu>

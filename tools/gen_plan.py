@@ -39,10 +39,11 @@ CHUNKS = [
     ("C02", "R1", "Two-step sign-in and sessions",
      "No staff or admin session without a second factor; sessions end when they should.", "C01",
      "Role-by-endpoint test matrix runs in CI and every forbidden action is refused.",
-     [("TOTP enrolment and verification for Staff and Administrator", "API", "M", "NFR-SE-02"),
-      ("20-minute idle timeout (sessions already end on disable and password change: done and tested in C01)", "API", "S", "NFR-SE-03"),
-      ("Enrolment and code-entry screens", "WEB", "S", ""),
-      ("Authorization test harness: every role against every endpoint", "TEST", "M", "NFR-SE-01, FR-AC-01")]),
+     [("Two-step sign-in (TOTP) for Staff and Administrator: a correct password earns only a single-use challenge, the session is issued after the code; replay protection; secrets encrypted at rest", "API", "M", "NFR-SE-02"),
+      ("20-minute idle timeout on the server, plus automatic sign-out on screen (sessions already end on disable and password change: done in C01)", "API", "S", "NFR-SE-03"),
+      ("Set-up (QR code, manual key, recovery codes) and code-entry screens", "WEB", "S", ""),
+      ("Authorization test harness: every endpoint against every role and every kind of dead session, with the BRD matrix as a checklist", "TEST", "M", "NFR-SE-01, FR-AC-01"),
+      ("Recovery codes, administrator and command-line reset of two-step sign-in, Account security screen", "API", "M", "NFR-SE-02", "LL-151")]),
 
     ("C03", "R1", "Audit log core",
      "Append-only, hash-chained audit trail that all later chunks write to.", "C01",
@@ -374,7 +375,7 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 """
 
 
-DONE_CHUNKS = {"C00", "C01"}
+DONE_CHUNKS = {"C00", "C01", "C02"}
 
 
 def main():

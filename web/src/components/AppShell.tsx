@@ -78,7 +78,7 @@ function AccountMenu() {
           <Typography sx={{ fontWeight: 500 }}>{user.full_name}</Typography>
           <Typography variant="body2" color="text.secondary">{ROLE_LABEL[user.role]}</Typography>
         </MenuItem>
-        <MenuItem onClick={() => { setAnchor(null); void navigate("/account/password"); }}>Change password</MenuItem>
+        <MenuItem onClick={() => { setAnchor(null); void navigate("/account"); }}>Account security</MenuItem>
         <MenuItem
           onClick={() => {
             logout().then(() => { setAnchor(null); }).catch(() => { setFailed(true); });

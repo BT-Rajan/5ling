@@ -52,7 +52,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return JSONResponse(
             {
                 "error": {
-                    "code": f"http_{exc.status_code}",
+                    "code": getattr(exc, "code", f"http_{exc.status_code}"),
                     "message": str(exc.detail),
                     "request_id": rid(request),
                 }

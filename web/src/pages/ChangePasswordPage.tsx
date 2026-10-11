@@ -3,14 +3,13 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import { messageFor } from "../api";
 import { useAuth } from "../auth/AuthProvider";
 import { AuthLayout } from "./AuthLayout";
 
 const MIN = 12;
 
-function Form({ forced }: { forced: boolean }) {
+export function PasswordForm({ forced }: { forced: boolean }) {
   const { changePassword, logout } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -109,18 +108,9 @@ export function ChangePasswordPage({ forced = false }: { forced?: boolean }) {
   if (forced) {
     return (
       <AuthLayout title="Choose a new password" intro="Your administrator gave you a temporary password. Choose your own to continue.">
-        <Form forced />
+        <PasswordForm forced />
       </AuthLayout>
     );
   }
-  return (
-    <>
-      <Typography variant="h1" component="h1" sx={{ mb: 3, display: { xs: "none", md: "block" } }}>
-        Change password
-      </Typography>
-      <Stack sx={{ maxWidth: 440 }}>
-        <Form forced={false} />
-      </Stack>
-    </>
-  );
+  return <PasswordForm forced={false} />;
 }

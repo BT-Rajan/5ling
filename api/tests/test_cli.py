@@ -44,7 +44,8 @@ def test_creates_a_working_administrator(
         assert user.password_hash.startswith("$argon2id$")
     resp = login(web, "boss@firm.in", "a long passphrase here")
     assert resp.status_code == 200
-    assert resp.json()["user"]["role"] == "administrator"
+    # A new Administrator has no authenticator yet, so the next step is to set one up.
+    assert resp.json()["status"] == "mfa_enrolment_required"
 
 
 def test_refuses_weak_passwords_duplicates_and_bad_emails(
@@ -58,3 +59,45 @@ def test_refuses_weak_passwords_duplicates_and_bad_emails(
     assert "already exists" in capsys.readouterr().err
     with db_session(cli_env) as db:
         assert db.scalar(select(func.count()).select_from(User)) == 1
+
+
+def test_reset_mfa_clears_two_step_and_ends_sessions(
+    cli_env: str, web: TestClient, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.models import RecoveryCode, UserSession
+    from sqlalchemy import func
+
+    from tests.helpers import make_user, sign_in
+
+    make_user(cli_env, "boss@firm.in", Role.ADMINISTRATOR)
+    sign_in(web, "boss@firm.in")
+    assert web.get("/api/auth/me").status_code == 200
+
+    assert main(["reset-mfa", "--email", "BOSS@firm.in"]) == 0
+    assert "will set it up again" in capsys.readouterr().out
+
+    assert web.get("/api/auth/me").status_code == 401  # session ended
+    with db_session(cli_env) as db:
+        user = db.scalar(select(User))
+        assert user is not None
+        assert user.totp_secret_enc is None
+        assert user.totp_enabled_at is None
+        assert user.totp_last_step is None
+        assert db.scalar(select(func.count()).select_from(RecoveryCode)) == 0
+        live = db.scalar(
+            select(func.count()).select_from(UserSession).where(UserSession.revoked_at.is_(None))
+        )
+        assert live == 0
+    assert login(web, "boss@firm.in").json()["status"] == "mfa_enrolment_required"
+
+
+def test_reset_mfa_refuses_unknown_people_and_consultants(
+    cli_env: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from tests.helpers import make_user
+
+    make_user(cli_env, "cons@firm.in", Role.CONSULTANT)
+    assert main(["reset-mfa", "--email", "ghost@firm.in"]) == 1
+    assert "No one has that email" in capsys.readouterr().err
+    assert main(["reset-mfa", "--email", "cons@firm.in"]) == 1
+    assert "do not use two-step" in capsys.readouterr().err

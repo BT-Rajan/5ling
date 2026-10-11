@@ -82,9 +82,11 @@ def test_create_staff_returns_a_one_time_password_and_forces_a_change(
     temp = body["temporary_password"]
     assert temp
     with TestClient(web.app) as c:
-        signed = login(c, "asha.rao@firm.in", temp)
-        assert signed.status_code == 200
-        assert signed.json()["user"]["must_change_password"] is True
+        first = login(c, "asha.rao@firm.in", temp)
+        assert first.status_code == 200
+        assert (
+            first.json()["status"] == "mfa_enrolment_required"
+        )  # new accounts set up two-step first
 
 
 def test_duplicate_email_is_refused_ignoring_case(web: TestClient, migrated_db: str) -> None:
@@ -236,9 +238,9 @@ def test_reset_password_gives_a_new_temporary_one_and_ends_sessions(
         temp = resp.json()["temporary_password"]
         assert c.get("/api/auth/me").status_code == 401
         assert login(c, "asha@firm.in", PASSWORD).status_code == 401
-        again = login(c, "asha@firm.in", temp)
-        assert again.status_code == 200
-        assert again.json()["user"]["must_change_password"] is True
+        again = sign_in(c, "asha@firm.in", temp)
+        assert c.get("/api/auth/me").json()["user"]["must_change_password"] is True
+        assert again.user_id == staff_id
 
 
 def test_consultants_have_no_password_to_reset(web: TestClient, migrated_db: str) -> None:

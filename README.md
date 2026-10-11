@@ -2,7 +2,7 @@
 
 Compliance and filing management for chartered accountant firms. Python (FastAPI) API on MySQL 8, React web client that installs on Android as an app (PWA) and looks native there: Material Design 3, bottom navigation on phones, navigation rail on desktop, light and dark.
 
-Status: chunks C00 (foundation) and C01 (users and roles) done. See `docs/DEVELOPMENT_PLAN.md`.
+Status: chunks C00 (foundation), C01 (users and roles) and C02 (two-step sign-in) done. See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Run it (Debian or Ubuntu, no Docker)
 
@@ -16,6 +16,8 @@ Then create the first Administrator (there is no sign-up page):
 ```bash
 scripts/create-admin --email you@firm.in --name "Your Name"   # hidden password prompt
 ```
+
+The first time you sign in you will be asked to set up two-step sign-in: scan the picture with an authenticator app (Google Authenticator, Microsoft Authenticator, Aegis) and keep the recovery codes safe.
 
 Web http://localhost:5173 · API docs http://localhost:8000/api/docs · Mail http://localhost:8025
 
@@ -36,7 +38,7 @@ cd ../web && npm run lint && npm run typecheck && npm test && npm run build
 | --- | --- |
 | `docs/Ledgerline-BRD.docx` | Business Requirements Document, draft v1.0 |
 | `docs/CHANGE_REQUESTS.md` | Client ID, task tickets, manual state-change emails |
-| `docs/DEVELOPMENT_PLAN.md` | 38 chunks, 150 tickets, in build order |
+| `docs/DEVELOPMENT_PLAN.md` | 38 chunks, 151 tickets, in build order |
 | `docs/tickets.csv` | The same tickets, ready to import as GitHub issues |
 | `tools/gen_plan.py` | Generates the plan and CSV. Edit this, not the outputs. |
 | `api/` | FastAPI app, migrations (Alembic), tests |

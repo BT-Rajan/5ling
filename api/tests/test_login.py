@@ -9,33 +9,67 @@ from app.main import create_app
 from app.models import Role, User, UserSession
 from app.timeutil import utcnow
 from fastapi.testclient import TestClient
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from tests.conftest import make_settings
-from tests.helpers import PASSWORD, db_session, login, make_user, sign_in
+from tests.helpers import (
+    PASSWORD,
+    current_code,
+    db_session,
+    forget_last_code,
+    login,
+    make_user,
+    sign_in,
+)
 
 pytestmark = pytest.mark.requires_db
 
 GENERIC = "Email or password is incorrect, or the account is temporarily locked."
 
 
-def test_successful_login_returns_person_and_csrf_token_but_no_secrets(
+def test_a_correct_password_alone_gives_no_session(web: TestClient, migrated_db: str) -> None:
+    """BRD NFR-SE-02: no Staff or Administrator session exists without the second step."""
+    make_user(migrated_db, "asha@firm.in", Role.STAFF)
+    resp = login(web, "asha@firm.in")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "mfa_required"
+    assert "set-cookie" not in resp.headers
+    assert web.get("/api/auth/me").status_code == 401
+    with db_session(migrated_db) as db:
+        assert db.scalar(select(func.count()).select_from(UserSession)) == 0
+
+
+def test_signing_in_returns_person_and_csrf_token_but_no_secrets(
     web: TestClient, migrated_db: str
 ) -> None:
     make_user(migrated_db, "asha@firm.in", Role.STAFF, name="Asha Rao")
-    resp = login(web, "asha@firm.in")
+    first = login(web, "asha@firm.in").json()
+    forget_last_code(web, "asha@firm.in")
+    resp = web.post(
+        "/api/auth/mfa/verify", json={"challenge": first["challenge"], "code": current_code()}
+    )
     assert resp.status_code == 200
     body = resp.json()
+    assert body["status"] == "signed_in"
     assert body["user"]["email"] == "asha@firm.in"
     assert body["user"]["role"] == "staff"
+    assert body["user"]["mfa_enabled"] is True
     assert len(body["csrf_token"]) >= 32
-    assert "password" not in resp.text.lower().replace("must_change_password", "")
-    assert "argon2" not in resp.text
+    for secret in ("argon2", "totp", "challenge", "secret"):
+        assert secret not in resp.text.lower().replace("recovery_codes_left", "")
+
+
+def _second_step(web: TestClient, email: str):  # type: ignore[no-untyped-def]
+    first = login(web, email).json()
+    forget_last_code(web, email)
+    return web.post(
+        "/api/auth/mfa/verify", json={"challenge": first["challenge"], "code": current_code()}
+    )
 
 
 def test_session_cookie_is_hardened(web: TestClient, migrated_db: str) -> None:
     make_user(migrated_db, "asha@firm.in")
-    header = login(web, "asha@firm.in").headers["set-cookie"]
+    header = _second_step(web, "asha@firm.in").headers["set-cookie"]
     assert header.startswith("ll_session=")
     low = header.lower()
     assert "httponly" in low
@@ -51,14 +85,14 @@ def test_production_cookie_is_host_prefixed_and_secure(migrated_db: str) -> None
     )
     make_user(migrated_db, "asha@firm.in")
     with TestClient(app, base_url="https://app.example.test") as client:
-        header = login(client, "asha@firm.in").headers["set-cookie"]
+        header = _second_step(client, "asha@firm.in").headers["set-cookie"]
     assert header.startswith("__Host-ll_session=")
     assert "secure" in header.lower()
 
 
 def test_only_a_hash_of_the_cookie_is_stored(web: TestClient, migrated_db: str) -> None:
     make_user(migrated_db, "asha@firm.in")
-    login(web, "asha@firm.in")
+    sign_in(web, "asha@firm.in")
     raw = web.cookies.get("ll_session")
     assert raw
     with db_session(migrated_db) as db:
@@ -114,7 +148,7 @@ def test_lock_expires_and_success_resets_the_counter(
         login(web, "asha@firm.in", "wrong wrong wrong")
     later = utcnow() + throttle.ACCOUNT_LOCK + timedelta(seconds=5)
     monkeypatch.setattr("app.routers.auth.utcnow", lambda: later)
-    assert login(web, "asha@firm.in").status_code == 200
+    sign_in(web, "asha@firm.in", at=later)
     with db_session(migrated_db) as db:
         user = db.scalar(select(User))
         assert user is not None
@@ -126,10 +160,10 @@ def test_a_success_in_between_prevents_lockout(web: TestClient, migrated_db: str
     make_user(migrated_db, "asha@firm.in")
     for _ in range(4):
         login(web, "asha@firm.in", "wrong wrong wrong")
-    assert login(web, "asha@firm.in").status_code == 200
+    sign_in(web, "asha@firm.in")  # a completed sign-in clears the count
     for _ in range(4):
         login(web, "asha@firm.in", "wrong wrong wrong")
-    assert login(web, "asha@firm.in").status_code == 200
+    sign_in(web, "asha@firm.in")
 
 
 def test_one_address_is_throttled_across_many_accounts(web: TestClient, migrated_db: str) -> None:
@@ -156,6 +190,7 @@ def test_untrusted_origin_cannot_post_login(web: TestClient, migrated_db: str) -
         headers={"Origin": "https://app.example.test"},
     )
     assert good.status_code == 200
+    assert good.json()["status"] == "mfa_required"
 
 
 def test_malformed_login_is_rejected_without_echoing_input(web: TestClient) -> None:
@@ -191,7 +226,7 @@ def test_logs_never_contain_the_password_or_raw_email(
     make_user(migrated_db, "asha@firm.in")
     with caplog.at_level("INFO"):
         login(web, "asha@firm.in", "hunter2-hunter2-hunter2")
-        login(web, "asha@firm.in")
+        sign_in(web, "asha@firm.in")
     fmt = RedactingJsonFormatter()
     text_out = "\n".join(fmt.format(r) for r in caplog.records)
     assert "login.failed" in text_out

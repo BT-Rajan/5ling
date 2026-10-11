@@ -11,69 +11,28 @@ from app.auth.deps import Principal, require_roles
 from app.main import create_app
 from app.models import Role
 from fastapi import Depends, FastAPI
-from fastapi.dependencies.models import Dependant
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from tests.conftest import make_settings
 from tests.helpers import make_user, sign_in, sign_in_directly
+from tests.routewalk import PUBLIC, api_routes, roles_required, unprotected_routes
 
 ANY_ROLE = require_roles(Role.ADMINISTRATOR, Role.STAFF, Role.CONSULTANT)
-
-# Every route that needs no sign-in. Adding a public route means editing this list on purpose.
-PUBLIC = {
-    ("GET", "/api/health/live"),
-    ("GET", "/api/health/ready"),
-    ("POST", "/api/auth/login"),
-}
-
-
-def _protected_by(dependant: Dependant) -> list[frozenset[Role]]:
-    found: list[frozenset[Role]] = []
-    for dep in dependant.dependencies:
-        marker = getattr(dep.call, "__authz__", None)
-        if marker is not None:
-            found.append(marker)
-        found.extend(_protected_by(dep))
-    return found
-
-
-def _api_routes(app: FastAPI) -> list[APIRoute]:
-    """All API routes, looking inside included routers (FastAPI wraps them in lazy objects)."""
-    found: list[APIRoute] = []
-
-    def visit(routes: list) -> None:  # type: ignore[type-arg]
-        for route in routes:
-            if isinstance(route, APIRoute):
-                found.append(route)
-            elif hasattr(route, "original_router"):
-                visit(route.original_router.routes)
-
-    visit(app.routes)
-    # A walk that finds nothing would pass every check below by accident, so insist on a sane count.
-    paths = {r.path for r in found}
-    assert len(found) >= 9, f"route walk found only {len(found)} routes"
-    assert {"/api/auth/login", "/api/admin/users", "/api/health/live"} <= paths
-    return found
 
 
 @pytest.mark.parametrize("env", ["test", "production"])
 def test_every_route_is_public_on_purpose_or_requires_a_role(env: str) -> None:
     extra = {"allowed_hosts": "app.example.test"} if env == "production" else {}
     app = create_app(make_settings(env=env, **extra))
-    unprotected: set[tuple[str, str]] = set()
-    for route in _api_routes(app):
-        if not _protected_by(route.dependant):
-            unprotected |= {(m, route.path) for m in route.methods or set()}
-    assert unprotected == PUBLIC
+    assert unprotected_routes(app) == PUBLIC
 
 
 def test_every_admin_route_is_limited_to_the_administrator() -> None:
     app = create_app(make_settings())
-    admin_routes = [r for r in _api_routes(app) if r.path.startswith("/api/admin/")]
+    admin_routes = [r for r in api_routes(app) if r.path.startswith("/api/admin/")]
     assert admin_routes
     for route in admin_routes:
-        assert _protected_by(route.dependant) == [frozenset({Role.ADMINISTRATOR})], route.path
+        assert roles_required(route.dependant) == [frozenset({Role.ADMINISTRATOR})], route.path
 
 
 def _principal(role: Role, user_id: int = 1) -> Principal:

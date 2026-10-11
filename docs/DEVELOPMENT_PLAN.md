@@ -34,7 +34,7 @@ Every cycle stage change and every client status change creates a **draft** emai
 | --- | --- | --- | --- | --- |
 | C00 | R1 | Foundation | 8 | - |
 | C01 | R1 | Users and roles | 6 | C00 |
-| C02 | R1 | Two-step sign-in and sessions | 4 | C01 |
+| C02 | R1 | Two-step sign-in and sessions | 5 | C01 |
 | C03 | R1 | Audit log core | 3 | C01 |
 | C04 | R1 | Audit verification and viewer | 4 | C03 |
 | C05 | R1 | Packages and filing calendars | 4 | C01, C03 |
@@ -71,7 +71,7 @@ Every cycle stage change and every client status change creates a **draft** emai
 | C36 | R2 | WhatsApp or SMS | 2 | C18 |
 | C37 | R2 | Package exceptions and access review | 2 | C08, C29 |
 
-Total: 150 tickets.
+Total: 151 tickets.
 
 ## Chunks
 
@@ -109,17 +109,18 @@ Total: 150 tickets.
 
 **Done when:** A staff user is refused on an admin route; a disabled user fails on the next request.
 
-### C02 - Two-step sign-in and sessions (R1)
+### C02 - Two-step sign-in and sessions (R1) - DONE
 
 **Goal:** No staff or admin session without a second factor; sessions end when they should.  
 **Depends on:** C01
 
 | Ticket | Type | Size | Task | BRD / CR |
 | --- | --- | --- | --- | --- |
-| LL-011 | API | M | TOTP enrolment and verification for Staff and Administrator | NFR-SE-02 |
-| LL-012 | API | S | 20-minute idle timeout (sessions already end on disable and password change: done and tested in C01) | NFR-SE-03 |
-| LL-013 | WEB | S | Enrolment and code-entry screens | - |
-| LL-014 | TEST | M | Authorization test harness: every role against every endpoint | NFR-SE-01, FR-AC-01 |
+| LL-011 | API | M | Two-step sign-in (TOTP) for Staff and Administrator: a correct password earns only a single-use challenge, the session is issued after the code; replay protection; secrets encrypted at rest | NFR-SE-02 |
+| LL-012 | API | S | 20-minute idle timeout on the server, plus automatic sign-out on screen (sessions already end on disable and password change: done in C01) | NFR-SE-03 |
+| LL-013 | WEB | S | Set-up (QR code, manual key, recovery codes) and code-entry screens | - |
+| LL-014 | TEST | M | Authorization test harness: every endpoint against every role and every kind of dead session, with the BRD matrix as a checklist | NFR-SE-01, FR-AC-01 |
+| LL-151 | API | M | Recovery codes, administrator and command-line reset of two-step sign-in, Account security screen | NFR-SE-02 |
 
 **Done when:** Role-by-endpoint test matrix runs in CI and every forbidden action is refused.
 

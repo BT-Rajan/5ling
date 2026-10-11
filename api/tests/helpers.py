@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
+from app.auth import mfa
 from app.auth.passwords import hash_password
 from app.auth.sessions import cookie_name, create_session
 from app.db import make_engine, make_session_factory
 from app.models import Role, User
+from app.timeutil import utcnow
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from tests.conftest import GOOD_SECRET
+
+TEST_TOTP_SECRET = "JBSWY3DPEHPK3PXP"  # the authenticator secret every test user shares
 PASSWORD = "correct horse battery"
 _HASH = hash_password(PASSWORD)  # hashed once; Argon2 is deliberately slow
 
@@ -30,11 +36,17 @@ def make_user(
     active: bool = True,
     must_change: bool = False,
     name: str = "Test Person",
+    two_step: bool | None = None,
     **extra: Any,
 ) -> int:
+    """Create a person. Staff and Administrators are enrolled in two-step sign-in unless told not."""
     if role is Role.CONSULTANT:
         extra.setdefault("agreement_signed_on", date(2026, 1, 15))
         password = False
+    enrolled = (role is not Role.CONSULTANT) if two_step is None else two_step
+    if enrolled:
+        extra["totp_secret_enc"] = mfa.encrypt_secret(TEST_TOTP_SECRET, GOOD_SECRET)
+        extra["totp_enabled_at"] = utcnow()
     with db_session(url) as db:
         user = User(
             email=email,
@@ -76,11 +88,35 @@ def sign_in_directly(url: str, client: TestClient, user_id: int) -> Signed:
 
 
 def login(client: TestClient, email: str, password: str = PASSWORD) -> Any:
+    """First step only: the password."""
     return client.post("/api/auth/login", json={"email": email, "password": password})
 
 
-def sign_in(client: TestClient, email: str, password: str = PASSWORD) -> Signed:
+def current_code(at: datetime | None = None) -> str:
+    return mfa.totp_at(TEST_TOTP_SECRET, at or utcnow())
+
+
+def forget_last_code(client: TestClient, email: str) -> None:
+    """Replay protection refuses a code used twice in 30 seconds; tests sign in more often than that."""
+    url = client.app.state.settings.database_url.get_secret_value()  # type: ignore[attr-defined]
+    with db_session(url) as db:
+        db.execute(update(User).where(User.email == email).values(totp_last_step=None))
+        db.commit()
+
+
+def sign_in(
+    client: TestClient, email: str, password: str = PASSWORD, *, at: datetime | None = None
+) -> Signed:
+    """Both steps: password, then the current code."""
     resp = login(client, email, password)
     assert resp.status_code == 200, resp.text
     body = resp.json()
+    if body["status"] == "mfa_required":
+        forget_last_code(client, email)
+        resp = client.post(
+            "/api/auth/mfa/verify", json={"challenge": body["challenge"], "code": current_code(at)}
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+    assert body["status"] == "signed_in", body
     return Signed(client, body["user"]["id"], body["csrf_token"])

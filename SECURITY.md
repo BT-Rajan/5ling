@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 and C01)
+## What is in place now (chunks C00 to C02)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -21,11 +21,16 @@ Do not open a public issue. Email the project owner directly with what you found
 | Sessions | Random cookie, only its hash is stored; HttpOnly, SameSite=Lax, `__Host-` prefix and Secure in production; 12-hour limit; ended on sign-out, disable, password reset and password change. | `api/tests/test_login.py`, `test_sessions.py` |
 | Forged requests | CSRF token on every state-changing request, plus a check that the `Origin` is ours (also on sign-in). | `api/tests/test_login.py`, `test_security.py` |
 | Access control | Every route needs a role; a test fails if any route is open by accident. Administrator-only routes are tested against every role. Roles are read from the database on each request, so changes apply at once. | `api/tests/test_authz.py`, `test_admin_users.py` |
+| Two-step sign-in | Staff and Administrators need a code from an authenticator app. A correct password earns only a single-use challenge (5 minutes, 5 attempts); the session cookie is issued only after the code is verified, and a test proves sessions are created in exactly one place. Codes cannot be replayed; wrong codes count towards the account lockout; recovery codes (10, single use, stored as keyed hashes) cover a lost phone; the authenticator secret is stored encrypted. | `api/tests/test_totp.py` (RFC 6238 vectors), `test_mfa_flow.py` |
+| Inactivity | Staff and Administrator sessions end after 20 minutes without activity, measured on every request; the screen also signs out by itself so a forgotten tab does not keep showing data. | `api/tests/test_idle.py`, `web` tests |
+| Every endpoint, every caller | Each endpoint is called as Administrator, Staff, Consultant, a signed-out visitor, someone with a temporary password, and four kinds of dead session (disabled, revoked, idle, expired), against a table written by hand from the BRD. Forged-request and foreign-origin checks run on every state-changing route. Breaking the code on purpose makes these tests fail (checked). | `api/tests/test_authz_matrix.py`, `brd_matrix.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)
 
-**Two-step sign-in for Staff and Administrator and the 20-minute idle timeout (C02).** Until C02 is done, those roles sign in with a password only, which the BRD does not allow for real use. **Do not load real client data before C02.** Also still to come: the tamper-evident audit log (C03-C04; until then security events go to the redacted application log); consultant sign-in by emailed link and code (C21, so consultants cannot sign in yet); secure client links (C14); private file storage and virus scanning (C16); owner and assignment checks on real records (C07, C21); PAN and bank masking, encryption review and independent security test (C30).
+The tamper-evident audit log (C03-C04; until then security events go to the redacted application log). **Do not load real client data until the audit log exists**, because the BRD requires every view and download to be recorded. Also to come: consultant sign-in by emailed link and code (C21, so consultants cannot sign in yet); secure client links (C14); private file storage and virus scanning (C16); owner and assignment checks on real records (C07, C21; the matrix in `brd_matrix.py` lists the other 15 BRD capabilities and the chunk that builds each); PAN and bank masking, encryption review and independent security test (C30).
+
+Known limits of two-step sign-in today: whoever uses a new account's temporary password first sets up its authenticator, so hand the password over directly and check the Team screen shows "Two-step on" afterwards. The authenticator secret is encrypted with a key derived from `LL_SECRET_KEY`: changing that key makes existing authenticators unreadable, and an Administrator would need to reset them. If the only Administrator loses their phone and recovery codes, `python -m app.cli reset-mfa --email ...` (needs server access) clears it.
 
 ## Production checklist (before any real data)
 

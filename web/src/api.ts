@@ -30,8 +30,8 @@ export function setCsrfToken(token: string | null): void {
 }
 
 // Called when the server says the session is gone, so the app can return to the sign-in page.
-let onUnauthorized: (() => void) | null = null;
-export function setUnauthorizedHandler(handler: (() => void) | null): void {
+let onUnauthorized: ((error: ApiError) => void) | null = null;
+export function setUnauthorizedHandler(handler: ((error: ApiError) => void) | null): void {
   onUnauthorized = handler;
 }
 
@@ -67,16 +67,20 @@ export async function api<T>(
         body = null;
       }
     }
-    if (response.status === 401 && path !== "/api/auth/login") onUnauthorized?.();
     if (!response.ok) {
       const err = (body as ErrorEnvelope | null)?.error;
-      throw new ApiError(
+      const failure = new ApiError(
         response.status,
         typeof err?.code === "string" ? err.code : `http_${response.status}`,
         typeof err?.message === "string" ? err.message : "The request failed.",
         typeof err?.request_id === "string" ? err.request_id : undefined,
         body,
       );
+      // A 401 from the sign-in steps means "wrong details", not "your session ended".
+      if (response.status === 401 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/mfa/")) {
+        onUnauthorized?.(failure);
+      }
+      throw failure;
     }
     return body as T;
   } finally {

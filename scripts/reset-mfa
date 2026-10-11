@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Emergency: clears someone's two-step sign-in (for example a lost phone with no recovery codes)
+# and ends their sessions. They set up a new authenticator at their next sign-in.
+#   scripts/reset-mfa --email someone@firm.in
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[ -f .env ] || { echo "No .env yet. Run scripts/dev-setup first."; exit 1; }
+set -a; . ./.env; set +a
+cd api
+exec .venv/bin/python -m app.cli reset-mfa "$@"

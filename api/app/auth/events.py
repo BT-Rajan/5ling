@@ -15,6 +15,7 @@ _WARN = {
     "login.failed",
     "login.throttled",
     "login.locked",
+    "mfa.failed",
     "access.denied",
     "csrf.rejected",
     "origin.rejected",

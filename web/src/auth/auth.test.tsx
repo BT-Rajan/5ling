@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { errorResponse, jsonResponse, renderApp, staff, stubScreen, type Call } from "../test-utils";
+import { errorResponse, jsonResponse, renderApp, session, staff, stubScreen, type Call } from "../test-utils";
 
 const noHealth = { "GET /api/health/ready": () => new Promise<Response>(() => undefined) };
 const signedOut = { user: null, handlers: noHealth } as const;
@@ -31,7 +31,7 @@ describe("starting up", () => {
         "GET /api/auth/me": () => {
           tries += 1;
           if (tries === 1) throw new TypeError("offline");
-          return jsonResponse({ user: staff, csrf_token: "c" });
+          return jsonResponse(session(staff));
         },
       },
     });
@@ -55,7 +55,7 @@ describe("signing in", () => {
     expect(screen.getByLabelText(/password/i)).toHaveAttribute("type", "password");
   });
 
-  it("signs in, shows the app on the page asked for, and then sends the CSRF token on changes", async () => {
+  it("signs in with password then code, lands on the page asked for, and then sends the CSRF token on changes", async () => {
     const calls: Call[] = [];
     let signedIn = false;
     renderApp("/clients", {
@@ -63,11 +63,15 @@ describe("signing in", () => {
       handlers: {
         ...noHealth,
         "GET /api/auth/me": () =>
-          signedIn ? jsonResponse({ user: staff, csrf_token: "csrf-xyz" }) : errorResponse(401, "http_401", "Sign in to continue."),
+          signedIn ? jsonResponse(session(staff, { csrf_token: "csrf-xyz" })) : errorResponse(401, "unauthenticated", "Sign in to continue."),
         "POST /api/auth/login": (c) => {
           calls.push(c);
+          return jsonResponse({ status: "mfa_required", challenge: "c".repeat(30) });
+        },
+        "POST /api/auth/mfa/verify": (c) => {
+          calls.push(c);
           signedIn = true;
-          return jsonResponse({ user: staff, csrf_token: "csrf-xyz" });
+          return jsonResponse(session(staff, { csrf_token: "csrf-xyz" }));
         },
         "POST /api/auth/logout": (c) => {
           calls.push(c);
@@ -77,13 +81,18 @@ describe("signing in", () => {
     });
     await screen.findByRole("heading", { name: "Sign in" });
     await fillAndSubmit("asha@firm.in", "a long passphrase");
+    expect(await screen.findByRole("heading", { name: "Two-step sign-in" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument(); // not signed in yet
+    await userEvent.type(screen.getByLabelText(/6-digit code/i), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/No clients yet/)).toBeInTheDocument();
     expect(calls[0]?.body).toEqual({ email: "asha@firm.in", password: "a long passphrase" });
+    expect(calls[1]?.body).toEqual({ challenge: "c".repeat(30), code: "123456" });
 
     await userEvent.click(screen.getByRole("button", { name: /account menu for asha rao/i }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
-    expect(calls[1]?.headers.get("X-CSRF-Token")).toBe("csrf-xyz");
+    expect(calls[2]?.headers.get("X-CSRF-Token")).toBe("csrf-xyz");
   });
 
   it("shows the server's message on a wrong password and clears the password field", async () => {
@@ -164,7 +173,7 @@ describe("first sign-in with a temporary password", () => {
     renderApp("/", {
       handlers: {
         ...noHealth,
-        "GET /api/auth/me": () => jsonResponse({ user: changed ? staff : temp, csrf_token: "c1" }),
+        "GET /api/auth/me": () => jsonResponse(session(changed ? staff : temp)),
         "POST /api/auth/change-password": () => {
           changed = true;
           return new Response(null, { status: 204 });
