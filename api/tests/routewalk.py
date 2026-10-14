@@ -24,6 +24,8 @@ PUBLIC = frozenset(
         ("GET", "/api/portal/me"),
         ("POST", "/api/portal/logout"),
         ("POST", "/api/portal/request-link"),
+        ("GET", "/api/portal/checklist"),
+        ("POST", "/api/uploads/portal/items/{item_id}"),
     }
 )
 

@@ -7,6 +7,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { ApiError, api, messageFor } from "../api";
 import { formatDay, formatIST } from "../time";
+import { Checklist } from "./Checklist";
 
 /** The client's side (BRD FR-AL-02): one cycle, reached by a private link, phone first.
  *
@@ -112,9 +113,7 @@ function PortalHome({ portal, onSignedOut }: { portal: Portal; onSignedOut: () =
           <dt>Reference</dt><dd>{portal.ticket} · client ID {portal.client_id}</dd>
         </Box>
       </Paper>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        The documents we need from you will be listed here, with a place to upload them.
-      </Typography>
+      <Checklist csrf={portal.csrf_token} />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         This private page works on this device until {formatIST(portal.expires_at)}. Please do not share it.
       </Typography>

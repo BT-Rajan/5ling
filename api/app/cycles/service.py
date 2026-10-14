@@ -5,16 +5,20 @@ from __future__ import annotations
 import re
 from datetime import date
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.cycles.stages import BY_ACTION, STAGE_LABEL, Move, moves_from
 from app.models import (
     CalendarVersion,
+    ChecklistItem,
     Client,
     Cycle,
+    CycleChecklistItem,
     EventKind,
     Filing,
+    PackageFiling,
     Stage,
     StageChange,
     StateEvent,
@@ -133,6 +137,19 @@ def create_cycle(
     )
     db.add(cycle)
     db.flush()
+    # FR-AL-04, FR-PK-05: the cycle's own copy of the documents to ask for.
+    for position, label, required in db.execute(
+        select(ChecklistItem.position, ChecklistItem.label, ChecklistItem.required)
+        .join(PackageFiling, PackageFiling.id == ChecklistItem.package_filing_id)
+        .where(
+            PackageFiling.package_version_id == package_version_id,
+            PackageFiling.filing_id == filing.id,
+        )
+        .order_by(ChecklistItem.position)
+    ):
+        db.add(
+            CycleChecklistItem(cycle_id=cycle.id, position=position, label=label, required=required)
+        )
     db.add(
         StageChange(
             cycle_id=cycle.id,

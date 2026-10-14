@@ -94,6 +94,7 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/clients/{client_id}/updates"): ADMIN_AND_STAFF,
     ("POST", "/api/updates/{email_id}/preview"): ADMIN_AND_STAFF,
     ("POST", "/api/updates/{email_id}/send"): ADMIN_AND_STAFF,
+    ("GET", "/api/tickets/{ticket}/checklist"): ADMIN_AND_STAFF,
     ("GET", "/api/tickets/{ticket}/documents"): ADMIN_AND_STAFF,
     ("POST", "/api/uploads/tickets/{ticket}"): ADMIN_AND_STAFF,
     ("POST", "/api/documents/versions/{version_id}/link"): ADMIN_AND_STAFF,

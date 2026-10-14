@@ -10,7 +10,16 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, UTCDateTime
@@ -84,3 +93,21 @@ class DocumentVersion(Base):
     )
     scanned_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     scan_detail: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+
+class CycleChecklistItem(Base):
+    """One document asked of the client for one cycle (FR-AL-04), copied from the package
+    version's checklist when the cycle is made, so later package changes leave it alone
+    (FR-PK-05). Uploads for it collect in one document, as versions."""
+
+    __tablename__ = "cycle_checklist_items"
+    __table_args__ = (UniqueConstraint("cycle_id", "position"), _TABLE)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    cycle_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("cycles.id"), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+    required: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    document_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("documents.id"), unique=True, nullable=True
+    )

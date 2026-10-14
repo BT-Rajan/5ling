@@ -132,7 +132,7 @@ export async function download(path: string, json: unknown, timeoutMs = 120_000)
 }
 
 /** Upload one file as the raw request body (no multipart), its name in X-File-Name. */
-export async function uploadFile<T>(path: string, file: Blob & { name: string }, timeoutMs = 300_000): Promise<T> {
+export async function uploadFile<T>(path: string, file: Blob & { name: string }, extraHeaders: Record<string, string> = {}, timeoutMs = 300_000): Promise<T> {
   if (!path.startsWith("/api/uploads/")) throw new Error("uploadFile() only posts to /api/uploads/");
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -141,6 +141,7 @@ export async function uploadFile<T>(path: string, file: Blob & { name: string },
   try {
     const headers = new Headers({ "Content-Type": "application/octet-stream", Accept: "application/json", "X-File-Name": encodeURIComponent(file.name) });
     if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+    for (const [name, value] of Object.entries(extraHeaders)) headers.set(name, value);
     const response = await fetch(path, { method: "POST", body: file, headers, credentials: "same-origin", signal: controller.signal });
     const text = await response.text();
     let body: unknown = null;

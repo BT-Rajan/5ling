@@ -73,6 +73,7 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/updates/{email_id}/send"),
             # Documents on a cycle, for staff (FR-AL-04, FR-AL-05). The BRD's upload and download
             # rows also cover consultants (C21) and clients by link (C17), which add their own.
+            ("GET", "/api/tickets/{ticket}/checklist"),
             ("GET", "/api/tickets/{ticket}/documents"),
             ("POST", "/api/uploads/tickets/{ticket}"),
             ("POST", "/api/documents/versions/{version_id}/link"),

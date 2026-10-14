@@ -7,6 +7,7 @@ const quiet = {
   "GET /api/admin/audit/status": () => jsonResponse({ latest: null }),
   "GET /api/tickets/TKT-000001/links": () => jsonResponse([]),
   "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
+  "GET /api/tickets/TKT-000001/checklist": () => jsonResponse([]),
 };
 
 const move = (action: string, label: string, source: string, target: string, needs_note = false) => ({ action, label, source, target, needs_note });
