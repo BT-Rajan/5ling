@@ -2,7 +2,7 @@
 
 Compliance and filing management for chartered accountant firms. Python (FastAPI) API on MySQL 8, React web client that installs on Android as an app (PWA) and looks native there: Material Design 3, bottom navigation on phones, navigation rail on desktop, light and dark.
 
-Status: chunks C00 (foundation), C01 (users and roles), C02 (two-step sign-in), C03 (audit log core) and C04 (audit verification and viewer) done. See `docs/DEVELOPMENT_PLAN.md`.
+Status: chunks C00 (foundation), C01 (users and roles), C02 (two-step sign-in), C03 (audit log core), C04 (audit verification and viewer) and C05 (packages and filing calendars) done. See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Run it (Debian or Ubuntu, no Docker)
 

@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 to C04)
+## What is in place now (chunks C00 to C05)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -27,6 +27,7 @@ Do not open a public issue. Email the project owner directly with what you found
 | Audit trail | Sign-ins (each step), failures, lockouts, sign-outs, refused requests (wrong role, missing CSRF token, foreign origin, dead session) and every account change are recorded with who, when, from where and the request id. Entries for a change are saved in the same transaction as the change, so neither exists without the other; failures and refusals are saved in a transaction of their own so they survive the request failing. Each entry is numbered with no gaps and carries a SHA-256 hash over its contents and the previous entry's hash. MySQL triggers refuse any UPDATE or DELETE of an entry, and any insert that skips a number or forks the chain; the app's database account cannot truncate the table, alter it or drop the triggers. Details are redacted like the logs. | `api/tests/test_audit.py` |
 | Tamper detection | The whole trail is re-checked daily (systemd timer in `deploy/systemd/`), on request, and with every export: numbering, links and every hash, read in one consistent snapshot. Each passing check records the newest entry's hash, and the next check confirms it is unchanged, so even a rewrite that recomputes every hash is caught (unless the check history is rewritten too). Check results are append-only. A failure is logged at CRITICAL, written to the trail, and shown to every Administrator on every screen until a later check passes. The newest verified hash is also written to the application log, which gives an anchor outside the database once logs are shipped off the server. | `api/tests/test_audit_verify.py` (each kind of tampering), `test_admin_audit.py` |
 | Audit viewer and export | Administrator only: filter by event, person, record and India dates; export to CSV headed by a fresh chain check, with the hashes so auditors can verify independently. Spreadsheet formulas in cells are neutralised. Every export is itself recorded. Nothing offers to edit or delete an entry. | `api/tests/test_admin_audit.py`, `web` tests |
+| Packages and calendars | Administrator only. Published versions of packages and calendars, and the filings and checklist items under them, cannot be changed or deleted: database triggers refuse it, so cycles can always show exactly what they were built from (FR-PK-05). Every change is audited. Money is stored in whole paise, never as floating point. | `api/tests/test_catalog.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)

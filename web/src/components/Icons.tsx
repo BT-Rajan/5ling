@@ -30,6 +30,13 @@ export const AuditIcon = (p: SvgIconProps) => (
   <Outline {...p} d="M12 3.5 5 6.3v5.2c0 4.3 2.9 7.7 7 9 4.1-1.3 7-4.7 7-9V6.3L12 3.5ZM8.8 12.2l2.2 2.2 4.2-4.4" />
 );
 
+export const SetupIcon = (p: SvgIconProps) => (
+  <Outline
+    {...p}
+    d="M4 7h9M17 7h3M4 17h3M11 17h9M15 4.8a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4ZM9 14.8a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 0 1 0-4.4Z"
+  />
+);
+
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Ledgerline">

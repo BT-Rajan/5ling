@@ -43,6 +43,20 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/admin/audit/checks"): ADMIN,
     ("POST", "/api/admin/audit/verify"): ADMIN,
     ("POST", "/api/admin/audit/export"): ADMIN,
+    ("GET", "/api/admin/filings"): ADMIN,
+    ("POST", "/api/admin/filings"): ADMIN,
+    ("GET", "/api/admin/filings/{filing_id}"): ADMIN,
+    ("PATCH", "/api/admin/filings/{filing_id}"): ADMIN,
+    ("PUT", "/api/admin/filings/{filing_id}/calendar/draft"): ADMIN,
+    ("DELETE", "/api/admin/filings/{filing_id}/calendar/draft"): ADMIN,
+    ("POST", "/api/admin/filings/{filing_id}/calendar/publish"): ADMIN,
+    ("GET", "/api/admin/packages"): ADMIN,
+    ("POST", "/api/admin/packages"): ADMIN,
+    ("GET", "/api/admin/packages/{package_id}"): ADMIN,
+    ("PATCH", "/api/admin/packages/{package_id}"): ADMIN,
+    ("PUT", "/api/admin/packages/{package_id}/draft"): ADMIN,
+    ("DELETE", "/api/admin/packages/{package_id}/draft"): ADMIN,
+    ("POST", "/api/admin/packages/{package_id}/publish"): ADMIN,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -59,7 +73,12 @@ UNSAFE = [r for r in ROUTES if r[0] in {"POST", "PUT", "PATCH", "DELETE"}]
 
 
 def url_for(path: str) -> str:
-    return path.replace("{user_id}", "999999")  # no such person: 404 once past the checks
+    # No such record: 404 once past the checks.
+    return (
+        path.replace("{user_id}", "999999")
+        .replace("{filing_id}", "999999")
+        .replace("{package_id}", "999999")
+    )
 
 
 def call(client: TestClient, route: tuple[str, str], headers: dict[str, str] | None = None):  # type: ignore[no-untyped-def]
@@ -258,6 +277,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 14  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C05", "C07", "C08", "C16", "C21", "C28"}
-    assert "C04" not in {c.built_in for c in pending}
+    assert len(pending) == 13  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C07", "C08", "C16", "C21", "C28"}
+    assert not {"C04", "C05"} & {c.built_in for c in pending}
