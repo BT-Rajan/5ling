@@ -9,6 +9,8 @@ const quiet = {
   "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
   "GET /api/tickets/TKT-000001/checklist": () => jsonResponse([]),
   "GET /api/tickets/TKT-000001/emails": () => jsonResponse([]),
+  "GET /api/tickets/TKT-000001/assignment": () => jsonResponse({ current: null, history: [] }),
+  "GET /api/assignment-candidates": () => jsonResponse([]),
 };
 
 const move = (action: string, label: string, source: string, target: string, needs_note = false) => ({ action, label, source, target, needs_note });

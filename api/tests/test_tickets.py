@@ -97,6 +97,18 @@ def make_cycle(url: str, client_id: int) -> str:
 def move(
     web: TestClient, signed: Signed, code: str, action: str, expected: str, note: str | None = None
 ) -> Any:
+    if action == "assign":  # made by assigning the work (C21), here to the person moving it
+        return web.post(
+            f"/api/tickets/{code}/assignment",
+            json={"assignee_id": signed.user_id},
+            headers=signed.headers,
+        )
+    if action == "withdraw_assignment":
+        return web.post(
+            f"/api/tickets/{code}/assignment/withdraw",
+            json={"note": note or "Taken back"},
+            headers=signed.headers,
+        )
     body: dict[str, Any] = {"action": action, "expected_stage": expected}
     if note is not None:
         body["note"] = note

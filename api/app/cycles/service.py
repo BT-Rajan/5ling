@@ -5,17 +5,19 @@ from __future__ import annotations
 import re
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.cycles.stages import BY_ACTION, STAGE_LABEL, Move, moves_from
 from app.models import (
+    Assignment,
     CalendarVersion,
     ChecklistItem,
     Client,
     Cycle,
     CycleChecklistItem,
+    EndReason,
     EventKind,
     Filing,
     PackageFiling,
@@ -232,4 +234,11 @@ def transition(
         target=("ticket", ticket_code(ticket.number)),
         details={"from": previous.value, "to": move.target.value, "action": move.action},
     )
+    if move.target is Stage.CLOSED:
+        # FR-WF-02: closing a cycle ends the assignee's access at once.
+        db.execute(
+            update(Assignment)
+            .where(Assignment.cycle_id == cycle.id, Assignment.ended_at.is_(None))
+            .values(ended_at=now, end_reason=EndReason.CYCLE_CLOSED)
+        )
     return move

@@ -4,6 +4,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useUser } from "../auth/AuthProvider";
 import { DailyWorkList } from "../components/DailyWorkList";
+import { MyWork } from "../consultant/MyWork";
 import { useHealth, type DatabaseState, type ServiceState } from "../hooks/useHealth";
 
 type Tone = "success" | "error" | "warning" | "neutral";
@@ -66,13 +67,7 @@ export function HomePage() {
   const worker = user.role === "administrator" || user.role === "staff";
   return (
     <>
-      {worker ? (
-        <DailyWorkList />
-      ) : (
-        <Typography variant="h1" component="h1" sx={{ mb: 3, display: { xs: "none", md: "block" } }}>
-          Home
-        </Typography>
-      )}
+      {worker ? <DailyWorkList /> : <Box sx={{ mb: 4 }}><MyWork /></Box>}
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, maxWidth: 560 }}>
         <Typography variant="h2" component="h2">
           System status

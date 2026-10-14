@@ -30,6 +30,7 @@ class NotificationKind(enum.StrEnum):
     DOCUMENTS_RECEIVED = "documents_received"  # FR-IN-01
     WAITING_ON_CLIENT = "waiting_on_client"  # FR-IN-02
     ESCALATION = "escalation"  # FR-IN-03: needs a note to dismiss
+    ASSIGNED = "assigned"  # FR-WF-01: a cycle has been given to this person
 
 
 class Notification(Base):

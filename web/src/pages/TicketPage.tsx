@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
+import { AssignmentPanel } from "../components/AssignmentPanel";
 import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
@@ -296,7 +297,8 @@ export function TicketPage() {
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
           <Actions ticket={ticket} onMoved={changed} />
-          {ticket.can_edit && <Documents code={ticket.code} />}
+          {ticket.can_edit && <AssignmentPanel code={ticket.code} onChanged={load} />}
+          <Documents code={ticket.code} />
           {ticket.can_edit && <ClientLinks code={ticket.code} />}
         </>
       )}

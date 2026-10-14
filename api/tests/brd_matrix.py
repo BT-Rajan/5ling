@@ -45,7 +45,20 @@ CAPABILITIES: tuple[Capability, ...] = (
     # One search route serves both: the server narrows Staff to their own clients.
     Capability("See all clients", "Y", "-", "-", "-", "C08", routes=CLIENT_READS),
     Capability("See assigned clients only", "-", "Own", "-", "-", "C08", routes=CLIENT_READS),
-    Capability("See assigned task only", "-", "-", "Task", "-", "C21"),
+    Capability(
+        "See assigned task only",
+        "-",
+        "-",
+        "Task",
+        "-",
+        "C21",
+        # A consultant's open assignments, their documents, and uploading work (FR-WF-02).
+        routes=(
+            ("GET", "/api/consultant/assignments"),
+            ("GET", "/api/consultant/assignments/{assignment_id}"),
+            ("POST", "/api/uploads/consultant/assignments/{assignment_id}"),
+        ),
+    ),
     Capability(
         "Create and edit clients",
         "Y",
@@ -82,8 +95,6 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/tickets/{ticket}/checklist"),
             ("GET", "/api/tickets/{ticket}/documents"),
             ("POST", "/api/uploads/tickets/{ticket}"),
-            ("POST", "/api/documents/versions/{version_id}/link"),
-            ("GET", "/api/files/{token}"),
         ),
     ),
     Capability(
@@ -124,9 +135,34 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/admin/extensions"),
         ),
     ),
-    Capability("Assign preparers", "Y", "Own", "-", "-", "C21"),
+    Capability(
+        "Assign preparers",
+        "Y",
+        "Own",
+        "-",
+        "-",
+        "C21",
+        routes=(
+            ("GET", "/api/assignment-candidates"),
+            ("GET", "/api/tickets/{ticket}/assignment"),
+            ("POST", "/api/tickets/{ticket}/assignment"),
+            ("POST", "/api/tickets/{ticket}/assignment/withdraw"),
+        ),
+    ),
     Capability("Upload documents", "Y", "Own", "Task", "Own link", "C16"),
-    Capability("Download documents", "Y", "Own", "Task", "Own link", "C16"),
+    Capability(
+        "Download documents",
+        "Y",
+        "Own",
+        "Task",
+        "Own link",
+        "C16",
+        # A short-lived personal link, then the file; checked again when used (NFR-SE-05).
+        routes=(
+            ("POST", "/api/documents/versions/{version_id}/link"),
+            ("GET", "/api/files/{token}"),
+        ),
+    ),
     Capability("Approve a filing (as checker)", "Y", "Own, not as preparer", "-", "-", "C22"),
     Capability("Mark filed", "Y", "Own", "-", "-", "C23"),
     Capability("See fee ledger", "Y", "Own", "-", "-", "C25"),

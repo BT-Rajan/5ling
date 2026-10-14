@@ -45,6 +45,7 @@ class ScanStatus(enum.StrEnum):
 class UploadedVia(enum.StrEnum):
     STAFF = "staff"
     PORTAL = "portal"  # the client, through a private link (chunk C17)
+    CONSULTANT = "consultant"  # work from the person the cycle is assigned to (chunk C21)
 
 
 class Document(Base):

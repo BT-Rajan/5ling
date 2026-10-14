@@ -28,6 +28,7 @@ pytestmark = pytest.mark.requires_db
 
 ADMIN = frozenset({Role.ADMINISTRATOR})
 ADMIN_AND_STAFF = frozenset({Role.ADMINISTRATOR, Role.STAFF})
+CONSULTANT = frozenset({Role.CONSULTANT})
 EVERYONE = frozenset(Role)
 
 EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
@@ -101,8 +102,15 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/tickets/{ticket}/checklist"): ADMIN_AND_STAFF,
     ("GET", "/api/tickets/{ticket}/documents"): ADMIN_AND_STAFF,
     ("POST", "/api/uploads/tickets/{ticket}"): ADMIN_AND_STAFF,
-    ("POST", "/api/documents/versions/{version_id}/link"): ADMIN_AND_STAFF,
-    ("GET", "/api/files/{token}"): ADMIN_AND_STAFF,
+    ("POST", "/api/documents/versions/{version_id}/link"): EVERYONE,
+    ("GET", "/api/files/{token}"): EVERYONE,
+    ("GET", "/api/assignment-candidates"): ADMIN_AND_STAFF,
+    ("GET", "/api/tickets/{ticket}/assignment"): ADMIN_AND_STAFF,
+    ("POST", "/api/tickets/{ticket}/assignment"): ADMIN_AND_STAFF,
+    ("POST", "/api/tickets/{ticket}/assignment/withdraw"): ADMIN_AND_STAFF,
+    ("GET", "/api/consultant/assignments"): CONSULTANT,
+    ("GET", "/api/consultant/assignments/{assignment_id}"): CONSULTANT,
+    ("POST", "/api/uploads/consultant/assignments/{assignment_id}"): CONSULTANT,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -136,6 +144,7 @@ def url_for(path: str) -> str:
         .replace("{link_id}", "999999")
         .replace("{version_id}", "999999")
         .replace("{notification_id}", "999999")
+        .replace("{assignment_id}", "999999")
         .replace("{token}", "1.1.1.bad")
     )
 
@@ -343,6 +352,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 10  # shrinks as chunks land; update with the chunk that adds routes
+    assert len(pending) == 7  # shrinks as chunks land; update with the chunk that adds routes
     assert {c.built_in for c in pending} >= {"C16", "C21", "C28"}
     assert not {"C04", "C05", "C07", "C08"} & {c.built_in for c in pending}

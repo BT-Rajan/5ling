@@ -19,6 +19,7 @@ _TABLE = {
 class ChallengePurpose(enum.StrEnum):
     VERIFY = "verify"  # password was right; now give the code
     ENROL = "enrol"  # password was right; no authenticator yet, so set one up
+    EMAIL_LINK = "email_link"  # a consultant's emailed link; finished with the code on screen
 
 
 class LoginChallenge(Base):
@@ -40,6 +41,8 @@ class LoginChallenge(Base):
         nullable=False,
     )
     pending_secret_enc: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # EMAIL_LINK: keyed hash of the code shown on the screen that asked for the link.
+    code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     attempts: Mapped[int] = mapped_column(
         SmallInteger, nullable=False, default=0, server_default=text("0")
     )

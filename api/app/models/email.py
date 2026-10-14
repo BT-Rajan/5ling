@@ -55,6 +55,8 @@ class EmailKind(enum.StrEnum):
     CLIENT_UPDATE = "client_update"  # a state change, sent by hand (CR-03, chunk C15)
     PORTAL_LINK = "portal_link"  # a private link to the client portal (FR-AL-02)
     CLIENT_ALERT = "client_alert"  # the automatic first alert and reminders (FR-AL-01, FR-AL-03)
+    CONSULTANT_SIGN_IN = "consultant_sign_in"  # a consultant's sign-in link (NFR-SE-02)
+    ASSIGNMENT = "assignment"  # a consultant has been given work (FR-WF-01)
 
 
 class EventSource(enum.StrEnum):
