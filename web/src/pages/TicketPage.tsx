@@ -68,6 +68,7 @@ interface Ticket {
     package_version: number;
     calendar_version: number;
     moves: Move[];
+    extensions: { old_due_date: string; new_due_date: string; old_alert_date: string; new_alert_date: string; reason: string; applied_at: string; applied_by: string | null }[];
   } | null;
   task: {
     description: string | null;
@@ -257,6 +258,7 @@ export function TicketPage() {
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!ticket) return <Typography color="text.secondary">Loading…</Typography>;
   const cycle = ticket.cycle;
+  const originalDue = cycle?.extensions.at(-1)?.old_due_date;  // extensions are newest first
   return (
     <Box sx={{ maxWidth: 820 }}>
       {ticket.can_edit ? (
@@ -274,8 +276,14 @@ export function TicketPage() {
           <Box component="dl" sx={{ display: "grid", gridTemplateColumns: "max-content 1fr", columnGap: 3, rowGap: 0.75, mb: 3, "& dt": { color: "text.secondary" }, "& dd": { m: 0 } }}>
             <dt>Filing</dt><dd>{cycle.filing.code} · {cycle.filing.name}</dd>
             <dt>Period</dt><dd>{cycle.period_label} ({formatDay(cycle.period_start)} to {formatDay(cycle.period_end)})</dd>
-            <dt>Due</dt><dd>{formatDay(cycle.due_date)}</dd>
+            <dt>Due</dt><dd>{formatDay(cycle.due_date)}{originalDue && <> (extended from {formatDay(originalDue)})</>}</dd>
             <dt>Client alert</dt><dd>{formatDay(cycle.alert_date)}</dd>
+            {cycle.extensions.map((x, i) => (
+              <Box component="div" key={i} sx={{ display: "contents" }}>
+                <dt>Extension</dt>
+                <dd>{formatDay(x.old_due_date)} → {formatDay(x.new_due_date)}: “{x.reason}” ({x.applied_by ?? "System"}, {formatIST(x.applied_at)})</dd>
+              </Box>
+            ))}
             <dt>Built from</dt><dd>{cycle.package_name} version {cycle.package_version}, calendar version {cycle.calendar_version}</dd>
           </Box>
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>

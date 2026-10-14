@@ -95,6 +95,11 @@ CAPABILITIES: tuple[Capability, ...] = (
             # Cycles are made from packages and calendars; the Administrator watches the job.
             ("GET", "/api/admin/jobs/cycle-generator"),
             ("POST", "/api/admin/jobs/cycle-generator/run"),
+            # Government extensions move the dates of open cycles (FR-PK-06).
+            ("GET", "/api/admin/extensions"),
+            ("GET", "/api/admin/extensions/periods"),
+            ("POST", "/api/admin/extensions/preview"),
+            ("POST", "/api/admin/extensions"),
         ),
     ),
     Capability("Assign preparers", "Y", "Own", "-", "-", "C21"),

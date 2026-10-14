@@ -78,6 +78,8 @@ def wipe_cycles(url: str) -> None:
     with engine.begin() as conn:
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
         for table in (
+            "due_date_changes",
+            "due_date_extensions",
             "cycle_stage_changes",
             "state_events",
             "cycles",

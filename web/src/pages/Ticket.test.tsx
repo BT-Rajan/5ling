@@ -26,6 +26,7 @@ const ticket = (stage: string, moves: unknown[], history: unknown[] = []) => ({
     package_version: 1,
     calendar_version: 2,
     moves,
+    extensions: [],
   },
   task: null,
   history,

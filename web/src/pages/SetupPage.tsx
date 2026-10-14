@@ -10,6 +10,7 @@ const SECTIONS: readonly { to: string; title: string; text: string; Icon: Compon
   { to: "/setup/team", title: "Team", text: "People who can sign in, their roles and two-step sign-in.", Icon: TeamIcon },
   { to: "/setup/filings", title: "Filing calendars", text: "Filing types, their due-date rules and alert lead times.", Icon: WorkListIcon },
   { to: "/setup/holidays", title: "Holidays and lead times", text: "Non-working days, and how many days before a due date clients are alerted.", Icon: CalendarIcon },
+  { to: "/setup/extensions", title: "Due-date extensions", text: "Move open cycles to a new due date when the government extends one.", Icon: CalendarIcon },
   { to: "/setup/packages", title: "Packages", text: "What a client is given: filings, document checklists and the fee.", Icon: ClientsIcon },
 ];
 

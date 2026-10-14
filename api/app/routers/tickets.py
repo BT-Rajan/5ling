@@ -35,6 +35,8 @@ from app.models import (
     CalendarVersion,
     Client,
     Cycle,
+    DueDateChange,
+    DueDateExtension,
     EventKind,
     Filing,
     Package,
@@ -82,6 +84,16 @@ class NamedRef(BaseModel):
     name: str
 
 
+class ExtensionOut(BaseModel):
+    old_due_date: date
+    new_due_date: date
+    old_alert_date: date
+    new_alert_date: date
+    reason: str
+    applied_at: datetime
+    applied_by: str | None
+
+
 class CycleOut(BaseModel):
     filing: NamedRef
     period_key: str
@@ -97,6 +109,7 @@ class CycleOut(BaseModel):
     package_version: int
     calendar_version: int
     moves: list[MoveOut]  # what can be done next
+    extensions: list[ExtensionOut]  # government extensions that moved its dates, newest first
 
 
 class HistoryOut(BaseModel):
@@ -231,6 +244,24 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             package_version=version.version,
             calendar_version=calendar.version,
             moves=[_move_out(m) for m in moves_from(cycle.stage)],
+            extensions=[
+                ExtensionOut(
+                    old_due_date=c.old_due_date,
+                    new_due_date=c.new_due_date,
+                    old_alert_date=c.old_alert_date,
+                    new_alert_date=c.new_alert_date,
+                    reason=e.reason,
+                    applied_at=e.created_at,
+                    applied_by=name,
+                )
+                for c, e, name in db.execute(
+                    select(DueDateChange, DueDateExtension, User.full_name)
+                    .join(DueDateExtension, DueDateExtension.id == DueDateChange.extension_id)
+                    .outerjoin(User, User.id == DueDateExtension.created_by_id)
+                    .where(DueDateChange.cycle_id == cycle.id)
+                    .order_by(DueDateChange.id.desc())
+                )
+            ],
         )
         rows = db.execute(
             select(StageChange, User.full_name)
