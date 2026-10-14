@@ -25,6 +25,7 @@ from app.files.checklist import ItemView, items_for, upload_for_item
 from app.files.documents import Infected, forget_file
 from app.files.types import ALLOWED_TEXT, FileRefused
 from app.models import Client, Cycle, PortalLink, ScanStatus, UploadedVia
+from app.notify.service import documents_arrived
 from app.portal.links import LinkProblem, cookie_name, csrf_for, load_session
 from app.timeutil import utcnow
 
@@ -183,6 +184,7 @@ def portal_upload(
         },
     )
     link.last_seen_at = utcnow()
+    documents_arrived(db, cycle.id, firm_name=settings.firm_name)  # FR-IN-01
     try:
         db.commit()
     except Exception:

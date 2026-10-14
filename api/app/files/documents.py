@@ -17,6 +17,7 @@ import hashlib
 import hmac
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -158,7 +159,12 @@ class ScanTally:
 
 
 def scan_pending(
-    factory: sessionmaker[Session], store: EncryptedStore, scanner: Scanner, *, batch: int = 50
+    factory: sessionmaker[Session],
+    store: EncryptedStore,
+    scanner: Scanner,
+    *,
+    batch: int = 50,
+    on_clean: Callable[[Session, int], object] | None = None,
 ) -> ScanTally:
     """Scan files that were held because the scanner was down (INT-03). Run by the worker."""
     tally = ScanTally()
@@ -194,6 +200,9 @@ def scan_pending(
             if verdict.clean:
                 version.scan_status = ScanStatus.CLEAN
                 tally.clean += 1
+                document = db.get(Document, version.document_id)
+                if on_clean is not None and document is not None:
+                    on_clean(db, document.cycle_id)  # e.g. the last document has arrived
             else:
                 version.scan_status = ScanStatus.INFECTED
                 version.scan_detail = (verdict.signature or "malware")[:150]

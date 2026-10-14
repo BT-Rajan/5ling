@@ -31,6 +31,7 @@ from app.routers import (
     documents,
     email_events,
     health,
+    notifications,
     portal,
     portal_uploads,
     ticket_links,
@@ -126,6 +127,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(client_updates.router)
     app.include_router(documents.router)
     app.include_router(portal_uploads.router)
+    app.include_router(notifications.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

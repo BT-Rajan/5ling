@@ -11,6 +11,7 @@ import { Link as RouterLink, Outlet, useLocation, useMatch, useNavigate } from "
 import { useAuth, useUser, type Role } from "../auth/AuthProvider";
 import { destinations, pageTitle, type Destination } from "../nav";
 import { AuditAlarm } from "./AuditAlarm";
+import { NotificationBell } from "./NotificationBell";
 import { LogoMark } from "./Icons";
 
 function NavItem({ item, fill }: { item: Destination; fill: boolean }) {
@@ -124,7 +125,8 @@ function Rail() {
       {destinations.filter((d) => d.roles.includes(user.role)).map((d) => (
         <NavItem key={d.to} item={d} fill={false} />
       ))}
-      <Box sx={{ mt: "auto", mb: 3 }}>
+      <Box sx={{ mt: "auto", mb: 3, display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+        <NotificationBell />
         <AccountMenu />
       </Box>
     </Box>
@@ -150,6 +152,7 @@ function TopBar({ title }: { title: string }) {
         <Typography variant="h2" component="p" sx={{ flex: 1 }}>
           {title}
         </Typography>
+        <NotificationBell />
         <AccountMenu />
       </Box>
     </Box>

@@ -42,6 +42,7 @@ from app.models import (
     UploadedVia,
     User,
 )
+from app.notify.service import documents_arrived
 from app.routers.tickets import _load, can_edit
 
 router = APIRouter(tags=["documents"])
@@ -265,6 +266,7 @@ def upload(
             "scan": got.version.scan_status,
         },
     )
+    documents_arrived(db, cycle.id, firm_name=settings.firm_name)  # FR-IN-01
     try:
         db.commit()
     except Exception:

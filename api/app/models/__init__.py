@@ -52,6 +52,7 @@ from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSou
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
+from app.models.notification import Notification, NotificationKind
 from app.models.portal import LinkOrigin, PortalLink
 from app.models.user import LoginAttempt, Role, User, UserSession
 
@@ -102,6 +103,8 @@ __all__ = [
     "LinkOrigin",
     "LoginAttempt",
     "LoginChallenge",
+    "Notification",
+    "NotificationKind",
     "Package",
     "PackageFiling",
     "PackageVersion",

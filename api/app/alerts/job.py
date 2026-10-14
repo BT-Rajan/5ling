@@ -47,6 +47,7 @@ from app.models import (
     Stage,
     Ticket,
 )
+from app.notify.service import check_cycles
 from app.portal.links import issue, url_for
 from app.timeutil import IST, ensure_utc, format_ist, utcnow
 
@@ -76,6 +77,8 @@ class Tally:
     checked: int = 0
     sent: int = 0
     failed: int = 0
+    waiting: int = 0  # owners told a cycle is waiting on the client (FR-IN-02)
+    escalated: int = 0  # cycles escalated to the Administrators (FR-IN-03)
     skipped_reason: str | None = None  # outside sending hours, or another run in progress
     failures: list[str] = field(default_factory=list)
 
@@ -183,6 +186,14 @@ def run(
     now_ist = ensure_utc(now or utcnow()).astimezone(IST)
     today = now_ist.date()
     tally = Tally()
+    # Internal alerts are not limited to the client sending hours (FR-IN-02, FR-IN-03).
+    internal = check_cycles(
+        factory,
+        today=today,
+        grace_days=settings.waiting_grace_days,
+        days_before=settings.escalation_days_before,
+    )
+    tally.waiting, tally.escalated = internal.waiting, internal.escalated
     if not settings.alert_hours_start <= now_ist.hour < settings.alert_hours_end:
         tally.skipped_reason = "outside sending hours"
         return tally

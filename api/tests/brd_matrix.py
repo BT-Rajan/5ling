@@ -176,5 +176,10 @@ SELF_SERVICE: frozenset[tuple[str, str]] = frozenset(
         ("POST", "/api/auth/logout"),
         ("POST", "/api/auth/change-password"),
         ("POST", "/api/auth/mfa/recovery-codes"),
+        # Each person's own notifications (FR-IN-01 to FR-IN-03), narrowed to their clients.
+        ("GET", "/api/notifications"),
+        ("GET", "/api/notifications/count"),
+        ("POST", "/api/notifications/{notification_id}/read"),
+        ("POST", "/api/notifications/{notification_id}/dismiss"),
     }
 )

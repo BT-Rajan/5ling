@@ -105,6 +105,10 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
     ("POST", "/api/auth/mfa/recovery-codes"): ADMIN_AND_STAFF,
+    ("GET", "/api/notifications"): ADMIN_AND_STAFF,
+    ("GET", "/api/notifications/count"): ADMIN_AND_STAFF,
+    ("POST", "/api/notifications/{notification_id}/read"): ADMIN_AND_STAFF,
+    ("POST", "/api/notifications/{notification_id}/dismiss"): ADMIN_AND_STAFF,
 }
 # Reachable while a temporary password is still waiting to be changed.
 REACHABLE_WHILE_PASSWORD_PENDING = {
@@ -129,6 +133,7 @@ def url_for(path: str) -> str:
         .replace("{email_id}", "999999")
         .replace("{link_id}", "999999")
         .replace("{version_id}", "999999")
+        .replace("{notification_id}", "999999")
         .replace("{token}", "1.1.1.bad")
     )
 
