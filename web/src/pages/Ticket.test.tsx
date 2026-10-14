@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { admin, errorResponse, jsonResponse, renderApp, staff, stubScreen, type Call } from "../test-utils";
 
@@ -27,7 +27,9 @@ const ticket = (stage: string, moves: unknown[], history: unknown[] = []) => ({
     calendar_version: 2,
     moves,
   },
+  task: null,
   history,
+  can_edit: true,
 });
 
 beforeEach(() => {
@@ -106,5 +108,83 @@ describe("Ticket page", () => {
     const link = await screen.findByRole("link", { name: /TKT-000001 · GSTR-1 Apr 2026/ });
     expect(link).toHaveAttribute("href", "/tickets/TKT-000001");
     expect(link).toHaveTextContent("Scheduled · due Mon 11 May 2026");
+  });
+});
+
+describe("Task tickets", () => {
+  const task = (status: string, over: Record<string, unknown> = {}) => ({
+    code: "TKT-000050",
+    type: "task",
+    title: "Collect signed engagement letter",
+    client: { client_id: 100001, legal_name: "Asha Rao" },
+    created_at: "2026-10-14T05:00:00Z",
+    cycle: null,
+    task: { description: "Bring the original", assignee: { id: 3, full_name: "Bina Shah" }, due_date: "2026-11-20", status, status_label: status === "open" ? "Open" : "Done", completed_at: status === "done" ? "2026-10-15T05:00:00Z" : null },
+    history: [],
+    can_edit: false,
+    ...over,
+  });
+
+  it("lets the assignee mark it done, and nothing more", async () => {
+    const patches: Call[] = [];
+    renderApp("/tickets/TKT-000050", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000050": () => jsonResponse(task("open")),
+        "PATCH /api/tickets/TKT-000050": (c) => { patches.push(c); return jsonResponse(task("done")); },
+      },
+    });
+    expect(await screen.findByTestId("task-status")).toHaveTextContent("Open");
+    expect(screen.getByText("Fri 20 Nov 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Edit task" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel task" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "← Work list" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mark done" }));
+    expect(await screen.findByRole("button", { name: "Reopen" })).toBeInTheDocument();
+    expect(patches[0]?.body).toEqual({ status: "done", expected_status: "open" });
+  });
+
+  it("lets the owner edit it", async () => {
+    const patches: Call[] = [];
+    renderApp("/tickets/TKT-000050", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000050": () => jsonResponse(task("open", { can_edit: true })),
+        "GET /api/tickets/assignees": () => jsonResponse([{ id: 3, full_name: "Bina Shah" }, { id: 4, full_name: "Chen Iyer" }]),
+        "PATCH /api/tickets/TKT-000050": (c) => { patches.push(c); return jsonResponse(task("open", { can_edit: true })); },
+      },
+    });
+    await userEvent.click(await screen.findByRole("combobox", { name: "Assigned to" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Chen Iyer" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save task" }));
+    await waitFor(() => { expect(patches).toHaveLength(1); });
+    expect(patches[0]?.body).toEqual({ title: "Collect signed engagement letter", description: "Bring the original", assignee_id: 4, due_date: "2026-11-20" });
+  });
+});
+
+describe("Work list", () => {
+  const row = (code: string, over: Record<string, unknown> = {}) => ({
+    code, type: "filing", title: "GSTR-1 Apr 2026", client: { client_id: 100001, legal_name: "Asha Rao" },
+    owner: { id: 2, full_name: "Asha Rao" }, assignee: null, state: "scheduled", state_label: "Scheduled", due_date: "2026-05-11", ...over,
+  });
+
+  it("lists open work, soonest first, and filters by type", async () => {
+    renderApp("/work", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/assignees": () => jsonResponse([{ id: 3, full_name: "Bina Shah" }]),
+        "GET /api/tickets?limit=50&offset=0&open_only=true": () => jsonResponse({ items: [row("TKT-000001"), row("TKT-000050", { type: "task", title: "Call client", state: "open", state_label: "Open", assignee: { id: 3, full_name: "Bina Shah" }, due_date: "2026-11-20" })], total: 2, offset: 0, limit: 50 }),
+        "GET /api/tickets?limit=50&offset=0&type=task&open_only=true": () => jsonResponse({ items: [row("TKT-000050", { type: "task", title: "Call client", state: "open", state_label: "Open" })], total: 1, offset: 0, limit: 50 }),
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Tickets" });
+    expect(within(list).getByRole("link", { name: /TKT-000001 · GSTR-1 Apr 2026/ })).toHaveAttribute("href", "/tickets/TKT-000001");
+    expect(list).toHaveTextContent("Open · due Fri 20 Nov 2026 · for Bina Shah");
+    await userEvent.click(screen.getByRole("combobox", { name: "Type" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Tasks" }));
+    expect(await screen.findByText("1 ticket")).toBeInTheDocument();
   });
 });

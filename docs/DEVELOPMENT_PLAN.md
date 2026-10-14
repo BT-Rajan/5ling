@@ -239,7 +239,7 @@ Total: 151 tickets.
 
 **Done when:** Running the job twice creates zero duplicates; a forced failure alerts Administrator.
 
-### C11 - Ad hoc task tickets (R1)
+### C11 - Ad hoc task tickets (R1) - DONE
 
 **Goal:** Work that is not a filing (call a client, collect a signature) is also a ticket.  
 **Depends on:** C09

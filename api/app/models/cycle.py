@@ -137,6 +137,7 @@ class StageChange(Base):
 class EventKind(enum.StrEnum):
     CYCLE_STAGE = "cycle_stage"
     CLIENT_STATUS = "client_status"
+    TASK_STATUS = "task_status"
 
 
 class StateEvent(Base):
@@ -159,3 +160,34 @@ class StateEvent(Base):
     to_state: Mapped[str] = mapped_column(String(40), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
     handled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class TaskStatus(enum.StrEnum):
+    OPEN = "open"
+    DONE = "done"
+    CANCELLED = "cancelled"
+
+
+class Task(Base):
+    """The details of a TASK ticket (CR-02): ad hoc work that is not a filing."""
+
+    __tablename__ = "tasks"
+    __table_args__ = (
+        Index("ix_tasks_assignee_id_status_due_date", "assignee_id", "status", "due_date"),
+        _TABLE,
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("tickets.id"), unique=True, nullable=False
+    )
+    description: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    assignee_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id"), nullable=True
+    )
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    status: Mapped[TaskStatus] = mapped_column(_enum(TaskStatus, "task_status"), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow
+    )
