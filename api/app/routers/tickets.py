@@ -35,6 +35,7 @@ from app.mail.updates import draft_updates
 from app.models import (
     FIRST_CLIENT_ID,
     LAST_CLIENT_ID,
+    Assignment,
     CalendarVersion,
     Client,
     Cycle,
@@ -166,6 +167,10 @@ class TicketRow(BaseModel):
     due_date: date | None
 
 
+# Made only through the assignment endpoints, which record who has the work (FR-WF-01).
+ASSIGNMENT_MOVES = frozenset({"assign", "withdraw_assignment"})
+
+
 class TransitionIn(BaseModel):
     action: str
     expected_stage: Stage  # the stage the person was looking at: refuses double moves
@@ -195,11 +200,22 @@ def _load(
     if lock:
         db.execute(select(Cycle.id).where(Cycle.ticket_id == ticket.id).with_for_update())
         db.execute(select(Task.id).where(Task.ticket_id == ticket.id).with_for_update())
-    if not can_edit(principal, client):
-        assignee = db.scalar(select(Task.assignee_id).where(Task.ticket_id == ticket.id))
-        if assignee is None or assignee != principal.user_id:
-            authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="ticket")
+    if not can_edit(principal, client) and not is_assignee(db, principal, ticket.id):
+        authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="ticket")
     return ticket, client
+
+
+def is_assignee(db: Session, principal: Principal, ticket_id: int) -> bool:
+    """The person a task is given to, or a cycle is assigned to (while the assignment is open)."""
+    task_assignee = db.scalar(select(Task.assignee_id).where(Task.ticket_id == ticket_id))
+    if task_assignee is not None:
+        return task_assignee == principal.user_id
+    open_assignee = db.scalar(
+        select(Assignment.assignee_id)
+        .join(Cycle, Cycle.id == Assignment.cycle_id)
+        .where(Cycle.ticket_id == ticket_id, Assignment.ended_at.is_(None))
+    )
+    return open_assignee == principal.user_id
 
 
 def _task_out(db: Session, task: Task) -> TaskOut:
@@ -595,6 +611,12 @@ def move_ticket(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> TicketOut:
     """Move a cycle to its next stage. The server refuses skips and any move not in the table."""
+    if body.action in ASSIGNMENT_MOVES:
+        raise ApiHTTPException(
+            409,
+            "Assign or withdraw the work from the assignment panel, so the assignee is recorded.",
+            code="use_assignment",
+        )
     found, client = _load(db, principal, ticket, lock=True)
     cycle = db.scalar(select(Cycle).where(Cycle.ticket_id == found.id))
     if cycle is None:

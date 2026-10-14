@@ -25,9 +25,12 @@ from app.routers import (
     admin_packages,
     admin_schedule,
     admin_users,
+    assignments,
     auth,
+    auth_consultant,
     client_updates,
     clients,
+    consultant,
     documents,
     email_events,
     health,
@@ -116,6 +119,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(auth_consultant.router)
     app.include_router(admin_users.router)
     app.include_router(admin_audit.router)
     app.include_router(admin_filings.router)
@@ -130,6 +134,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(portal_uploads.router)
     app.include_router(notifications.router)
     app.include_router(worklist.router)
+    app.include_router(assignments.router)
+    app.include_router(consultant.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

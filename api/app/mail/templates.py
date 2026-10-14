@@ -35,6 +35,7 @@ VARIABLES: dict[str, str] = {
     "detail": "Details supplied by the system",
     "link": "A private link to the client portal",
     "expires": "When the link stops working, India time",
+    "recipient_name": "The person the email is to (staff or consultant)",
 }
 
 
@@ -94,6 +95,25 @@ TEMPLATES: dict[str, Template] = {
             "it. If it no longer works, open it anyway and ask for a new one: we will email it "
             "to this address.\n\n"
             "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{firm_name}}\n",
+        ),
+        Template(
+            "consultant_sign_in",
+            "Your sign-in link for {{firm_name}}",
+            "Hello {{recipient_name}},\n\n"
+            "Open this link to sign in:\n{{link}}\n\n"
+            "It works once, until {{expires}}. You will be asked for the code shown on the "
+            "screen where you asked for this link.\n\n"
+            "If you did not ask to sign in, ignore this email.\n\n"
+            "{{firm_name}}\n",
+        ),
+        Template(
+            "assignment",
+            "New work for you: {{filing}} {{period}} ({{ticket_id}})",
+            "Hello {{recipient_name}},\n\n"
+            "{{sender_name}} has assigned you the {{filing}} for {{period}} ({{ticket_id}}).\n"
+            "Work due: {{due_date}}.\n\n{{note}}\n\n"
+            "Sign in to see the documents and upload your work:\n{{link}}\n\n"
             "{{firm_name}}\n",
         ),
         Template(

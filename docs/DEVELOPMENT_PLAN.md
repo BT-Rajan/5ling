@@ -377,7 +377,7 @@ Total: 151 tickets.
 
 **Done when:** Work-list counts equal report counts for the same owner and date.
 
-### C21 - Assignment and consultant access (R1)
+### C21 - Assignment and consultant access (R1) - DONE
 
 **Goal:** Work goes to the right person with limited access that ends on time.  
 **Depends on:** C16, C09, C02

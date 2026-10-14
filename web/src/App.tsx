@@ -8,6 +8,7 @@ import { useAuth, useUser, type Role } from "./auth/AuthProvider";
 import { AppShell } from "./components/AppShell";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { AuditPage } from "./pages/AuditPage";
+import { AssignmentPage } from "./consultant/MyWork";
 import { ClientPage, ClientsHome, NewClientPage } from "./pages/ClientsPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { EmptyPage } from "./pages/EmptyPage";
@@ -68,6 +69,7 @@ export function App() {
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route path="notifications" element={<OnlyFor roles={["administrator", "staff"]}><NotificationsPage /></OnlyFor>} />
+        <Route path="assignments/:assignmentId" element={<OnlyFor roles={["consultant"]}><AssignmentPage /></OnlyFor>} />
         <Route path="work" element={<OnlyFor roles={["administrator", "staff"]}><TicketsPage /></OnlyFor>} />
         <Route path="clients" element={<OnlyFor roles={["administrator", "staff"]}><ClientsHome /></OnlyFor>} />
         <Route path="clients/new" element={<OnlyFor roles={["administrator", "staff"]}><NewClientPage /></OnlyFor>} />

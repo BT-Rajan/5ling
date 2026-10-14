@@ -8,13 +8,14 @@ import Link from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { ApiError, messageFor } from "../api";
+import { ApiError, api, messageFor } from "../api";
 import { useAuth, type EnrolInfo } from "../auth/AuthProvider";
 import { RecoveryCodes } from "../components/RecoveryCodes";
 import { AuthLayout } from "./AuthLayout";
 
 type Step =
   | { kind: "password" }
+  | { kind: "consultant" }
   | { kind: "code"; challenge: string }
   | { kind: "enrol"; challenge: string }
   | { kind: "codes"; codes: string[]; complete: () => void };
@@ -78,6 +79,65 @@ function PasswordStep({ onNext, notice }: { onNext: (step: Step) => void; notice
           <Button type="submit" variant="contained" size="large" disabled={busy || !email || !password}>
             {busy ? "Signing in…" : "Sign in"}
           </Button>
+          <Button variant="text" onClick={() => { onNext({ kind: "consultant" }); }}>
+            Consultant? Sign in with an emailed link
+          </Button>
+        </Stack>
+      </form>
+    </AuthLayout>
+  );
+}
+
+/** NFR-SE-02: a consultant asks for a link; this screen shows the code the link will ask for. */
+function ConsultantStep({ onBack }: { onBack: () => void }) {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState<{ code: string; minutes: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: SyntheticEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      setSent(await api<{ code: string; minutes: number }>("/api/auth/consultant/start", { method: "POST", json: { email: email.trim() } }));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <AuthLayout title="Check your email" intro="If that address belongs to a consultant, we have emailed a sign-in link.">
+        <Stack spacing={2.5}>
+          <Typography>When you open the link, enter this code:</Typography>
+          <Typography component="p" data-testid="consultant-code" sx={{ fontSize: "2rem", fontWeight: 700, letterSpacing: "0.15em", textAlign: "center" }}>{sent.code}</Typography>
+          <Typography color="text.secondary">Keep this page open. The link and the code work once, for {sent.minutes} minutes.</Typography>
+          <Button variant="text" onClick={onBack}>Back to sign in</Button>
+        </Stack>
+      </AuthLayout>
+    );
+  }
+  return (
+    <AuthLayout title="Consultant sign-in" intro="We will email you a link. This screen will show a code to enter when you open it.">
+      <form onSubmit={(e) => void submit(e)} noValidate>
+        <Stack spacing={2.5}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField
+            label="Email"
+            type="email"
+            autoComplete="username"
+            slotProps={{ htmlInput: { inputMode: "email", autoCapitalize: "none", spellCheck: false } }}
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); }}
+            required
+            autoFocus
+            fullWidth
+          />
+          <Button type="submit" variant="contained" size="large" disabled={busy || !email.trim()}>Email me a link</Button>
+          <Button variant="text" onClick={onBack}>Back</Button>
         </Stack>
       </form>
     </AuthLayout>
@@ -275,6 +335,7 @@ export function LoginPage() {
     setStep({ kind: "password" });
   }, []);
 
+  if (step.kind === "consultant") return <ConsultantStep onBack={() => { back(); }} />;
   if (step.kind === "code") return <CodeStep challenge={step.challenge} onBack={back} />;
   if (step.kind === "enrol") {
     return (

@@ -17,6 +17,9 @@ PUBLIC = frozenset(
         ("POST", "/api/auth/mfa/verify"),
         ("POST", "/api/auth/mfa/enrol/start"),
         ("POST", "/api/auth/mfa/enrol/confirm"),
+        # Consultant sign-in by emailed link plus the code shown on screen (NFR-SE-02).
+        ("POST", "/api/auth/consultant/start"),
+        ("POST", "/api/auth/consultant/finish"),
         # Delivery reports from the email provider: signed with a shared secret instead.
         ("POST", "/api/email/events"),
         # The client portal: a private link or the portal session it started, not an account.

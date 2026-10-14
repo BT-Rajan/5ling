@@ -33,21 +33,24 @@ from app.files.documents import (
 from app.files.store import EncryptedStore, StoreError
 from app.files.types import FileRefused
 from app.models import (
+    Assignment,
     Client,
     Cycle,
     Document,
     DocumentVersion,
     Role,
     ScanStatus,
+    Stage,
     UploadedVia,
     User,
 )
 from app.notify.service import documents_arrived
-from app.routers.tickets import _load, can_edit
+from app.routers.tickets import _load, can_edit, is_assignee
 
 router = APIRouter(tags=["documents"])
 
 staff_or_admin = require_roles(Role.ADMINISTRATOR, Role.STAFF)
+anyone_signed_in = require_roles(Role.ADMINISTRATOR, Role.STAFF, Role.CONSULTANT)
 
 SCAN_LABEL = {
     ScanStatus.PENDING: "Waiting for the virus check",
@@ -87,8 +90,9 @@ def _settings(request: Request) -> Settings:
 
 
 def _cycle(db: Session, principal: Principal, ref: str) -> tuple[Client, Cycle]:
+    """The cycle, for its client's owner, the Administrator or the person it is assigned to."""
     ticket, client = _load(db, principal, ref)
-    if not can_edit(principal, client):
+    if not can_edit(principal, client) and not is_assignee(db, principal, ticket.id):
         raise ApiHTTPException(403, "Only the client's owner can do this.", code="forbidden")
     cycle = db.scalar(select(Cycle).where(Cycle.ticket_id == ticket.id))
     if cycle is None:
@@ -279,7 +283,7 @@ def upload(
 def download_link(
     version_id: int,
     request: Request,
-    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    principal: Principal = Depends(anyone_signed_in),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> LinkOut:
     """A 5-minute download link for one checked version, for this person only."""
@@ -303,13 +307,22 @@ def _version(db: Session, principal: Principal, version_id: int) -> tuple[Docume
     version = db.get(DocumentVersion, version_id)
     document = db.get(Document, version.document_id) if version else None
     client = db.get(Client, document.client_pk) if document else None
-    authorize_record(
-        principal,
-        RecordAccess(owner_id=client.owner_id) if client and version else None,
-        what="document",
-    )
-    if version is None or client is None:  # authorize_record raised already
+    cycle = db.get(Cycle, document.cycle_id) if document else None
+    if version is None or document is None or client is None or cycle is None:
+        authorize_record(principal, None, what="document")  # raises 404
         raise ApiHTTPException(404, "Not found.", code="not_found")
+    # The cycle's open assignee (in-house or consultant), until the cycle closes (FR-WF-02).
+    assignee = (
+        db.scalar(
+            select(Assignment.assignee_id).where(
+                Assignment.cycle_id == cycle.id, Assignment.ended_at.is_(None)
+            )
+        )
+        if cycle.stage is not Stage.CLOSED
+        else None
+    )
+    if assignee is None or assignee != principal.user_id:
+        authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="document")
     return version, client
 
 
@@ -317,7 +330,7 @@ def _version(db: Session, principal: Principal, version_id: int) -> tuple[Docume
 def download(
     token: str,
     request: Request,
-    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    principal: Principal = Depends(anyone_signed_in),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> Response:
     """Serve a file through a link made in the last 5 minutes for this same person."""

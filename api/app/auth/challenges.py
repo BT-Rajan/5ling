@@ -19,7 +19,15 @@ def _hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def issue(db: Session, user: User, purpose: ChallengePurpose, now: datetime) -> str:
+def issue(
+    db: Session,
+    user: User,
+    purpose: ChallengePurpose,
+    now: datetime,
+    *,
+    ttl: timedelta = CHALLENGE_TTL,
+    code_hash: str | None = None,
+) -> str:
     """Create a challenge, replacing any unused one for this person (so attempts cannot pile up)."""
     db.execute(
         delete(LoginChallenge).where(
@@ -34,7 +42,8 @@ def issue(db: Session, user: User, purpose: ChallengePurpose, now: datetime) -> 
             token_hash=_hash(token),
             purpose=purpose,
             created_at=now,
-            expires_at=now + CHALLENGE_TTL,
+            expires_at=now + ttl,
+            code_hash=code_hash,
         )
     )
     db.flush()
