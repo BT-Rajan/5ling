@@ -23,6 +23,7 @@ from app.routers import (
     auth,
     clients,
     health,
+    tickets,
 )
 from app.security import (
     BodyLimitMiddleware,
@@ -106,6 +107,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)
+    app.include_router(tickets.router)
 
     # add_middleware puts the newest outermost; the first one added is closest to the app.
     app.add_middleware(

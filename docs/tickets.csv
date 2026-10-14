@@ -43,12 +43,12 @@ LL-036,C08,R1,"Clients: change, search, reassign","Change owner, package or stat
 LL-037,C08,R1,"Clients: change, search, reassign","Search and filter by name, PAN, owner, package, status; staff see own clients only; client ID searchable",API,M,"FR-CL-06, CR-01",Done
 LL-038,C08,R1,"Clients: change, search, reassign",Reassign moves access immediately,API,S,FR-AC-03,Done
 LL-039,C08,R1,"Clients: change, search, reassign",Client list and client detail with history,WEB,M,,Done
-LL-040,C09,R1,Cycles and tickets,tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client,DB,M,CR-02,Todo
-LL-041,C09,R1,Cycles and tickets,cycles table linked one-to-one to FILING tickets; package version recorded,DB,M,"FR-PK-05, FR-CY-02",Todo
-LL-042,C09,R1,Cycles and tickets,Stage list and legal-transition table,API,M,FR-CY-02,Todo
-LL-043,C09,R1,Cycles and tickets,Transition endpoint: server refuses illegal moves; writes history and audit,API,M,"FR-CY-02, FR-AU-01",Todo
-LL-044,C09,R1,Cycles and tickets,Emit state_changed event on every transition (consumed by C15),API,S,CR-03,Todo
-LL-045,C09,R1,Cycles and tickets,Ticket detail page with stage timeline,WEB,M,CR-02,Todo
+LL-040,C09,R1,Cycles and tickets,tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client,DB,M,CR-02,Done
+LL-041,C09,R1,Cycles and tickets,cycles table linked one-to-one to FILING tickets; package version recorded,DB,M,"FR-PK-05, FR-CY-02",Done
+LL-042,C09,R1,Cycles and tickets,Stage list and legal-transition table,API,M,FR-CY-02,Done
+LL-043,C09,R1,Cycles and tickets,Transition endpoint: server refuses illegal moves; writes history and audit,API,M,"FR-CY-02, FR-AU-01",Done
+LL-044,C09,R1,Cycles and tickets,Emit state_changed event on every transition (consumed by C15),API,S,CR-03,Done
+LL-045,C09,R1,Cycles and tickets,Ticket detail page with stage timeline,WEB,M,CR-02,Done
 LL-046,C10,R1,Cycle generator,Generate current-FY cycles with tickets when a package is assigned,JOB,M,"FR-CY-01, CR-02",Todo
 LL-047,C10,R1,Cycle generator,"Rolling top-up job keeping 12 months ahead; unique key client, filing, period",JOB,M,"FR-CY-01, FR-CY-04",Todo
 LL-048,C10,R1,Cycle generator,Failure raises Administrator alert and log entry; safe re-run,JOB,S,FR-CY-05,Todo

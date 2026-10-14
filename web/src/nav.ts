@@ -24,6 +24,7 @@ export const destinations: readonly Destination[] = [
 const OTHER_TITLES: readonly (readonly [string, string])[] = [
   ["/account", "Account security"],
   ["/clients/new", "Add a client"],
+  ["/tickets", "Ticket"],
   ["/setup/team", "Team"],
   ["/setup/packages", "Packages"],
   ["/setup/filings", "Filing calendars"],

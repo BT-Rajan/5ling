@@ -26,6 +26,16 @@ from app.models.client import (
     ConsentChange,
     Contact,
 )
+from app.models.cycle import (
+    Cycle,
+    EventKind,
+    Stage,
+    StageChange,
+    StateEvent,
+    Ticket,
+    TicketCounter,
+    TicketType,
+)
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.user import LoginAttempt, Role, User, UserSession
@@ -52,6 +62,8 @@ __all__ = [
     "ClientStatus",
     "ConsentChange",
     "Contact",
+    "Cycle",
+    "EventKind",
     "Filing",
     "Frequency",
     "Holiday",
@@ -65,6 +77,12 @@ __all__ = [
     "PeriodBasis",
     "RecoveryCode",
     "Role",
+    "Stage",
+    "StageChange",
+    "StateEvent",
+    "Ticket",
+    "TicketCounter",
+    "TicketType",
     "User",
     "UserSession",
 ]

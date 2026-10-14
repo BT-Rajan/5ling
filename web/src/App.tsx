@@ -18,6 +18,7 @@ import { HolidaysPage } from "./pages/HolidaysPage";
 import { PackagePage, PackagesPage } from "./pages/PackagesPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TeamPage } from "./pages/TeamPage";
+import { TicketPage } from "./pages/TicketPage";
 
 /** Hides a screen from people who should not see it. The server enforces the same rule on every request. */
 function OnlyFor({ roles, children }: { roles: readonly Role[]; children: ReactNode }) {
@@ -65,6 +66,7 @@ export function App() {
         <Route path="work" element={<EmptyPage title="Work list">Nothing to do yet. Your daily work list will appear here once filings are set up.</EmptyPage>} />
         <Route path="clients" element={<OnlyFor roles={["administrator", "staff"]}><ClientsHome /></OnlyFor>} />
         <Route path="clients/new" element={<OnlyFor roles={["administrator", "staff"]}><NewClientPage /></OnlyFor>} />
+        <Route path="tickets/:ticketId" element={<OnlyFor roles={["administrator", "staff"]}><TicketPage /></OnlyFor>} />
         <Route path="clients/:clientId" element={<OnlyFor roles={["administrator", "staff"]}><ClientPage /></OnlyFor>} />
         <Route path="team" element={<Navigate to="/setup/team" replace />} />
         <Route path="setup" element={<OnlyFor roles={["administrator"]}><SetupPage /></OnlyFor>} />

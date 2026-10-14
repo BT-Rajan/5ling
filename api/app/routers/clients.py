@@ -23,6 +23,7 @@ from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import rupees
+from app.cycles.service import emit_state_event
 from app.errors import ApiHTTPException
 from app.identifiers import PAN_HOLDERS, gstin_problem, pan_in_gstin, pan_problem, tidy
 from app.models import (
@@ -38,6 +39,7 @@ from app.models import (
     ClientStatus,
     ConsentChange,
     Contact,
+    EventKind,
     Package,
     PackageVersion,
     Role,
@@ -714,6 +716,15 @@ def change_client(
             body.status.value,
             body.reason,
             principal,
+        )
+        # CR-03: a client status change is a state change the client hears about (chunk C15).
+        emit_state_event(
+            db,
+            EventKind.CLIENT_STATUS,
+            client_pk=client.id,
+            ticket_id=None,
+            from_state=client.status.value,
+            to_state=body.status.value,
         )
         client.status = body.status
         changed = True
