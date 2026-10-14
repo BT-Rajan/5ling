@@ -13,11 +13,11 @@ import re
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator, model_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
@@ -29,8 +29,10 @@ from app.models import (
     FIRST_CLIENT_ID,
     LAST_CLIENT_ID,
     BillingFrequency,
+    ChangeField,
     Channel,
     Client,
+    ClientChange,
     ClientIdCounter,
     ClientKind,
     ClientStatus,
@@ -532,3 +534,263 @@ def change_consent(
         is_primary=contact.is_primary,
         consent=consent,
     )
+
+
+# --- C08: search, change with a reason, history ---------------------------------------------
+
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+PAGE_MAX = 100
+
+
+class ClientRow(BaseModel):
+    client_id: int
+    kind: ClientKind
+    legal_name: str
+    pan_masked: str | None  # masked in lists (NFR-SE-06); the client page can show it
+    gstin: str | None
+    status: ClientStatus
+    owner: PersonRef
+    package: PackageRef
+
+
+class ClientPage(BaseModel):
+    items: list[ClientRow]
+    total: int
+    offset: int
+    limit: int
+
+
+class ChangeIn(BaseModel):
+    owner_id: int | None = Field(default=None, ge=1)
+    package_id: int | None = Field(default=None, ge=1)
+    status: ClientStatus | None = None
+    reason: Reason
+
+    @model_validator(mode="after")
+    def _something(self) -> ChangeIn:
+        if self.owner_id is None and self.package_id is None and self.status is None:
+            raise ValueError("Choose a new owner, package or status.")
+        return self
+
+
+class HistoryOut(BaseModel):
+    id: int
+    field: ChangeField
+    old: str
+    new: str
+    reason: str
+    changed_by: PersonRef
+    changed_at: datetime
+
+
+def mask_pan(pan: str | None) -> str | None:
+    return None if pan is None else f"{pan[:2]}•••••{pan[7:]}"
+
+
+def _like(text: str) -> str:
+    """A LIKE pattern matching `text` anywhere, with LIKE's own wildcards taken literally."""
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+@router.get("")
+def search_clients(
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    q: str | None = Query(None, max_length=100),
+    owner_id: int | None = Query(None, ge=1),
+    package_id: int | None = Query(None, ge=1),
+    status: ClientStatus | None = None,
+    offset: int = Query(0, ge=0, le=100_000),
+    limit: int = Query(50, ge=1, le=PAGE_MAX),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ClientPage:
+    """FR-CL-06, CR-01: by name, PAN, GSTIN or client ID, filtered by owner, package, status.
+    Staff only ever get their own clients."""
+    Owner = aliased(User)
+    stmt = (
+        select(Client, Owner.full_name, Package.name, PackageVersion.version)
+        .join(Owner, Owner.id == Client.owner_id)
+        .join(Package, Package.id == Client.package_id)
+        .join(PackageVersion, PackageVersion.id == Client.package_version_id)
+    )
+    if principal.role is not Role.ADMINISTRATOR:
+        stmt = stmt.where(Client.owner_id == principal.user_id)
+    if owner_id is not None:
+        stmt = stmt.where(Client.owner_id == owner_id)
+    if package_id is not None:
+        stmt = stmt.where(Client.package_id == package_id)
+    if status is not None:
+        stmt = stmt.where(Client.status == status)
+    text_query = " ".join((q or "").split())
+    if text_query:
+        code = tidy(text_query)
+        exact = []
+        if re.fullmatch(r"[0-9]{6}", code):
+            exact.append(Client.client_id == int(code))
+        if len(code) == 10:
+            exact.append(Client.pan == code)
+        if len(code) == 15:
+            exact.append(Client.gstin == code)
+        stmt = stmt.where(or_(Client.legal_name.like(_like(text_query), escape="\\"), *exact))
+    total = int(db.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
+    rows = db.execute(
+        stmt.order_by(Client.legal_name, Client.client_id).offset(offset).limit(limit)
+    ).all()
+    return ClientPage(
+        items=[
+            ClientRow(
+                client_id=c.client_id,
+                kind=c.kind,
+                legal_name=c.legal_name,
+                pan_masked=mask_pan(c.pan),
+                gstin=c.gstin,
+                status=c.status,
+                owner=PersonRef(id=c.owner_id, full_name=owner_name),
+                package=PackageRef(id=c.package_id, name=package_name, version=version),
+            )
+            for c, owner_name, package_name, version in rows
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
+
+
+def _record_change(
+    db: Session,
+    client: Client,
+    field: ChangeField,
+    old: object,
+    new: object,
+    reason: str,
+    actor: Principal,
+) -> None:
+    db.add(
+        ClientChange(
+            client_pk=client.id,
+            field=field,
+            old_value=str(old),
+            new_value=str(new),
+            reason=reason,
+            changed_by_id=actor.user_id,
+            changed_at=utcnow(),
+        )
+    )
+    audit(
+        db,
+        f"client.{field.value}_changed",
+        actor_user_id=actor.user_id,
+        actor_role=actor.role.value,
+        target=("client", client.client_id),
+        details={"from": str(old), "to": str(new)},  # ids and status names only
+    )
+
+
+@router.patch("/{client_id}")
+def change_client(
+    client_id: ClientIdPath,
+    body: ChangeIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ClientOut:
+    """FR-CL-04: change owner, package or status, with a reason; each change goes in the history.
+
+    A new owner can open the client from their next request, and the previous owner cannot
+    (FR-AC-03): access is read from this record on every request.
+    """
+    client = load_client(db, principal, client_id, lock=True)
+    changed = False
+
+    if body.status is not None and body.status != client.status:
+        if client.status is ClientStatus.CLOSED and principal.role is not Role.ADMINISTRATOR:
+            raise ApiHTTPException(
+                403, "Only the Administrator can reopen a closed client.", code="reopen_forbidden"
+            )
+        _record_change(
+            db,
+            client,
+            ChangeField.STATUS,
+            client.status.value,
+            body.status.value,
+            body.reason,
+            principal,
+        )
+        client.status = body.status
+        changed = True
+
+    if body.package_id is not None:
+        package, version = current_package_version(db, body.package_id)
+        if version.id != client.package_version_id:
+            _record_change(
+                db,
+                client,
+                ChangeField.PACKAGE,
+                client.package_version_id,
+                version.id,
+                body.reason,
+                principal,
+            )
+            client.package_id = package.id
+            client.package_version_id = version.id
+            changed = True
+
+    if body.owner_id is not None and body.owner_id != client.owner_id:
+        owner = db.get(User, body.owner_id)
+        if owner is None or not owner.is_active or owner.role is Role.CONSULTANT:
+            raise ApiHTTPException(
+                422, "The owner must be an active Staff member or Administrator.", code="bad_owner"
+            )
+        _record_change(
+            db, client, ChangeField.OWNER, client.owner_id, owner.id, body.reason, principal
+        )
+        client.owner_id = owner.id
+        changed = True
+
+    if not changed:
+        raise ApiHTTPException(409, "Nothing would change.", code="no_change")
+    db.commit()
+    return _client_out(db, client)
+
+
+def _describe(db: Session, field: ChangeField, value: str) -> str:
+    """History values in words: a person's name, a package and version, a status."""
+    if field is ChangeField.OWNER:
+        user = db.get(User, int(value))
+        return user.full_name if user else f"Person #{value}"
+    if field is ChangeField.PACKAGE:
+        row = db.execute(
+            select(Package.name, PackageVersion.version)
+            .join(PackageVersion, PackageVersion.package_id == Package.id)
+            .where(PackageVersion.id == int(value))
+        ).one_or_none()
+        return f"{row[0]} (version {row[1]})" if row else f"Package version #{value}"
+    return value
+
+
+@router.get("/{client_id}/history")
+def client_history(
+    client_id: ClientIdPath,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[HistoryOut]:
+    client = load_client(db, principal, client_id)
+    rows = db.scalars(
+        select(ClientChange)
+        .where(ClientChange.client_pk == client.id)
+        .order_by(ClientChange.id.desc())
+    )
+    out = []
+    for row in rows:
+        by = db.get(User, row.changed_by_id)
+        out.append(
+            HistoryOut(
+                id=row.id,
+                field=row.field,
+                old=_describe(db, row.field, row.old_value),
+                new=_describe(db, row.field, row.new_value),
+                reason=row.reason,
+                changed_by=PersonRef(id=row.changed_by_id, full_name=by.full_name if by else "?"),
+                changed_at=row.changed_at,
+            )
+        )
+    return out

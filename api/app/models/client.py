@@ -143,3 +143,29 @@ class ConsentChange(Base):
     note: Mapped[str | None] = mapped_column(String(300), nullable=True)
     changed_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     changed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+
+
+class ChangeField(enum.StrEnum):
+    OWNER = "owner"
+    PACKAGE = "package"
+    STATUS = "status"
+
+
+class ClientChange(Base):
+    """FR-CL-04: each change of owner, package or status, dated, attributed and with a reason.
+
+    Append-only (triggers, migration 0009). Values are stored as text: user ids for owner,
+    package version ids for package, the status name for status.
+    """
+
+    __tablename__ = "client_changes"
+    __table_args__ = (Index("ix_client_changes_client_pk_id", "client_pk", "id"), _TABLE)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    client_pk: Mapped[int] = mapped_column(BigInteger, ForeignKey("clients.id"), nullable=False)
+    field: Mapped[ChangeField] = mapped_column(_enum(ChangeField, "change_field"), nullable=False)
+    old_value: Mapped[str] = mapped_column(String(64), nullable=False)
+    new_value: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    changed_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

@@ -3,6 +3,9 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Radio from "@mui/material/Radio";
@@ -12,11 +15,13 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
+import { formatIST } from "../time";
 import { api, ApiError, messageFor } from "../api";
 import { useUser } from "../auth/AuthProvider";
 import { BILLING_LABEL, money, type BillingFrequency } from "../catalog";
 
 type Kind = "individual" | "business";
+type Status = "active" | "paused" | "closed";
 
 interface Consent {
   email: boolean;
@@ -39,7 +44,7 @@ interface Client {
   legal_name: string;
   pan: string | null;
   gstin: string | null;
-  status: "active" | "paused" | "closed";
+  status: Status;
   owner: { id: number; full_name: string };
   package: { id: number; name: string; version: number };
   contacts: Contact[];
@@ -78,23 +83,122 @@ function problemsFrom(error: unknown): string[] {
   });
 }
 
+interface ClientRow {
+  client_id: number;
+  kind: Kind;
+  legal_name: string;
+  pan_masked: string | null;
+  gstin: string | null;
+  status: Status;
+  owner: { id: number; full_name: string };
+  package: { id: number; name: string; version: number };
+}
+
+interface ClientPageResult {
+  items: ClientRow[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+const STATUS_LABEL: Record<Status, string> = { active: "Active", paused: "Paused", closed: "Closed" };
+const PAGE = 50;
+
 export function ClientsHome() {
-  const navigate = useNavigate();
-  const [id, setId] = useState("");
-  const valid = /^\d{6}$/.test(id.trim());
+  const me = useUser();
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("");
+  const [owner, setOwner] = useState("");
+  const [pkg, setPkg] = useState("");
+  const [options, setOptions] = useState<Options | null>(null);
+  const [result, setResult] = useState<ClientPageResult | null>(null);
+  const [rows, setRows] = useState<ClientRow[]>([]);
+  const [offset, setOffset] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const isAdmin = me.role === "administrator";
+
+  useEffect(() => {
+    api<Options>("/api/clients/options").then(setOptions).catch(() => undefined);
+  }, []);
+
+  const params = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
+  if (query.trim()) params.set("q", query.trim());
+  if (status) params.set("status", status);
+  if (owner) params.set("owner_id", owner);
+  if (pkg) params.set("package_id", pkg);
+  const url = `/api/clients?${params.toString()}`;
+
+  useEffect(() => {
+    let live = true;
+    const timer = setTimeout(() => {
+      api<ClientPageResult>(url)
+        .then((page) => {
+          if (!live) return;
+          setError(null);
+          setResult(page);
+          setRows((old) => (page.offset === 0 ? page.items : [...old, ...page.items]));
+        })
+        .catch((e: unknown) => { if (live) setError(messageFor(e)); });
+    }, 250);
+    return () => { live = false; clearTimeout(timer); };
+  }, [url]);
+
+  function filter(set: (v: string) => void) {
+    return (value: string) => {
+      setOffset(0);
+      set(value);
+    };
+  }
+
   return (
     <>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h1" component="h1" sx={{ display: { xs: "none", md: "block" } }}>Clients</Typography>
         <Button variant="contained" component={RouterLink} to="/clients/new" sx={{ ml: "auto" }}>Add client</Button>
       </Stack>
-      <Typography color="text.secondary" sx={{ mb: 2, maxWidth: 560 }}>
-        The client list and search come next. Until then, open a client by its 6-digit client ID.
-      </Typography>
-      <Box component="form" onSubmit={(e) => { e.preventDefault(); if (valid) void navigate(`/clients/${id.trim()}`); }} sx={{ display: "flex", gap: 1, maxWidth: 400 }}>
-        <TextField label="Client ID" value={id} onChange={(e) => { setId(e.target.value); }} slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 6 } }} sx={{ flex: 1 }} />
-        <Button type="submit" variant="outlined" disabled={!valid}>Open</Button>
+      <Box sx={{ display: "grid", gap: 2, mb: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: isAdmin ? "2fr 1fr 1fr 1fr" : "2fr 1fr 1fr" } }}>
+        <TextField label="Search" type="search" value={query} onChange={(e) => { filter(setQuery)(e.target.value); }} helperText="Name, PAN, GSTIN or client ID" />
+        <TextField select label="Status" value={status} onChange={(e) => { filter(setStatus)(e.target.value); }}>
+          <MenuItem value="">Any status</MenuItem>
+          {(Object.keys(STATUS_LABEL) as Status[]).map((k) => <MenuItem key={k} value={k}>{STATUS_LABEL[k]}</MenuItem>)}
+        </TextField>
+        <TextField select label="Package" value={pkg} onChange={(e) => { filter(setPkg)(e.target.value); }}>
+          <MenuItem value="">Any package</MenuItem>
+          {(options?.packages ?? []).map((p) => <MenuItem key={p.id} value={String(p.id)}>{p.name}</MenuItem>)}
+        </TextField>
+        {isAdmin && (
+          <TextField select label="Owner" value={owner} onChange={(e) => { filter(setOwner)(e.target.value); }}>
+            <MenuItem value="">Anyone</MenuItem>
+            {(options?.owners ?? []).map((o) => <MenuItem key={o.id} value={String(o.id)}>{o.full_name}</MenuItem>)}
+          </TextField>
+        )}
       </Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {result === null && !error && <Typography color="text.secondary">Loading…</Typography>}
+      {result && rows.length === 0 && (
+        <Typography color="text.secondary">{result.total === 0 && !query && !status && !pkg && !owner ? (isAdmin ? "No clients yet." : "You have no clients yet.") : "No clients match."}</Typography>
+      )}
+      {rows.length > 0 && (
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{result?.total} client{result?.total === 1 ? "" : "s"}</Typography>
+          <List aria-label="Clients" disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+            {rows.map((c, i) => (
+              <ListItemButton key={c.client_id} component={RouterLink} to={`/clients/${String(c.client_id)}`} divider={i < rows.length - 1} sx={{ py: 1.25, opacity: c.status === "closed" ? 0.7 : 1 }}>
+                <ListItemText
+                  primary={`${String(c.client_id)} · ${c.legal_name}`}
+                  secondary={[KIND_LABEL[c.kind], c.pan_masked ?? c.gstin, c.package.name, isAdmin ? c.owner.full_name : null, c.status === "active" ? null : STATUS_LABEL[c.status]].filter(Boolean).join(" · ")}
+                  slotProps={{ primary: { sx: { fontWeight: 500 } } }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+          {result && rows.length < result.total && (
+            <Box sx={{ mt: 2, textAlign: "center" }}>
+              <Button onClick={() => { setOffset(rows.length); }}>Show more</Button>
+            </Box>
+          )}
+        </>
+      )}
     </>
   );
 }
@@ -268,11 +372,17 @@ export function ClientPage() {
   const [showPan, setShowPan] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
 
+  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [round, setRound] = useState(0);
+  const [changed, setChanged] = useState<string | null>(null);
+
   useEffect(() => {
-    api<Client>(`/api/clients/${encodeURIComponent(clientId ?? "")}`)
+    const id = encodeURIComponent(clientId ?? "");
+    api<Client>(`/api/clients/${id}`)
       .then(setClient)
       .catch((e: unknown) => { setError(messageFor(e)); });
-  }, [clientId]);
+    api<HistoryEntry[]>(`/api/clients/${id}/history`).then(setHistory).catch(() => undefined);
+  }, [clientId, round]);
 
   async function setConsent(contact: Contact, channel: "whatsapp" | "sms", granted: boolean) {
     if (!client) return;
@@ -324,6 +434,107 @@ export function ClientPage() {
             </Stack>
           </Paper>
         ))}
+      </Stack>
+
+      <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Change owner, package or status</Typography>
+      {changed && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setChanged(null); }}>{changed}</Alert>}
+      <ChangeForm key={round} client={client} onChanged={(text) => { setChanged(text); setRound((r) => r + 1); }} />
+
+      <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>History</Typography>
+      {history?.length === 0 && <Typography color="text.secondary">No changes since the client was added.</Typography>}
+      {history && history.length > 0 && (
+        <List aria-label="History" disablePadding>
+          {history.map((h) => (
+            <ListItemText
+              key={h.id}
+              sx={{ py: 1 }}
+              primary={`${FIELD_LABEL[h.field]}: ${h.old} → ${h.new}`}
+              secondary={`${formatIST(h.changed_at)} · ${h.changed_by.full_name} · “${h.reason}”`}
+            />
+          ))}
+        </List>
+      )}
+    </Box>
+  );
+}
+
+interface HistoryEntry {
+  id: number;
+  field: "owner" | "package" | "status";
+  old: string;
+  new: string;
+  reason: string;
+  changed_by: { id: number; full_name: string };
+  changed_at: string;
+}
+
+const FIELD_LABEL: Record<HistoryEntry["field"], string> = { owner: "Owner", package: "Package", status: "Status" };
+
+function ChangeForm({ client, onChanged }: { client: Client; onChanged: (text: string) => void }) {
+  const me = useUser();
+  const isAdmin = me.role === "administrator";
+  const [options, setOptions] = useState<Options | null>(null);
+  const [owner, setOwner] = useState(String(client.owner.id));
+  const [pkg, setPkg] = useState(String(client.package.id));
+  const [status, setStatus] = useState<Status>(client.status);
+  const [reason, setReason] = useState("");
+  const [problems, setProblems] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api<Options>("/api/clients/options").then(setOptions).catch(() => undefined);
+  }, []);
+
+  const current = options?.packages.find((p) => p.id === client.package.id);
+  const newerVersion = current !== undefined && current.version > client.package.version;
+  const body: Record<string, unknown> = { reason: reason.trim() };
+  if (owner !== String(client.owner.id)) body.owner_id = Number(owner);
+  if (pkg !== String(client.package.id)) body.package_id = Number(pkg);
+  if (status !== client.status) body.status = status;
+  const anything = Object.keys(body).length > 1;
+  const closedAndStaff = client.status === "closed" && !isAdmin;
+
+  async function save(event: SyntheticEvent, extra: Record<string, unknown> = {}) {
+    event.preventDefault();
+    setBusy(true);
+    setProblems([]);
+    try {
+      await api(`/api/clients/${String(client.client_id)}`, { method: "PATCH", json: { ...body, ...extra } });
+      onChanged("Saved, and added to the history.");
+    } catch (e) {
+      setProblems(problemsFrom(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Box component="form" onSubmit={(e) => void save(e)} noValidate>
+      {problems.length > 0 && <Alert severity="error" sx={{ mb: 2 }}>{problems.join(" ")}</Alert>}
+      {closedAndStaff && <Alert severity="info" sx={{ mb: 2 }}>This client is closed. Only the Administrator can reopen it.</Alert>}
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" } }}>
+        <TextField select label="New owner" value={owner} onChange={(e) => { setOwner(e.target.value); }} disabled={busy || !isAdmin}
+          helperText={isAdmin ? " " : "The Administrator reassigns clients"}>
+          <MenuItem value={String(client.owner.id)}>{client.owner.full_name}</MenuItem>
+          {(options?.owners ?? []).filter((o) => o.id !== client.owner.id).map((o) => <MenuItem key={o.id} value={String(o.id)}>{o.full_name}</MenuItem>)}
+        </TextField>
+        <TextField select label="New package" value={pkg} onChange={(e) => { setPkg(e.target.value); }} disabled={busy || closedAndStaff}
+          helperText={newerVersion ? `Version ${String(current.version)} of ${current.name} is available` : " "}>
+          <MenuItem value={String(client.package.id)}>{client.package.name}</MenuItem>
+          {(options?.packages ?? []).filter((p) => p.id !== client.package.id).map((p) => <MenuItem key={p.id} value={String(p.id)}>{p.name}</MenuItem>)}
+        </TextField>
+        <TextField select label="New status" value={status} onChange={(e) => { setStatus(e.target.value as Status); }} disabled={busy || closedAndStaff} helperText=" ">
+          {(Object.keys(STATUS_LABEL) as Status[]).map((k) => <MenuItem key={k} value={k}>{STATUS_LABEL[k]}</MenuItem>)}
+        </TextField>
+      </Box>
+      <TextField label="Reason" value={reason} onChange={(e) => { setReason(e.target.value); }} fullWidth multiline minRows={2} sx={{ mt: 1 }} disabled={busy}
+        helperText="Required. Kept in the history with your name and the time." />
+      <Stack direction="row" sx={{ mt: 2, gap: 1, flexWrap: "wrap" }}>
+        <Button type="submit" variant="contained" disabled={busy || !anything || reason.trim().length < 3}>Save change</Button>
+        {newerVersion && pkg === String(client.package.id) && (
+          <Button variant="outlined" disabled={busy || reason.trim().length < 3} onClick={(e) => void save(e, { package_id: client.package.id })}>
+            Move to version {current.version}
+          </Button>
+        )}
       </Stack>
     </Box>
   );

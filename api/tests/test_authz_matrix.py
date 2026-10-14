@@ -19,7 +19,7 @@ from app.timeutil import utcnow
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
-from tests.brd_matrix import CAPABILITIES, SELF_SERVICE
+from tests.brd_matrix import CAPABILITIES, SELF_SERVICE, Capability
 from tests.conftest import make_settings
 from tests.helpers import Signed, db_session, make_user, sign_in_directly
 from tests.routewalk import PUBLIC, protected_routes, unprotected_routes
@@ -67,6 +67,9 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/api/clients"): ADMIN_AND_STAFF,
     ("GET", "/api/clients/{client_id}"): ADMIN_AND_STAFF,
     ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"): ADMIN_AND_STAFF,
+    ("GET", "/api/clients"): ADMIN_AND_STAFF,
+    ("PATCH", "/api/clients/{client_id}"): ADMIN_AND_STAFF,
+    ("GET", "/api/clients/{client_id}/history"): ADMIN_AND_STAFF,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -270,15 +273,22 @@ def test_all_sixteen_brd_capabilities_are_tracked() -> None:
 
 
 def test_built_capabilities_use_exactly_the_roles_the_matrix_gives_them() -> None:
+    """A route may serve several capabilities (one search serves "all clients" and "assigned
+    clients only"); its roles must then be exactly the union of theirs."""
+    claimants: dict[tuple[str, str], list[Capability]] = {}
     for cap in CAPABILITIES:
         for route in cap.routes:
-            roles = EXPECTED[route]
-            if cap.consultant != "-":  # consultants are allowed only once their chunk is built
-                assert Role.CONSULTANT in roles, (cap.name, route)
-            else:
-                assert Role.CONSULTANT not in roles, (cap.name, route)
-            assert (Role.STAFF in roles) is cap.allowed("staff"), (cap.name, route)
-            assert (Role.ADMINISTRATOR in roles) is cap.allowed("admin"), (cap.name, route)
+            claimants.setdefault(route, []).append(cap)
+    for route, caps in claimants.items():
+        roles = EXPECTED[route]
+        names = [c.name for c in caps]
+        # Consultants are allowed only once their chunk is built.
+        assert (Role.CONSULTANT in roles) is any(c.consultant != "-" for c in caps), (names, route)
+        assert (Role.STAFF in roles) is any(c.allowed("staff") for c in caps), (names, route)
+        assert (Role.ADMINISTRATOR in roles) is any(c.allowed("admin") for c in caps), (
+            names,
+            route,
+        )
 
 
 def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> None:
@@ -290,6 +300,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 12  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C08", "C16", "C21", "C28"}
-    assert not {"C04", "C05", "C07"} & {c.built_in for c in pending}
+    assert len(pending) == 10  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C16", "C21", "C28"}
+    assert not {"C04", "C05", "C07", "C08"} & {c.built_in for c in pending}
