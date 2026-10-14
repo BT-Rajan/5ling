@@ -28,7 +28,12 @@ describe("Notifications", () => {
   it("shows the unread count on the bell", async () => {
     renderApp("/", {
       user: admin,
-      handlers: { ...quiet, "GET /api/notifications/count": () => jsonResponse({ unread: 3, open_escalations: 1 }) },
+      handlers: {
+        ...quiet,
+        "GET /api/notifications/count": () => jsonResponse({ unread: 3, open_escalations: 1 }),
+        "GET /api/worklist": () => new Promise<Response>(() => undefined),
+        "GET /api/tickets/assignees": () => jsonResponse([]),
+      },
     });
     expect(await screen.findByRole("link", { name: "Notifications, 3 unread" })).toHaveAttribute("href", "/notifications");
   });

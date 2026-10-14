@@ -31,6 +31,9 @@ class Capability:
 # Reading a client's records: one route each, narrowed to their own clients for Staff.
 CLIENT_READS: tuple[tuple[str, str], ...] = (
     ("GET", "/api/clients"),
+    # The daily work list and its count report (FR-IN-04), narrowed to their own for Staff.
+    ("GET", "/api/worklist"),
+    ("GET", "/api/reports/worklist-counts"),
     ("GET", "/api/stages"),
     ("GET", "/api/tickets/{ticket}"),
     ("GET", "/api/clients/{client_id}/tickets"),

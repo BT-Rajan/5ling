@@ -36,6 +36,7 @@ from app.routers import (
     portal_uploads,
     ticket_links,
     tickets,
+    worklist,
 )
 from app.security import (
     BodyLimitMiddleware,
@@ -128,6 +129,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(documents.router)
     app.include_router(portal_uploads.router)
     app.include_router(notifications.router)
+    app.include_router(worklist.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

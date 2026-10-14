@@ -88,9 +88,9 @@ LL-081,C19,R1,Internal alerts and escalation,Last required item arrives: stage D
 LL-082,C19,R1,Internal alerts and escalation,Missing after first alert plus grace: 'Waiting on client' with exact missing items,JOB,M,FR-IN-02,Done
 LL-083,C19,R1,Internal alerts and escalation,Escalate to Administrator 2 days before due date; one-time; dismiss needs a note,JOB,M,FR-IN-03,Done
 LL-084,C19,R1,Internal alerts and escalation,Notification list and dismiss-with-note screens,WEB,S,"FR-IN-01, FR-IN-03",Done
-LL-085,C20,R1,Daily work list,"Work-list API: received, missing, due this week, overdue",API,M,FR-IN-04,Todo
-LL-086,C20,R1,Daily work list,Work-list screen as the staff landing page,WEB,M,FR-IN-04,Todo
-LL-087,C20,R1,Daily work list,Count-consistency test,TEST,S,FR-IN-04,Todo
+LL-085,C20,R1,Daily work list,"Work-list API: received, missing, due this week, overdue",API,M,FR-IN-04,Done
+LL-086,C20,R1,Daily work list,Work-list screen as the staff landing page,WEB,M,FR-IN-04,Done
+LL-087,C20,R1,Daily work list,Count-consistency test,TEST,S,FR-IN-04,Done
 LL-088,C21,R1,Assignment and consultant access,assignments table; assign in-house or consultant with work due date and note; assignee notified,API,M,FR-WF-01,Todo
 LL-089,C21,R1,Assignment and consultant access,Consultant sign-in: emailed link plus one-time code,API,M,NFR-SE-02,Todo
 LL-090,C21,R1,Assignment and consultant access,Task-scoped consultant view: assigned cycle documents and upload space only,WEB,M,FR-WF-02,Todo

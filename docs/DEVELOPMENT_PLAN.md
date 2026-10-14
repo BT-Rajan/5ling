@@ -364,7 +364,7 @@ Total: 151 tickets.
 
 **Done when:** Escalation is created once and cannot be dismissed without a note.
 
-### C20 - Daily work list (R1)
+### C20 - Daily work list (R1) - DONE
 
 **Goal:** One landing page for the coordinator.  
 **Depends on:** C18, C19

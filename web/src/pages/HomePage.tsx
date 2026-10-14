@@ -2,6 +2,8 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import { useUser } from "../auth/AuthProvider";
+import { DailyWorkList } from "../components/DailyWorkList";
 import { useHealth, type DatabaseState, type ServiceState } from "../hooks/useHealth";
 
 type Tone = "success" | "error" | "warning" | "neutral";
@@ -60,11 +62,17 @@ function Row({ name, value }: { name: string; value: [string, Tone] }) {
 
 export function HomePage() {
   const { service, database, refresh } = useHealth();
+  const user = useUser();
+  const worker = user.role === "administrator" || user.role === "staff";
   return (
     <>
-      <Typography variant="h1" component="h1" sx={{ mb: 3, display: { xs: "none", md: "block" } }}>
-        Home
-      </Typography>
+      {worker ? (
+        <DailyWorkList />
+      ) : (
+        <Typography variant="h1" component="h1" sx={{ mb: 3, display: { xs: "none", md: "block" } }}>
+          Home
+        </Typography>
+      )}
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, maxWidth: 560 }}>
         <Typography variant="h2" component="h2">
           System status
@@ -77,9 +85,6 @@ export function HomePage() {
           Check again
         </Button>
       </Paper>
-      <Typography color="text.secondary" sx={{ mt: 3, maxWidth: 560 }}>
-        Filings, clients and tickets will appear here as they are set up.
-      </Typography>
     </>
   );
 }
