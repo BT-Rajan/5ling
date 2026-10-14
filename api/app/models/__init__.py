@@ -50,6 +50,7 @@ from app.models.document import (
     UploadedVia,
 )
 from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
+from app.models.filing import CycleFiling
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
@@ -84,6 +85,7 @@ __all__ = [
     "Cycle",
     "CycleAlert",
     "CycleChecklistItem",
+    "CycleFiling",
     "Document",
     "DocumentVersion",
     "DueDateChange",

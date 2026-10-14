@@ -33,6 +33,7 @@ from app.routers import (
     consultant,
     documents,
     email_events,
+    filing,
     health,
     notifications,
     portal,
@@ -131,6 +132,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(portal.router)
     app.include_router(client_updates.router)
     app.include_router(documents.router)
+    app.include_router(filing.router)
     app.include_router(portal_uploads.router)
     app.include_router(notifications.router)
     app.include_router(worklist.router)

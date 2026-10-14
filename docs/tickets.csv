@@ -99,9 +99,9 @@ LL-092,C22,R1,Review: maker-checker,Preparer uploads work as a new version; stag
 LL-093,C22,R1,Review: maker-checker,Approve or return with comments; return sets stage to Preparing,API,M,FR-WF-04,Done
 LL-094,C22,R1,Review: maker-checker,Server refuses approval by the preparer,API,S,FR-WF-03,Done
 LL-095,C22,R1,Review: maker-checker,Review screen with comments,WEB,M,FR-WF-04,Done
-LL-096,C23,R1,Filing and closure,Filed requires uploaded acknowledgement and reference number,API,M,FR-WF-05,Todo
-LL-097,C23,R1,Filing and closure,Close ticket: consultant access ends automatically; next cycle already scheduled,API,S,"FR-WF-02, BRD s6",Todo
-LL-098,C23,R1,Filing and closure,"End-to-end lifecycle test: Scheduled to Closed, with a draft at every state change",TEST,M,"FR-CY-02, CR-03",Todo
+LL-096,C23,R1,Filing and closure,Filed requires uploaded acknowledgement and reference number,API,M,FR-WF-05,Done
+LL-097,C23,R1,Filing and closure,Close ticket: consultant access ends automatically; next cycle already scheduled,API,S,"FR-WF-02, BRD s6",Done
+LL-098,C23,R1,Filing and closure,"End-to-end lifecycle test: Scheduled to Closed, with a draft at every state change",TEST,M,"FR-CY-02, CR-03",Done
 LL-099,C24,R1,Fees: plans and invoices,Fee plan from package; client-specific override with Administrator approval,API,M,FR-FE-01,Todo
 LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction),API,M,FR-FE-02,Todo
 LL-101,C24,R1,Fees: plans and invoices,Configurable tax rates (GST),API,S,FR-FE-09,Todo

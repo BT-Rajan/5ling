@@ -41,6 +41,8 @@ from app.models import (
     CalendarVersion,
     Client,
     Cycle,
+    CycleFiling,
+    DocumentVersion,
     DueDateChange,
     DueDateExtension,
     Email,
@@ -101,6 +103,16 @@ class ExtensionOut(BaseModel):
     applied_by: str | None
 
 
+class ProofOut(BaseModel):
+    """FR-WF-05: the acknowledgement and reference number a filing was recorded with."""
+
+    reference: str
+    version_id: int
+    filename: str
+    filed_by: str | None
+    filed_at: datetime
+
+
 class CycleOut(BaseModel):
     filing: NamedRef
     period_key: str
@@ -117,6 +129,8 @@ class CycleOut(BaseModel):
     calendar_version: int
     moves: list[MoveOut]  # what this person can do next
     approve_blocked: str | None = None  # in review: why this person may not approve (FR-WF-03)
+    can_file: bool = False  # ready to file, and this person may record the filing (FR-WF-05)
+    proof: ProofOut | None = None
     extensions: list[ExtensionOut]  # government extensions that moved its dates, newest first
 
 
@@ -172,6 +186,9 @@ class TicketRow(BaseModel):
 
 # Made only through the assignment endpoints, which record who has the work (FR-WF-01).
 ASSIGNMENT_MOVES = frozenset({"assign", "withdraw_assignment"})
+# Moves made elsewhere, so not offered as plain buttons: assigning (the assignment panel) and
+# filing (with its proof, POST /api/uploads/tickets/{ticket}/filing).
+SEPARATE_MOVES = ASSIGNMENT_MOVES | {"file"}
 
 
 class TransitionIn(BaseModel):
@@ -182,6 +199,25 @@ class TransitionIn(BaseModel):
 
 def _move_out(m: object) -> MoveOut:
     return MoveOut.model_validate(m, from_attributes=True)
+
+
+def proof_of(db: Session, cycle_id: int) -> ProofOut | None:
+    row = db.execute(
+        select(CycleFiling, DocumentVersion.filename, User.full_name)
+        .join(DocumentVersion, DocumentVersion.id == CycleFiling.acknowledgement_version_id)
+        .outerjoin(User, User.id == CycleFiling.filed_by_id)
+        .where(CycleFiling.cycle_id == cycle_id)
+    ).first()
+    if row is None:
+        return None
+    proof, filename, name = row
+    return ProofOut(
+        reference=proof.reference,
+        version_id=proof.acknowledgement_version_id,
+        filename=filename,
+        filed_by=name,
+        filed_at=proof.filed_at,
+    )
 
 
 def can_edit(principal: Principal, client: Client) -> bool:
@@ -267,9 +303,11 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             moves=[
                 _move_out(m)
                 for m in moves_from(cycle.stage)
-                if m.action not in ASSIGNMENT_MOVES and not (m.action == "approve" and blocked)
+                if m.action not in SEPARATE_MOVES and not (m.action == "approve" and blocked)
             ],
             approve_blocked=blocked,
+            can_file=cycle.stage is Stage.READY_TO_FILE and can_edit(principal, client),
+            proof=proof_of(db, cycle.id),
             extensions=[
                 ExtensionOut(
                     old_due_date=c.old_due_date,

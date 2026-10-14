@@ -17,6 +17,7 @@ from app.models import (
     Client,
     Cycle,
     CycleChecklistItem,
+    CycleFiling,
     EndReason,
     EventKind,
     Filing,
@@ -197,6 +198,15 @@ def transition(
         raise MoveRefused(
             "illegal_transition",
             f"A cycle in {STAGE_LABEL[cycle.stage]} cannot be moved that way. Stages cannot be skipped.",
+            allowed,
+        )
+    if move.action == "file" and not db.scalar(
+        select(CycleFiling.id).where(CycleFiling.cycle_id == cycle.id)
+    ):
+        # FR-WF-05: the database refuses it too (trigger, migration 0021).
+        raise MoveRefused(
+            "proof_required",
+            "Upload the acknowledgement and enter the reference number to mark this filed.",
             allowed,
         )
     note = (note or "").strip() or None

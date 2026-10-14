@@ -225,6 +225,45 @@ describe("Updates to the client", () => {
   });
 });
 
+describe("Filing", () => {
+  it("marks it filed only with both the acknowledgement and the reference number", async () => {
+    const uploads: Call[] = [];
+    const ready = { ...ticket("ready_to_file", []), cycle: { ...ticket("ready_to_file", []).cycle, can_file: true, proof: null } };
+    const filed = { ...ticket("filed", [move("acknowledge", "Mark acknowledged", "filed", "acknowledged")]), cycle: { ...ticket("filed", [move("acknowledge", "Mark acknowledged", "filed", "acknowledged")]).cycle, can_file: false, proof: { reference: "AA0705260012345", version_id: 77, filename: "ack.pdf", filed_by: "Asha Rao", filed_at: "2026-05-10T05:00:00Z" } } };
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ready),
+        "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
+        "POST /api/uploads/tickets/TKT-000001/filing?reference=AA0705260012345": (c) => { uploads.push(c); return jsonResponse(filed); },
+      },
+    });
+    const go = await screen.findByRole("button", { name: "Mark filed" });
+    expect(go).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Reference number"), "AA 07");
+    expect(screen.getByText("5 to 50 letters and digits, exactly as the portal gave it.")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Reference number"));
+    await userEvent.type(screen.getByLabelText("Reference number"), "AA0705260012345");
+    expect(go).toBeDisabled(); // still no file
+    await userEvent.upload(screen.getByLabelText("Acknowledgement file"), new File(["%PDF-1.7"], "ack.pdf", { type: "application/pdf" }));
+    expect(screen.getByTestId("filing-file")).toHaveTextContent("ack.pdf");
+    await userEvent.click(go);
+    expect(await screen.findByTestId("filing-proof")).toHaveTextContent("Filed · reference AA0705260012345");
+    expect(screen.getByRole("button", { name: "Mark acknowledged" })).toBeInTheDocument();
+    expect(uploads[0]?.headers.get("X-File-Name")).toBe("ack.pdf");
+  });
+
+  it("tells someone who may not file who can", async () => {
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: { ...quiet, "GET /api/tickets/TKT-000001": () => jsonResponse({ ...ticket("ready_to_file", []), cycle: { ...ticket("ready_to_file", []).cycle, can_file: false } }), "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]) },
+    });
+    expect(await screen.findByText("Ready for the client's owner or an Administrator to file.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark filed" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Documents", () => {
   const version = (n: number, over: Record<string, unknown> = {}) => ({ id: 100 + n, version: n, filename: `Sales v${String(n)}.pdf`, content_type: "application/pdf", size_bytes: 2048, uploaded_via: "staff", uploaded_by: "Asha Rao", uploaded_at: "2026-10-14T05:00:00Z", scan_status: "clean", scan_label: "Checked", ...over });
 
