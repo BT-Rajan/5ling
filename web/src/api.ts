@@ -49,7 +49,7 @@ export async function api<T>(
     const merged = new Headers(headers);
     if (!merged.has("Accept")) merged.set("Accept", "application/json");
     const method = (rest.method ?? "GET").toUpperCase();
-    if (UNSAFE.has(method) && csrfToken) merged.set("X-CSRF-Token", csrfToken);
+    if (UNSAFE.has(method) && csrfToken && !merged.has("X-CSRF-Token")) merged.set("X-CSRF-Token", csrfToken);
     if (json !== undefined) merged.set("Content-Type", "application/json");
     const response = await fetch(path, {
       ...rest,
@@ -84,7 +84,8 @@ function failureFrom(path: string, status: number, body: unknown): ApiError {
     body,
   );
   // A 401 from the sign-in steps means "wrong details", not "your session ended".
-  if (status === 401 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/mfa/")) {
+  // Nor does one from the client portal, which has no staff session at all.
+  if (status === 401 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/mfa/") && !path.startsWith("/api/portal/")) {
     onUnauthorized?.(failure);
   }
   return failure;

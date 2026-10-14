@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
+import { ClientLinks } from "../components/ClientLinks";
 import { formatDay, formatIST } from "../time";
 
 export type StageKey =
@@ -289,6 +290,7 @@ export function TicketPage() {
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
           <Actions ticket={ticket} onMoved={setTicket} />
+          {ticket.can_edit && <ClientLinks code={ticket.code} />}
         </>
       )}
       {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={setTicket} />}

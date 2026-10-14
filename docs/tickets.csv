@@ -62,9 +62,9 @@ LL-055,C13,R1,Email service and outbox,Email provider interface (SMTP or cloud) 
 LL-056,C13,R1,Email service and outbox,"Template engine; variables include client name, client ID, ticket ID, stage, due date",API,M,CR-03,Done
 LL-057,C13,R1,Email service and outbox,"Outbox table with statuses: draft, queued, sent, delivered, failed, bounced",DB,M,"FR-AL-06, CR-03",Done
 LL-058,C13,R1,Email service and outbox,Send worker with 24-hour retry and provider delivery callbacks; also emails every Administrator when the audit log check fails (C04 alerts on screen and in the log until then),JOB,M,"INT-01, FR-AU-03",Done
-LL-059,C14,R1,Secure links and client portal shell,"Link tokens: one client, one cycle, hashed at rest, 72-hour default expiry",API,M,FR-AL-02,Todo
-LL-060,C14,R1,Secure links and client portal shell,Staff renew link; client can request a new link,API,M,FR-AL-02,Todo
-LL-061,C14,R1,Secure links and client portal shell,Mobile-first client portal shell validating the link,WEB,M,"FR-AL-02, NFR-US-01",Todo
+LL-059,C14,R1,Secure links and client portal shell,"Link tokens: one client, one cycle, hashed at rest, 72-hour default expiry",API,M,FR-AL-02,Done
+LL-060,C14,R1,Secure links and client portal shell,Staff renew link; client can request a new link,API,M,FR-AL-02,Done
+LL-061,C14,R1,Secure links and client portal shell,Mobile-first client portal shell validating the link,WEB,M,"FR-AL-02, NFR-US-01",Done
 LL-062,C15,R1,Manual state-change emails,Consume state_changed: create one DRAFT notification per stage change (nothing is sent),API,M,CR-03,Todo
 LL-063,C15,R1,Manual state-change emails,"Draft preview, optional personal note, Send endpoint with once-only guard; Own or Admin only",API,M,"CR-03, FR-AC-01",Todo
 LL-064,C15,R1,Manual state-change emails,'Send update to client' button and draft badge on ticket page,WEB,M,CR-03,Todo

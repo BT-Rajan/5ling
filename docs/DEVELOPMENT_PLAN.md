@@ -278,7 +278,7 @@ Total: 151 tickets.
 
 **Done when:** A test email moves queued to sent to delivered; a forced failure shows failed.
 
-### C14 - Secure links and client portal shell (R1)
+### C14 - Secure links and client portal shell (R1) - DONE
 
 **Goal:** Clients act on one cycle through a private, expiring link.  
 **Depends on:** C13, C09

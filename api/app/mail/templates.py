@@ -33,6 +33,8 @@ VARIABLES: dict[str, str] = {
     "note": "A note from the sender (may be empty)",
     "sender_name": "Who is sending it",
     "detail": "Details supplied by the system",
+    "link": "A private link to the client portal",
+    "expires": "When the link stops working, India time",
 }
 
 
@@ -81,6 +83,18 @@ TEMPLATES: dict[str, Template] = {
             "{{note}}\n\n"
             "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
             "{{sender_name}}\n{{firm_name}}\n",
+        ),
+        Template(
+            "portal_link",
+            "{{filing}} {{period}}: your private link ({{ticket_id}})",
+            "Dear {{client_name}},\n\n"
+            "Here is your private link for your {{filing}} for {{period}}, due {{due_date}}:\n\n"
+            "{{link}}\n\n"
+            "It opens once, on one device, and works until {{expires}}. Please do not forward "
+            "it. If it no longer works, open it anyway and ask for a new one: we will email it "
+            "to this address.\n\n"
+            "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{firm_name}}\n",
         ),
         Template(
             "client_status_change",

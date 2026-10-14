@@ -27,6 +27,8 @@ from app.routers import (
     clients,
     email_events,
     health,
+    portal,
+    ticket_links,
     tickets,
 )
 from app.security import (
@@ -112,6 +114,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_extensions.router)
     app.include_router(admin_emails.router)
     app.include_router(email_events.router)
+    app.include_router(ticket_links.router)
+    app.include_router(portal.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

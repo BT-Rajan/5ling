@@ -62,6 +62,10 @@ CAPABILITIES: tuple[Capability, ...] = (
             # Ad hoc task tickets on a client (CR-02).
             ("POST", "/api/tickets"),
             ("PATCH", "/api/tickets/{ticket}"),
+            # The client's private link for a cycle (FR-AL-02).
+            ("GET", "/api/tickets/{ticket}/links"),
+            ("POST", "/api/tickets/{ticket}/links"),
+            ("POST", "/api/tickets/{ticket}/links/{link_id}/withdraw"),
         ),
     ),
     Capability(

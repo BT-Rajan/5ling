@@ -19,6 +19,11 @@ PUBLIC = frozenset(
         ("POST", "/api/auth/mfa/enrol/confirm"),
         # Delivery reports from the email provider: signed with a shared secret instead.
         ("POST", "/api/email/events"),
+        # The client portal: a private link or the portal session it started, not an account.
+        ("POST", "/api/portal/open"),
+        ("GET", "/api/portal/me"),
+        ("POST", "/api/portal/logout"),
+        ("POST", "/api/portal/request-link"),
     }
 )
 
