@@ -55,8 +55,8 @@ def authenticate(
     session_row, user = loaded.session, loaded.user
     if loaded.idle:
         revoke_session(db, session_row)
+        security_event("session.idle_expired", db=db, user_id=user.id)
         db.commit()
-        security_event("session.idle_expired", user_id=user.id)
         raise ApiHTTPException(
             401,
             "You were signed out after 20 minutes of inactivity. Sign in again.",

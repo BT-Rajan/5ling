@@ -124,7 +124,7 @@ Total: 151 tickets.
 
 **Done when:** Role-by-endpoint test matrix runs in CI and every forbidden action is refused.
 
-### C03 - Audit log core (R1)
+### C03 - Audit log core (R1) - DONE
 
 **Goal:** Append-only, hash-chained audit trail that all later chunks write to.  
 **Depends on:** C01

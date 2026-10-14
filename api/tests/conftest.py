@@ -10,6 +10,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from app.config import Settings
 from app.main import create_app
+from app.models import GENESIS_HASH
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
@@ -18,6 +19,7 @@ from sqlalchemy.engine import make_url
 TEST_DB_URL = os.environ.get("LL_TEST_DATABASE_URL")
 # Nothing listens here, so tests that do not need a database never touch a real one.
 UNREACHABLE_DB = "mysql+pymysql://nobody:nothing@127.0.0.1:1/none"
+UNREACHABLE_OWNER_DB = "mysql+pymysql://owner:nothing@127.0.0.1:1/none"
 GOOD_SECRET = "9f2c6a1be07d4835a6c1f0e29b7d3c58e41a0f6b"
 
 
@@ -30,6 +32,9 @@ def make_settings(**overrides: Any) -> Settings:
         "allowed_origins": "https://app.example.test",
     }
     values.update(overrides)
+    if values["env"] == "production":
+        # Production refuses to start without a separate migration account.
+        values.setdefault("migration_database_url", UNREACHABLE_OWNER_DB)
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 
@@ -110,8 +115,14 @@ def migrated_db(db_url: str) -> str:
         with engine.begin() as conn:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
             for table in tables - {"alembic_version", "app_meta"}:
+                # TRUNCATE fires no triggers, so it can empty the append-only audit trail; only
+                # the test owner account may run it (the app's account has no DROP right).
                 conn.execute(text(f"TRUNCATE TABLE `{table}`"))
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+            conn.execute(
+                text("INSERT INTO audit_chain (id, last_seq, last_hash) VALUES (1, 0, :g)"),
+                {"g": GENESIS_HASH},
+            )
     engine.dispose()
     return db_url
 

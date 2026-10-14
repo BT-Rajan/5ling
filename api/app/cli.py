@@ -13,6 +13,7 @@ import sys
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import delete, select
 
+from app.audit import audit
 from app.auth import passwords
 from app.auth.sessions import revoke_all_for_user
 from app.config import get_settings
@@ -32,13 +33,16 @@ def create_admin(email: str, name: str, password: str) -> str:
     with make_session_factory(engine)() as db:
         if db.scalar(select(User.id).where(User.email == email)) is not None:
             return "Someone with that email already exists."
-        db.add(
-            User(
-                email=email,
-                full_name=" ".join(name.split()),
-                role=Role.ADMINISTRATOR,
-                password_hash=passwords.hash_password(password),
-            )
+        user = User(
+            email=email,
+            full_name=" ".join(name.split()),
+            role=Role.ADMINISTRATOR,
+            password_hash=passwords.hash_password(password),
+        )
+        db.add(user)
+        db.flush()
+        audit(
+            db, "user.created", target=("user", user.id), details={"role": user.role, "via": "cli"}
         )
         db.commit()
     engine.dispose()
@@ -59,6 +63,7 @@ def reset_mfa(email: str) -> str:
         db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
         db.execute(delete(LoginChallenge).where(LoginChallenge.user_id == user.id))
         revoke_all_for_user(db, user.id)
+        audit(db, "user.mfa_reset", target=("user", user.id), details={"via": "cli"})
         db.commit()
     engine.dispose()
     return ""
