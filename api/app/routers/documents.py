@@ -22,6 +22,7 @@ from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.config import Settings
 from app.errors import ApiHTTPException
+from app.files.checklist import items_for, upload_for_item
 from app.files.documents import (
     Infected,
     accept,
@@ -130,6 +131,36 @@ def documents_of(db: Session, cycle_id: int) -> list[DocumentOut]:
     ]
 
 
+class ItemOut(BaseModel):
+    id: int
+    label: str
+    required: bool
+    status: str  # pending, checking, received
+    status_label: str
+    document_id: int | None
+
+
+@router.get("/api/tickets/{ticket}/checklist")
+def checklist(
+    ticket: str,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[ItemOut]:
+    """FR-AL-04: what the client has been asked for on this filing, and what has come in."""
+    _, cycle = _cycle(db, principal, ticket)
+    return [
+        ItemOut(
+            id=v.item.id,
+            label=v.item.label,
+            required=v.item.required,
+            status=v.status,
+            status_label=v.label,
+            document_id=v.item.document_id,
+        )
+        for v in items_for(db, cycle.id)
+    ]
+
+
 @router.get("/api/tickets/{ticket}/documents")
 def list_documents(
     ticket: str,
@@ -152,11 +183,13 @@ def upload(
     x_file_name: Annotated[str, Header(max_length=600)],
     title: Annotated[str | None, Query(max_length=200)] = None,
     document_id: Annotated[int | None, Query(ge=1)] = None,
+    item_id: Annotated[int | None, Query(ge=1)] = None,
     body: bytes = Depends(raw_body),
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> list[DocumentOut]:
-    """Upload a file: a new document (`title`), or a new version of one (`document_id`).
+    """Upload a file: for a checklist item (`item_id`), a new document (`title`), or a new
+    version of one (`document_id`).
 
     The body is the file itself; its name comes percent-encoded in the X-File-Name header.
     """
@@ -165,20 +198,38 @@ def upload(
     client, cycle = _cycle(db, principal, ticket)
     name = unquote(x_file_name)
     try:
-        got = accept(
-            db,
-            store,
-            request.app.state.scanner,
-            client=client,
-            cycle=cycle,
-            name=name,
-            data=body,
-            max_bytes=settings.max_upload_bytes,
-            title=title,
-            document_id=document_id,
-            via=UploadedVia.STAFF,
-            uploaded_by_id=principal.user_id,
-        )
+        if item_id is not None:
+            found = upload_for_item(
+                db,
+                store,
+                request.app.state.scanner,
+                item_id=item_id,
+                client=client,
+                cycle=cycle,
+                name=name,
+                data=body,
+                max_bytes=settings.max_upload_bytes,
+                via=UploadedVia.STAFF,
+                uploaded_by_id=principal.user_id,
+            )
+            if found is None:
+                raise FileRefused("That checklist item is not on this filing.")
+            got = found
+        else:
+            got = accept(
+                db,
+                store,
+                request.app.state.scanner,
+                client=client,
+                cycle=cycle,
+                name=name,
+                data=body,
+                max_bytes=settings.max_upload_bytes,
+                title=title,
+                document_id=document_id,
+                via=UploadedVia.STAFF,
+                uploaded_by_id=principal.user_id,
+            )
     except (FileRefused, Infected) as exc:
         db.rollback()
         infected = isinstance(exc, Infected)

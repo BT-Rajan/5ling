@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@mui/material/styles";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { errorResponse, jsonResponse, mockApi, type Call } from "../test-utils";
 import { theme } from "../theme";
@@ -26,6 +26,9 @@ function show(hash = "") {
 function gone(code: string, message: string, canRequestNew: boolean) {
   return () => new Response(JSON.stringify({ error: { code, message, can_request_new: canRequestNew } }), { status: 410, headers: { "Content-Type": "application/json" } });
 }
+
+const item = (id: number, label: string, over: Record<string, unknown> = {}) => ({ id, label, required: true, status: "pending", status_label: "Still needed", files: [], ...over });
+const checklist = (items: unknown[], stillNeeded: number) => ({ items, still_needed: stillNeeded, allowed: "CSV, DOCX, JPG, PDF, PNG, TXT, XLS, XLSX", max_mb: 20 });
 
 describe("Client portal", () => {
   it("opens the link once, hides it from the address bar, and shows the one cycle", async () => {
@@ -80,5 +83,31 @@ describe("Client portal", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Sign out on this device" }));
     expect(await screen.findByText(/You have signed out on this device/)).toBeInTheDocument();
     expect(calls[0]?.headers.get("X-CSRF-Token")).toBe("portal-csrf");
+  });
+
+  it("lists what is still needed, uploads per item and shows why a file was refused", async () => {
+    const uploads: Call[] = [];
+    mockApi({
+      handlers: {
+        "POST /api/portal/open": () => jsonResponse(portal),
+        "GET /api/portal/checklist": () => jsonResponse(checklist([item(1, "Sales register"), item(2, "Purchase register")], 2)),
+        "POST /api/uploads/portal/items/1": (c) => {
+          uploads.push(c);
+          return jsonResponse(checklist([item(1, "Sales register", { status: "received", status_label: "Received", files: [{ version: 1, filename: "april.pdf", uploaded_at: "2026-10-14T05:00:00Z", checked: true }] }), item(2, "Purchase register")], 1), 201);
+        },
+        "POST /api/uploads/portal/items/2": () => errorResponse(422, "file_refused", "This file is not really a PDF file."),
+      },
+    });
+    show("#t=good");
+    expect(await screen.findByTestId("still-needed")).toHaveTextContent("2 still needed.");
+    await userEvent.upload(screen.getByLabelText("Upload Sales register"), new File(["%PDF-1.7"], "april.pdf", { type: "application/pdf" }));
+    expect(await screen.findByText("april.pdf received for Sales register. Thank you.")).toBeInTheDocument();
+    expect(screen.getByTestId("still-needed")).toHaveTextContent("1 still needed.");
+    expect(uploads[0]?.headers.get("X-CSRF-Token")).toBe("portal-csrf");
+    expect(uploads[0]?.headers.get("X-File-Name")).toBe("april.pdf");
+
+    await userEvent.upload(screen.getByLabelText("Upload Purchase register"), new File(["MZ"], "purchases.pdf", { type: "application/pdf" }));
+    const purchase = screen.getByRole("region", { name: "Purchase register" });
+    expect(await within(purchase).findByRole("alert")).toHaveTextContent("This file is not really a PDF file.");
   });
 });

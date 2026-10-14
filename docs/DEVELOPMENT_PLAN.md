@@ -322,7 +322,7 @@ Total: 151 tickets.
 
 **Done when:** A new upload becomes version 2; an infected file is rejected and logged; no public file URL exists.
 
-### C17 - Checklist and client upload (R1)
+### C17 - Checklist and client upload (R1) - DONE
 
 **Goal:** Clients upload against checklist items and see what is pending.  
 **Depends on:** C14, C16, C05

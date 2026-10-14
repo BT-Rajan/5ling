@@ -40,7 +40,13 @@ from app.models.cycle import (
     TicketCounter,
     TicketType,
 )
-from app.models.document import Document, DocumentVersion, ScanStatus, UploadedVia
+from app.models.document import (
+    CycleChecklistItem,
+    Document,
+    DocumentVersion,
+    ScanStatus,
+    UploadedVia,
+)
 from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
@@ -71,6 +77,7 @@ __all__ = [
     "ConsentChange",
     "Contact",
     "Cycle",
+    "CycleChecklistItem",
     "Document",
     "DocumentVersion",
     "DueDateChange",
