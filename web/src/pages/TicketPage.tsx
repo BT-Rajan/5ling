@@ -73,6 +73,7 @@ interface Ticket {
     package_version: number;
     calendar_version: number;
     moves: Move[];
+    approve_blocked?: string | null;
     extensions: { old_due_date: string; new_due_date: string; old_alert_date: string; new_alert_date: string; reason: string; applied_at: string; applied_by: string | null }[];
   } | null;
   task: {
@@ -191,6 +192,42 @@ function Timeline({ current }: { current: StageKey }) {
   );
 }
 
+/** FR-WF-03, FR-WF-04: the checker approves, or returns the work with a comment. */
+function Review({ ticket, busy, error, run }: { ticket: Ticket; busy: boolean; error: string | null; run: (m: Move, note?: string) => Promise<void> }) {
+  const [comment, setComment] = useState("");
+  const moves = ticket.cycle?.moves ?? [];
+  const approve = moves.find((m) => m.action === "approve");
+  const back = moves.find((m) => m.action === "return");
+  const blocked = ticket.cycle?.approve_blocked;
+  const text = comment.trim();
+  return (
+    <Paper component="section" aria-labelledby="review-heading" variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+      <Typography id="review-heading" variant="h6" component="h2" sx={{ mb: 1 }}>Review</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {blocked && <Alert severity="info" sx={{ mb: 2 }}>{blocked}</Alert>}
+      {(approve ?? back) && (
+        <>
+          <TextField
+            label="Comments for the preparer"
+            helperText={back ? "Needed to return the work; optional when approving." : undefined}
+            value={comment}
+            onChange={(e) => { setComment(e.target.value); }}
+            fullWidth
+            multiline
+            minRows={2}
+            slotProps={{ htmlInput: { maxLength: 1000 } }}
+            disabled={busy}
+          />
+          <Stack direction="row" sx={{ mt: 2, gap: 1, flexWrap: "wrap" }}>
+            {approve && <Button variant="contained" disabled={busy} onClick={() => void run(approve, text || undefined)}>{approve.label}</Button>}
+            {back && <Button variant="outlined" disabled={busy || !text} onClick={() => void run(back, text)}>{back.label}</Button>}
+          </Stack>
+        </>
+      )}
+    </Paper>
+  );
+}
+
 function Actions({ ticket, onMoved }: { ticket: Ticket; onMoved: (t: Ticket) => void }) {
   const cycle = ticket.cycle;
   const [noteFor, setNoteFor] = useState<Move | null>(null);
@@ -218,7 +255,15 @@ function Actions({ ticket, onMoved }: { ticket: Ticket; onMoved: (t: Ticket) => 
     }
   }
 
-  if (cycle.moves.length === 0) return <Typography color="text.secondary" sx={{ mb: 3 }}>This cycle is closed.</Typography>;
+  if (cycle.stage === "closed") return <Typography color="text.secondary" sx={{ mb: 3 }}>This cycle is closed.</Typography>;
+  if (cycle.stage === "in_review") return <Review ticket={ticket} busy={busy} error={error} run={run} />;
+  if (cycle.moves.length === 0) {
+    return (
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        {cycle.stage === "documents_received" ? "Assign the work below to move it on." : "Nothing to do here right now."}
+      </Typography>
+    );
+  }
   return (
     <Box sx={{ mb: 3 }}>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}

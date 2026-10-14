@@ -22,9 +22,9 @@ from tests.helpers import Signed, db_session, make_user, sign_in_directly
 from tests.test_checklist import CHECKLIST, publish_with_checklist
 from tests.test_clients import _ok, admin, client_body, create
 from tests.test_documents import PDF, FakeScanner, scanner
-from tests.test_tickets import first_ticket, move
+from tests.test_tickets import checker, first_ticket, move
 
-__all__ = ["admin", "scanner"]  # fixtures re-used from other test modules
+__all__ = ["admin", "checker", "scanner"]  # fixtures re-used from other test modules
 
 pytestmark = pytest.mark.requires_db
 
@@ -203,7 +203,7 @@ def test_assigning_moves_the_cycle_notifies_and_opens_only_that_cycle(
 
 
 def test_after_closure_the_consultant_has_no_access(
-    web: TestClient, admin: Signed, migrated_db: str
+    web: TestClient, admin: Signed, migrated_db: str, checker: tuple[TestClient, Signed]
 ) -> None:
     _, code, _ = setup(web, admin, migrated_db)
     to_documents_received(web, admin, code)
@@ -218,7 +218,7 @@ def test_after_closure_the_consultant_has_no_access(
         ("acknowledge", "filed"),
         ("close", "acknowledged"),
     ]:
-        _ok(move(web, admin, code, action, at))
+        _ok(move(*(checker if action == "approve" else (web, admin)), code, action, at))
     closed = ravi.get(f"/api/consultant/assignments/{work_id}")
     assert (closed.status_code, closed.json()["error"]["code"]) == (403, "no_access")
     assert "no longer have access" in closed.json()["error"]["message"]

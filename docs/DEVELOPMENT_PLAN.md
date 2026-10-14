@@ -391,7 +391,7 @@ Total: 151 tickets.
 
 **Done when:** After closure the consultant link says 'no access'; any other client record is denied and logged.
 
-### C22 - Review: maker-checker (R1)
+### C22 - Review: maker-checker (R1) - DONE
 
 **Goal:** The preparer cannot approve their own work.  
 **Depends on:** C21

@@ -33,6 +33,7 @@ _WARN = {
     "csrf.rejected",
     "origin.rejected",
     "request.denied",
+    "review.approval_refused",
 }
 
 

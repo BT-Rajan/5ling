@@ -57,6 +57,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/consultant/assignments"),
             ("GET", "/api/consultant/assignments/{assignment_id}"),
             ("POST", "/api/uploads/consultant/assignments/{assignment_id}"),
+            # Sending their work for review (FR-WF-03).
+            ("POST", "/api/consultant/assignments/{assignment_id}/submit"),
         ),
     ),
     Capability(
@@ -73,7 +75,7 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
             ("PATCH", "/api/clients/{client_id}"),
             ("GET", "/api/clients/{client_id}/history"),
-            # Moving a cycle on; later chunks add maker-checker (C22) and filing proof (C23).
+            # Moving a cycle on; approve is refused to the preparer (C22); filing proof is C23.
             ("POST", "/api/tickets/{ticket}/transition"),
             # Ad hoc task tickets on a client (CR-02).
             ("POST", "/api/tickets"),
@@ -163,7 +165,16 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/files/{token}"),
         ),
     ),
-    Capability("Approve a filing (as checker)", "Y", "Own, not as preparer", "-", "-", "C22"),
+    Capability(
+        "Approve a filing (as checker)",
+        "Y",
+        "Own, not as preparer",
+        "-",
+        "-",
+        "C22",
+        # The approve action; the server refuses it to anyone who prepared the work.
+        routes=(("POST", "/api/tickets/{ticket}/transition"),),
+    ),
     Capability("Mark filed", "Y", "Own", "-", "-", "C23"),
     Capability("See fee ledger", "Y", "Own", "-", "-", "C25"),
     Capability("Record payments", "Y", "Own", "-", "-", "C25"),

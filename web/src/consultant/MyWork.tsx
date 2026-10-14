@@ -8,6 +8,7 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor, uploadFile } from "../api";
@@ -28,11 +29,24 @@ interface Work {
   assigned_at: string;
 }
 
+interface ReviewNote {
+  action: "submit_for_review" | "return" | "approve";
+  label: string;
+  note: string | null;
+  by: string | null;
+  at: string;
+}
+
 interface WorkDetail extends Work {
   documents: DocumentItem[];
   allowed: string;
   max_mb: number;
+  can_upload: boolean;
+  can_submit: boolean;
+  review: ReviewNote[];
 }
+
+const SAID = { submit_for_review: "Sent for review", return: "Returned to you", approve: "Approved" } as const;
 
 /** FR-WF-02: a consultant's open assignments, and nothing else. */
 export function MyWork() {
@@ -69,6 +83,7 @@ export function AssignmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ severity: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
@@ -94,7 +109,23 @@ export function AssignmentPage() {
     try {
       const docs = await uploadFile<DocumentItem[]>(`/api/uploads/consultant/assignments/${encodeURIComponent(assignmentId ?? "")}`, file);
       setWork((w) => (w ? { ...w, documents: docs } : w));
+      load(); // the first upload moves it to Preparing
       setNotice({ severity: "success", text: `${file.name} uploaded.` });
+    } catch (e) {
+      setNotice({ severity: "error", text: messageFor(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const text = note.trim();
+      setWork(await api<WorkDetail>(`/api/consultant/assignments/${encodeURIComponent(assignmentId ?? "")}/submit`, { method: "POST", json: text ? { note: text } : {} }));
+      setNote("");
+      setNotice({ severity: "success", text: "Sent for review." });
     } catch (e) {
       setNotice({ severity: "error", text: messageFor(e) });
     } finally {
@@ -126,12 +157,32 @@ export function AssignmentPage() {
         </Box>
       </Paper>
       {notice && <Alert severity={notice.severity} sx={{ mb: 2 }}>{notice.text}</Alert>}
+      {work.review.length > 0 && (
+        <Box component="section" aria-labelledby="review-heading" sx={{ mb: 3 }}>
+          <Typography id="review-heading" variant="h5" component="h2" sx={{ mb: 1 }}>Review</Typography>
+          <List dense aria-label="Review comments" disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+            {work.review.map((r, i) => (
+              <ListItem key={`${r.action}-${r.at}`} divider={i < work.review.length - 1}>
+                <ListItemText primary={`${SAID[r.action]}${r.note ? `: “${r.note}”` : ""}`} secondary={`${r.by ?? "System"} · ${formatIST(r.at)}`} />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      )}
+      {work.can_submit && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+          <TextField label="Note for the reviewer (optional)" value={note} onChange={(e) => { setNote(e.target.value); }} fullWidth multiline minRows={2} slotProps={{ htmlInput: { maxLength: 1000 } }} disabled={busy} />
+          <Button variant="contained" sx={{ mt: 2 }} disabled={busy} onClick={() => void submit()}>Send for review</Button>
+        </Paper>
+      )}
       <Stack direction="row" sx={{ alignItems: "center", mb: 1, gap: 2, flexWrap: "wrap" }}>
         <Typography variant="h5" component="h2" sx={{ mr: "auto" }}>Documents</Typography>
         <input ref={input} type="file" hidden aria-label="Upload your work" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void send(f); }} />
-        <Button variant="contained" disabled={busy} onClick={() => input.current?.click()}>Upload your work</Button>
+        {work.can_upload && <Button variant="contained" disabled={busy} onClick={() => input.current?.click()}>Upload your work</Button>}
       </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{work.allowed} files, up to {work.max_mb} MB each.</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {work.can_upload ? `${work.allowed} files, up to ${String(work.max_mb)} MB each.` : "This work is with the reviewer, so it cannot be changed now."}
+      </Typography>
       {work.documents.length === 0 && <Typography color="text.secondary">No documents yet.</Typography>}
       <Stack spacing={2}>
         {work.documents.map((d) => (

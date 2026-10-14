@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session, aliased
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
+from app.auth.events import security_event
+from app.cycles.review import approval_refusal
 from app.cycles.service import (
     MoveRefused,
     create_ticket,
@@ -113,7 +115,8 @@ class CycleOut(BaseModel):
     package_name: str
     package_version: int
     calendar_version: int
-    moves: list[MoveOut]  # what can be done next
+    moves: list[MoveOut]  # what this person can do next
+    approve_blocked: str | None = None  # in review: why this person may not approve (FR-WF-03)
     extensions: list[ExtensionOut]  # government extensions that moved its dates, newest first
 
 
@@ -242,6 +245,11 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
         calendar = db.get(CalendarVersion, cycle.calendar_version_id)
         if filing is None or version is None or package is None or calendar is None:
             raise RuntimeError("cycle refers to missing catalog rows")  # foreign keys prevent it
+        blocked = (
+            approval_refusal(db, principal, client, cycle.id)
+            if cycle.stage is Stage.IN_REVIEW
+            else None
+        )
         cycle_out = CycleOut(
             filing=NamedRef(code=filing.code, name=filing.name),
             period_key=cycle.period_key,
@@ -256,7 +264,12 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             package_name=package.name,
             package_version=version.version,
             calendar_version=calendar.version,
-            moves=[_move_out(m) for m in moves_from(cycle.stage)],
+            moves=[
+                _move_out(m)
+                for m in moves_from(cycle.stage)
+                if m.action not in ASSIGNMENT_MOVES and not (m.action == "approve" and blocked)
+            ],
+            approve_blocked=blocked,
             extensions=[
                 ExtensionOut(
                     old_due_date=c.old_due_date,
@@ -621,6 +634,17 @@ def move_ticket(
     cycle = db.scalar(select(Cycle).where(Cycle.ticket_id == found.id))
     if cycle is None:
         raise ApiHTTPException(409, "This ticket has no filing stages.", code="not_a_cycle")
+    if body.action == "approve":
+        refusal = approval_refusal(db, principal, client, cycle.id)
+        if refusal is not None:
+            # FR-WF-03: refused, and recorded (in its own transaction, so it is kept).
+            security_event(
+                "review.approval_refused",
+                user_id=principal.user_id,
+                role=principal.role.value,
+                ticket=ticket_code(found.number),
+            )
+            raise ApiHTTPException(403, refusal, code="maker_checker")
     try:
         transition(
             db,

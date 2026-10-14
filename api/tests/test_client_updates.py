@@ -18,9 +18,9 @@ from sqlalchemy import func, select
 from tests.audit_helpers import entries
 from tests.helpers import Signed, db_session, make_user, sign_in_directly
 from tests.test_clients import _ok, admin, client_body, create, publish_package
-from tests.test_tickets import first_ticket, move
+from tests.test_tickets import checker, first_ticket, move
 
-__all__ = ["admin"]  # the fixture, re-used from test_clients
+__all__ = ["admin", "checker"]  # the fixture, re-used from test_clients
 
 pytestmark = pytest.mark.requires_db
 
@@ -69,11 +69,11 @@ def updates(url: str) -> list[Email]:
 
 
 def test_every_move_makes_one_draft_and_nothing_is_sent(
-    web: TestClient, admin: Signed, migrated_db: str
+    web: TestClient, admin: Signed, migrated_db: str, checker: tuple[TestClient, Signed]
 ) -> None:
     _, code = setup(web, admin, migrated_db)
     for action, at in PATH:
-        _ok(move(web, admin, code, action, at))
+        _ok(move(*(checker if action == "approve" else (web, admin)), code, action, at))
     drafts = updates(migrated_db)
     assert len(drafts) == 9
     assert {d.status for d in drafts} == {EmailStatus.DRAFT}

@@ -49,7 +49,7 @@ describe("Consultant work", () => {
       handlers: {
         ...quiet,
         "GET /api/consultant/assignments": () => jsonResponse([work]),
-        "GET /api/consultant/assignments/3": () => jsonResponse({ ...work, documents: [{ id: 5, title: "Sales register", latest_version: 1, versions: [{ id: 50, version: 1, filename: "sales.pdf", content_type: "application/pdf", size_bytes: 10, uploaded_via: "portal", uploaded_by: null, uploaded_at: "2026-05-01T05:00:00Z", scan_status: "clean", scan_label: "Checked" }] }], allowed: "PDF", max_mb: 20 }),
+        "GET /api/consultant/assignments/3": () => jsonResponse({ ...work, documents: [{ id: 5, title: "Sales register", latest_version: 1, versions: [{ id: 50, version: 1, filename: "sales.pdf", content_type: "application/pdf", size_bytes: 10, uploaded_via: "portal", uploaded_by: null, uploaded_at: "2026-05-01T05:00:00Z", scan_status: "clean", scan_label: "Checked" }] }], allowed: "PDF", max_mb: 20, can_upload: true, can_submit: false, review: [] }),
       },
     });
     const list = await screen.findByRole("list", { name: "Your work" });
@@ -58,6 +58,26 @@ describe("Consultant work", () => {
     expect(screen.getByText("Prepare the return")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Versions of Sales register" })).toHaveTextContent("Version 1 · sales.pdf");
     expect(screen.getByRole("button", { name: "Upload your work" })).toBeInTheDocument();
+  });
+
+  it("shows the reviewer's comment and sends the work back for review", async () => {
+    const posts: Call[] = [];
+    const base = { ...work, stage_label: "Preparing", documents: [], allowed: "PDF", max_mb: 20, can_upload: true, can_submit: true, review: [{ action: "return", label: "Return to the preparer", note: "Input credit is wrong", by: "The Boss", at: "2026-05-02T05:00:00Z" }] };
+    renderApp("/assignments/3", {
+      user: ravi,
+      handlers: {
+        ...quiet,
+        "GET /api/consultant/assignments/3": () => jsonResponse(base),
+        "POST /api/consultant/assignments/3/submit": (c) => { posts.push(c); return jsonResponse({ ...base, stage_label: "In review", can_upload: false, can_submit: false, review: [...base.review, { action: "submit_for_review", label: "Send for review", note: "Fixed", by: "Ravi Consultant", at: "2026-05-03T05:00:00Z" }] }); },
+      },
+    });
+    expect(await screen.findByRole("list", { name: "Review comments" })).toHaveTextContent("Returned to you: “Input credit is wrong”");
+    await userEvent.type(screen.getByLabelText("Note for the reviewer (optional)"), "Fixed");
+    await userEvent.click(screen.getByRole("button", { name: "Send for review" }));
+    expect(await screen.findByText("Sent for review.")).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ note: "Fixed" });
+    expect(screen.queryByRole("button", { name: "Upload your work" })).not.toBeInTheDocument();
+    expect(screen.getByText("This work is with the reviewer, so it cannot be changed now.")).toBeInTheDocument();
   });
 
   it("says plainly when the work has ended", async () => {
