@@ -1,0 +1,13 @@
+# Runs the audit log check once a day at 02:15 India time; catches up after downtime.
+# Install: copy both files to /etc/systemd/system/, then
+#   systemctl daemon-reload && systemctl enable --now ledgerline-audit-check.timer
+[Unit]
+Description=Daily Ledgerline audit log check
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 Asia/Kolkata
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

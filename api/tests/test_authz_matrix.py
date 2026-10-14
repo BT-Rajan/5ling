@@ -37,6 +37,12 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("POST", "/api/admin/users/{user_id}/enable"): ADMIN,
     ("POST", "/api/admin/users/{user_id}/reset-password"): ADMIN,
     ("POST", "/api/admin/users/{user_id}/reset-mfa"): ADMIN,
+    ("GET", "/api/admin/audit/entries"): ADMIN,
+    ("GET", "/api/admin/audit/events"): ADMIN,
+    ("GET", "/api/admin/audit/status"): ADMIN,
+    ("GET", "/api/admin/audit/checks"): ADMIN,
+    ("POST", "/api/admin/audit/verify"): ADMIN,
+    ("POST", "/api/admin/audit/export"): ADMIN,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -252,5 +258,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 15  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C04", "C05", "C07", "C08", "C16", "C21", "C28"}
+    assert len(pending) == 14  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C05", "C07", "C08", "C16", "C21", "C28"}
+    assert "C04" not in {c.built_in for c in pending}

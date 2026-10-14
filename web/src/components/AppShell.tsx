@@ -10,6 +10,7 @@ import { useTheme } from "@mui/material/styles";
 import { Link as RouterLink, Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
 import { useAuth, useUser, type Role } from "../auth/AuthProvider";
 import { destinations, pageTitle, type Destination } from "../nav";
+import { AuditAlarm } from "./AuditAlarm";
 import { LogoMark } from "./Icons";
 
 function NavItem({ item, fill }: { item: Destination; fill: boolean }) {
@@ -235,6 +236,7 @@ export function AppShell() {
             outline: "none",
           }}
         >
+          <AuditAlarm />
           <Outlet />
         </Box>
       </Box>
