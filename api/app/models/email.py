@@ -54,6 +54,7 @@ class EmailKind(enum.StrEnum):
     AUDIT_ALERT = "audit_alert"  # the audit log check failed (FR-AU-03)
     CLIENT_UPDATE = "client_update"  # a state change, sent by hand (CR-03, chunk C15)
     PORTAL_LINK = "portal_link"  # a private link to the client portal (FR-AL-02)
+    CLIENT_ALERT = "client_alert"  # the automatic first alert and reminders (FR-AL-01, FR-AL-03)
 
 
 class EventSource(enum.StrEnum):
@@ -106,6 +107,11 @@ class Email(Base):
     failed_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     provider_message_id: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    # FR-AL-06: someone has followed up a failed or delayed client email (taken off the list).
+    problem_handled_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+    problem_handled_by_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id"), nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow
     )

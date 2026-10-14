@@ -1,0 +1,11 @@
+# Every 15 minutes: client alerts on their alert date, then reminders until the checklist is
+# complete (BRD FR-AL-01, FR-AL-03). Install like the audit check timer.
+[Unit]
+Description=Ledgerline client alerts and reminders, every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
+import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { Documents } from "../components/Documents";
@@ -300,6 +301,7 @@ export function TicketPage() {
         </>
       )}
       {ticket.can_edit && <ClientUpdates key={updatesRound} source={`/api/tickets/${ticket.code}/updates`} />}
+      {ticket.can_edit && <ClientEmails code={ticket.code} refresh={updatesRound} />}
       {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={changed} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>
       <List aria-label="Ticket history" disablePadding>
