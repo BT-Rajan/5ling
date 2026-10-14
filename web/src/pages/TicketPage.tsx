@@ -13,6 +13,7 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
 import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
+import { Documents } from "../components/Documents";
 import { formatDay, formatIST } from "../time";
 
 export type StageKey =
@@ -294,6 +295,7 @@ export function TicketPage() {
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
           <Actions ticket={ticket} onMoved={changed} />
+          {ticket.can_edit && <Documents code={ticket.code} />}
           {ticket.can_edit && <ClientLinks code={ticket.code} />}
         </>
       )}

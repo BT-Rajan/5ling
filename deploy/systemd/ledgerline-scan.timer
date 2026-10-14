@@ -1,0 +1,11 @@
+# Every 5 minutes, scans document files that were stored while the virus scanner was down
+# (BRD INT-03: held, and shown to no one, until scanned). Install like the audit check timer.
+[Unit]
+Description=Ledgerline scan of held document files, every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

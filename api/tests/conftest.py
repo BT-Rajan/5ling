@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -21,6 +23,8 @@ TEST_DB_URL = os.environ.get("LL_TEST_DATABASE_URL")
 UNREACHABLE_DB = "mysql+pymysql://nobody:nothing@127.0.0.1:1/none"
 UNREACHABLE_OWNER_DB = "mysql+pymysql://owner:nothing@127.0.0.1:1/none"
 GOOD_SECRET = "9f2c6a1be07d4835a6c1f0e29b7d3c58e41a0f6b"
+# Stored documents go here during tests, never into the developer's own storage.
+TEST_STORAGE = Path(tempfile.gettempdir()) / f"ledgerline-test-storage-{os.getpid()}"
 
 
 def make_settings(**overrides: Any) -> Settings:
@@ -31,6 +35,7 @@ def make_settings(**overrides: Any) -> Settings:
         "allowed_hosts": "testserver,localhost",
         "allowed_origins": "https://app.example.test",
     }
+    values.setdefault("storage_dir", str(TEST_STORAGE))
     values.update(overrides)
     if values["env"] == "production":
         # Production refuses to start without a separate migration account.
@@ -38,6 +43,7 @@ def make_settings(**overrides: Any) -> Settings:
         # ...nor with the placeholder sender address.
         values.setdefault("email_from_address", "no-reply@firm.example.in")
         values.setdefault("public_url", "https://app.example.test")
+        values.setdefault("storage_key", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 

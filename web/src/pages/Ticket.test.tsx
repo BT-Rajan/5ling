@@ -6,6 +6,7 @@ const quiet = {
   "GET /api/health/ready": () => new Promise<Response>(() => undefined),
   "GET /api/admin/audit/status": () => jsonResponse({ latest: null }),
   "GET /api/tickets/TKT-000001/links": () => jsonResponse([]),
+  "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
 };
 
 const move = (action: string, label: string, source: string, target: string, needs_note = false) => ({ action, label, source, target, needs_note });
@@ -193,6 +194,41 @@ describe("Updates to the client", () => {
     expect(sends).toHaveLength(1);
     expect(sends[0]?.body).toEqual({ note: "Please send the sales register.", cc_contact_ids: [9] });
     expect(screen.queryByTestId("drafts-badge")).not.toBeInTheDocument();
+  });
+});
+
+describe("Documents", () => {
+  const version = (n: number, over: Record<string, unknown> = {}) => ({ id: 100 + n, version: n, filename: `Sales v${String(n)}.pdf`, content_type: "application/pdf", size_bytes: 2048, uploaded_via: "staff", uploaded_by: "Asha Rao", uploaded_at: "2026-10-14T05:00:00Z", scan_status: "clean", scan_label: "Checked", ...over });
+
+  it("lists versions newest first and uploads a new version of a document", async () => {
+    const uploads: Call[] = [];
+    let docs = [{ id: 5, title: "Sales register", latest_version: 1, versions: [version(1)] }];
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ticket("scheduled", [])),
+        "GET /api/tickets/TKT-000001/documents": () => jsonResponse(docs),
+        "POST /api/uploads/tickets/TKT-000001?document_id=5": (c) => {
+          uploads.push(c);
+          docs = [{ id: 5, title: "Sales register", latest_version: 2, versions: [version(2, { scan_status: "pending", scan_label: "Waiting for the virus check" }), version(1)] }];
+          return jsonResponse(docs, 201);
+        },
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Versions of Sales register" });
+    expect(list).toHaveTextContent("Version 1 · Sales v1.pdf");
+    expect(within(list).getByRole("button", { name: "Download" })).toBeInTheDocument();
+
+    const file = new File(["%PDF-1.7"], "Sales (corrected).pdf", { type: "application/pdf" });
+    await userEvent.upload(screen.getByLabelText("Upload a new version"), file);
+    expect(await screen.findByText(/will be available once the virus check has run/)).toBeInTheDocument();
+    expect(uploads[0]?.headers.get("X-File-Name")).toBe("Sales%20(corrected).pdf");
+    expect(uploads[0]?.headers.get("X-CSRF-Token")).toBe("csrf-1");
+    const updated = screen.getByRole("list", { name: "Versions of Sales register" });
+    expect(within(updated).getAllByRole("listitem")[0]).toHaveTextContent("Version 2");
+    expect(updated).toHaveTextContent("Waiting for the virus check");
+    expect(within(updated).getAllByRole("button", { name: "Download" })).toHaveLength(1);
   });
 });
 

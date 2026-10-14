@@ -22,6 +22,9 @@ from app.auth.sessions import revoke_all_for_user
 from app.config import get_settings
 from app.cycles.generator import run as run_generator
 from app.db import make_engine, make_session_factory
+from app.files.documents import scan_pending
+from app.files.scan import ClamdScanner
+from app.files.store import store_from_settings
 from app.logging_conf import setup_logging
 from app.mail.provider import provider_from_settings
 from app.mail.updates import sweep
@@ -158,6 +161,27 @@ def send_emails(*, once: bool, interval: float) -> tuple[bool, str]:
         engine.dispose()
 
 
+def scan_documents() -> tuple[bool, str]:
+    """Scan files held because the virus scanner was down (INT-03). Run by a systemd timer."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        tally = scan_pending(
+            make_session_factory(engine),
+            store_from_settings(settings),
+            ClamdScanner(settings.clamd_address),
+        )
+    finally:
+        engine.dispose()
+    summary = f"{tally.clean} clean, {tally.infected} infected, {tally.waiting} still waiting."
+    if tally.errors:
+        return False, f"Some held files could not be read: {'; '.join(tally.errors)} {summary}"
+    if tally.waiting:
+        return False, f"The virus scanner is not reachable. {summary}"
+    return True, summary
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -176,7 +200,13 @@ def main(argv: list[str] | None = None) -> int:
     mailer = sub.add_parser("send-emails", help="send queued email (runs until stopped)")
     mailer.add_argument("--once", action="store_true", help="one round, then exit")
     mailer.add_argument("--interval", type=float, default=15.0, help="seconds between rounds")
+    sub.add_parser("scan-documents", help="scan files held while the virus scanner was down")
     args = parser.parse_args(argv)
+
+    if args.command == "scan-documents":
+        ok, message = scan_documents()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "send-emails":
         if not 1 <= args.interval <= 3600:

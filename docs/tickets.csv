@@ -71,11 +71,11 @@ LL-064,C15,R1,Manual state-change emails,'Send update to client' button and draf
 LL-065,C15,R1,Manual state-change emails,"Client status changes (active, paused, closed) also create drafts",API,S,"CR-03, FR-CL-04",Done
 LL-066,C15,R1,Manual state-change emails,Send goes to primary contact; other contacts copied only if chosen; send result audited,API,S,"FR-CL-03, FR-AU-01",Done
 LL-067,C15,R1,Manual state-change emails,"Tests: no auto-send, one draft per change, double-click sends once, audit entries present",TEST,S,CR-03,Done
-LL-068,C16,R1,Documents and storage,Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server),API,M,"INT-04, NFR-SE-05, NFR-SE-04",Todo
-LL-069,C16,R1,Documents and storage,documents and versions tables; upload never overwrites,API,M,FR-AL-05,Todo
-LL-070,C16,R1,Documents and storage,Virus scan on upload; file held until clean; type and size limits,JOB,M,"FR-AL-04, INT-03",Todo
-LL-071,C16,R1,Documents and storage,Short-lived authorised download links; every view and download audited,API,M,"NFR-SE-05, FR-AU-01",Todo
-LL-072,C16,R1,Documents and storage,Version history screen for staff,WEB,S,FR-AL-05,Todo
+LL-068,C16,R1,Documents and storage,Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server),API,M,"INT-04, NFR-SE-05, NFR-SE-04",Done
+LL-069,C16,R1,Documents and storage,documents and versions tables; upload never overwrites,API,M,FR-AL-05,Done
+LL-070,C16,R1,Documents and storage,Virus scan on upload; file held until clean; type and size limits,JOB,M,"FR-AL-04, INT-03",Done
+LL-071,C16,R1,Documents and storage,Short-lived authorised download links; every view and download audited,API,M,"NFR-SE-05, FR-AU-01",Done
+LL-072,C16,R1,Documents and storage,Version history screen for staff,WEB,S,FR-AL-05,Done
 LL-073,C17,R1,Checklist and client upload,Create cycle checklist from the package version,API,S,"FR-AL-04, FR-PK-05",Todo
 LL-074,C17,R1,Checklist and client upload,Portal upload per checklist item with pending list,WEB,M,FR-AL-04,Todo
 LL-075,C17,R1,Checklist and client upload,Rejection reasons shown to client and logged,API,S,FR-AL-04,Todo

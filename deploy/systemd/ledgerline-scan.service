@@ -1,0 +1,24 @@
+# Scans document files held while the virus scanner was down (BRD INT-03). Started by
+# ledgerline-scan.timer every 5 minutes. Exits 1 if the scanner is still unreachable.
+# Adjust paths and user to your install. Needs to read and delete files in LL_STORAGE_DIR.
+[Unit]
+Description=Ledgerline scan of held document files
+After=network-online.target mysql.service clamav-daemon.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline/api
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/api/.venv/bin/python -m app.cli scan-documents
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/ledgerline/storage
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
