@@ -10,8 +10,8 @@ target_metadata = Base.metadata
 
 
 def _url() -> str:
-    # Tests and tools may pass a URL through the alembic config; otherwise use app settings.
-    return config.attributes.get("url") or get_settings().database_url.get_secret_value()
+    # Tests and tools may pass a URL through the alembic config; otherwise the migration account.
+    return config.attributes.get("url") or get_settings().migration_url
 
 
 def run_migrations_offline() -> None:

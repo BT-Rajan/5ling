@@ -375,7 +375,7 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 """
 
 
-DONE_CHUNKS = {"C00", "C01", "C02"}
+DONE_CHUNKS = {"C00", "C01", "C02", "C03"}
 
 
 def main():

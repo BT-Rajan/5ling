@@ -53,6 +53,27 @@ def test_production_requires_https_and_real_hosts() -> None:
     assert ok.is_production
 
 
+def test_production_needs_a_separate_migration_account() -> None:
+    prod = {
+        "env": "production",
+        "allowed_origins": "https://app.example.test",
+        "allowed_hosts": "app.example.test",
+    }
+    with pytest.raises(ValidationError, match="migration_database_url"):
+        make_settings(**prod, migration_database_url=None)
+    with pytest.raises(ValidationError, match="different accounts"):
+        make_settings(**prod, migration_database_url="mysql+pymysql://nobody:other@db/x")
+    with pytest.raises(ValidationError):
+        make_settings(**prod, migration_database_url="postgresql://owner:p@db/x")
+    ok = make_settings(**prod, migration_database_url="mysql+pymysql://owner:p@db/x")
+    assert ok.migration_url == "mysql+pymysql://owner:p@db/x"
+
+
+def test_migrations_use_the_app_account_when_no_owner_is_set() -> None:
+    s = make_settings()
+    assert s.migration_url == s.database_url.get_secret_value()
+
+
 def test_secrets_do_not_appear_in_repr() -> None:
     s = make_settings()
     text = repr(s) + str(s)

@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.engine import Engine
 
+from app.audit.context import AuditContextMiddleware
+from app.auth.sessions import cookie_name
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
@@ -28,11 +30,18 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     settings = settings or get_settings()
     setup_logging(settings.log_level)
     engine = engine or make_engine(settings.database_url.get_secret_value())
+    # Audit entries that must outlive the request's own transaction (refusals, failed sign-ins)
+    # use a separate small pool, so a request never waits for a second connection from the pool
+    # it already holds one of.
+    audit_engine = make_engine(
+        settings.database_url.get_secret_value(), pool_size=5, max_overflow=5
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         engine.dispose()
+        audit_engine.dispose()
 
     app = FastAPI(
         title="Ledgerline API",
@@ -95,6 +104,11 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+    app.add_middleware(
+        AuditContextMiddleware,
+        sink=make_session_factory(audit_engine),
+        cookie=cookie_name(settings),
+    )
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         SecurityHeadersMiddleware, production=settings.is_production, docs_paths=DOCS_PATHS

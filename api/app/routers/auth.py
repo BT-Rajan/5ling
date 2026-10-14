@@ -144,6 +144,7 @@ def _sign_in(db: Session, user: User, request: Request, response: Response) -> S
     throttle.register_success(user)
     user.last_login_at = utcnow()
     token, row = create_session(db, user, _ip(request))
+    security_event("login.succeeded", db=db, user_id=user.id, role=user.role.value, ip=_ip(request))
     db.commit()
     response.set_cookie(
         cookie_name(settings),
@@ -154,7 +155,6 @@ def _sign_in(db: Session, user: User, request: Request, response: Response) -> S
         samesite="lax",
         path="/",
     )
-    security_event("login.succeeded", user_id=user.id, role=user.role.value, ip=_ip(request))
     return _session_out(db, user, row.csrf_token)
 
 
@@ -164,9 +164,9 @@ def _second_step_failed(
     ch.attempts += 1
     throttle.record_attempt(db, ip, False, now)
     locked = throttle.register_failure(user, now)
-    security_event("mfa.failed", user_id=user.id, ip=ip)
+    security_event("mfa.failed", db=db, user_id=user.id, ip=ip)
     if locked:
-        security_event("login.locked", user_id=user.id, ip=ip, via="second-step")
+        security_event("login.locked", db=db, user_id=user.id, ip=ip, via="second-step")
     db.commit()
     return ApiHTTPException(401, BAD_CODE, code="bad_code")
 
@@ -186,6 +186,7 @@ def _live_challenge(
         or throttle.is_locked(user, now)
         or not needs_second_step(user.role)
     ):
+        security_event("mfa.challenge_rejected", user_id=user.id if user else None, ip=ip)
         raise ApiHTTPException(401, EXPIRED_CHALLENGE, code="challenge_expired")
     return ch, user
 
@@ -248,11 +249,11 @@ def login(
         throttle.record_attempt(db, ip, False, now)
         if can_try and user is not None:
             locked_now = throttle.register_failure(user, now)
-            security_event("login.failed", user_id=user.id, ip=ip)
+            security_event("login.failed", db=db, user_id=user.id, ip=ip)
             if locked_now:
-                security_event("login.locked", user_id=user.id, ip=ip)
+                security_event("login.locked", db=db, user_id=user.id, ip=ip)
         else:
-            security_event("login.failed", user_id=user.id if user else None, ip=ip)
+            security_event("login.failed", db=db, user_id=user.id if user else None, ip=ip)
         db.commit()
         raise ApiHTTPException(401, GENERIC_FAILURE, code="bad_credentials")
 
@@ -266,8 +267,8 @@ def login(
     # and it does not clear the failure count: only a completed sign-in does.
     purpose = ChallengePurpose.VERIFY if user.totp_enabled_at else ChallengePurpose.ENROL
     token = challenges.issue(db, user, purpose, now)
+    security_event("login.password_ok", db=db, user_id=user.id, next_step=purpose.value, ip=ip)
     db.commit()
-    security_event("login.password_ok", user_id=user.id, next_step=purpose.value, ip=ip)
     return ChallengeOut(
         status="mfa_required" if purpose is ChallengePurpose.VERIFY else "mfa_enrolment_required",
         challenge=token,
@@ -296,7 +297,7 @@ def mfa_verify(
             user.totp_last_step = step  # this code cannot be used again
             ok = True
     elif _use_recovery_code(db, user, body.code, key):
-        security_event("mfa.recovery_code_used", user_id=user.id)
+        security_event("mfa.recovery_code_used", db=db, user_id=user.id)
         ok = True
 
     if not ok:
@@ -345,7 +346,7 @@ def mfa_enrol_confirm(
     user.totp_last_step = step
     codes = _replace_recovery_codes(db, user, key)
     ch.used_at = now
-    security_event("mfa.enrolled", user_id=user.id)
+    security_event("mfa.enrolled", db=db, user_id=user.id)
     done = _sign_in(db, user, request, response)
     return EnrolDoneOut(**done.model_dump(), recovery_codes=codes)
 
@@ -371,8 +372,8 @@ def logout(
     row = db.get(UserSession, principal.session_id)
     if row is not None:
         revoke_session(db, row)
-        db.commit()
-    security_event("logout", user_id=principal.user_id)
+    security_event("logout", db=db, user_id=principal.user_id)
+    db.commit()
     response = Response(status_code=204)
     response.delete_cookie(cookie_name(settings), path="/")
     return response
@@ -388,8 +389,8 @@ def _check_current_password(db: Session, user: User, password: str, event: str) 
     ):
         counts = user.password_hash is not None and not throttle.is_locked(user, now)
         if counts and throttle.register_failure(user, now):
-            security_event("login.locked", user_id=user.id, via=event)
-        security_event(event, user_id=user.id)
+            security_event("login.locked", db=db, user_id=user.id, via=event)
+        security_event(event, db=db, user_id=user.id)
         db.commit()
         raise ApiHTTPException(400, "Your current password is not correct.", code="bad_password")
 
@@ -416,8 +417,8 @@ def change_password(
     user.password_changed_at = utcnow()
     throttle.register_success(user)
     revoke_all_for_user(db, user.id, except_session_id=principal.session_id)
+    security_event("password.changed", db=db, user_id=user.id)
     db.commit()
-    security_event("password.changed", user_id=user.id)
     return Response(status_code=204)
 
 
@@ -434,6 +435,6 @@ def new_recovery_codes(
         raise ApiHTTPException(409, "Two-step sign-in is not set up.", code="mfa_not_enabled")
     _check_current_password(db, user, body.current_password, "mfa.recovery_codes_denied")
     codes = _replace_recovery_codes(db, user, _key(request))
+    security_event("mfa.recovery_codes_replaced", db=db, user_id=user.id)
     db.commit()
-    security_event("mfa.recovery_codes_replaced", user_id=user.id)
     return {"recovery_codes": codes}
