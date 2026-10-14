@@ -15,6 +15,7 @@ import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { FilingPage, FilingsPage } from "./pages/FilingsPage";
 import { HolidaysPage } from "./pages/HolidaysPage";
+import { ExtensionsPage } from "./pages/ExtensionsPage";
 import { PackagePage, PackagesPage } from "./pages/PackagesPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -75,6 +76,7 @@ export function App() {
         <Route path="setup/filings" element={<OnlyFor roles={["administrator"]}><FilingsPage /></OnlyFor>} />
         <Route path="setup/filings/:filingId" element={<OnlyFor roles={["administrator"]}><FilingPage /></OnlyFor>} />
         <Route path="setup/holidays" element={<OnlyFor roles={["administrator"]}><HolidaysPage /></OnlyFor>} />
+        <Route path="setup/extensions" element={<OnlyFor roles={["administrator"]}><ExtensionsPage /></OnlyFor>} />
         <Route path="setup/packages" element={<OnlyFor roles={["administrator"]}><PackagesPage /></OnlyFor>} />
         <Route path="setup/packages/:packageId" element={<OnlyFor roles={["administrator"]}><PackagePage /></OnlyFor>} />
         <Route path="audit" element={<OnlyFor roles={["administrator"]}><AuditPage /></OnlyFor>} />

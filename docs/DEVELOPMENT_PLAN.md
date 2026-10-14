@@ -251,7 +251,7 @@ Total: 151 tickets.
 
 **Done when:** A manual task gets a TKT ID, an assignee and a due date, and appears in lists.
 
-### C12 - Bulk due-date extension (R1)
+### C12 - Bulk due-date extension (R1) - DONE
 
 **Goal:** One action applies a government extension to all affected open cycles.  
 **Depends on:** C10

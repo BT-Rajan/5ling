@@ -28,6 +28,8 @@ from app.models.client import (
 )
 from app.models.cycle import (
     Cycle,
+    DueDateChange,
+    DueDateExtension,
     EventKind,
     Stage,
     StageChange,
@@ -66,6 +68,8 @@ __all__ = [
     "ConsentChange",
     "Contact",
     "Cycle",
+    "DueDateChange",
+    "DueDateExtension",
     "EventKind",
     "Filing",
     "Frequency",

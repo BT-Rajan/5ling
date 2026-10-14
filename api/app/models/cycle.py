@@ -191,3 +191,47 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime, nullable=False, default=utcnow, onupdate=utcnow
     )
+
+
+class DueDateExtension(Base):
+    """A government extension applied to one filing's period (BRD FR-PK-06). Append-only.
+
+    Cycles made later for the same filing and period take the extended date too.
+    """
+
+    __tablename__ = "due_date_extensions"
+    __table_args__ = (
+        Index("ix_due_date_extensions_filing_id_period_start", "filing_id", "period_start"),
+        _TABLE,
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    filing_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("filings.id"), nullable=False)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_label: Mapped[str] = mapped_column(String(40), nullable=False)
+    new_due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    reason: Mapped[str] = mapped_column(String(500), nullable=False)
+    cycles_changed: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+
+
+class DueDateChange(Base):
+    """One cycle's dates before and after an extension. Append-only."""
+
+    __tablename__ = "due_date_changes"
+    __table_args__ = (
+        Index("ix_due_date_changes_cycle_id_id", "cycle_id", "id"),
+        UniqueConstraint("extension_id", "cycle_id"),
+        _TABLE,
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    extension_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("due_date_extensions.id"), nullable=False
+    )
+    cycle_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("cycles.id"), nullable=False)
+    old_due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    old_alert_date: Mapped[date] = mapped_column(Date, nullable=False)
+    new_due_date: Mapped[date] = mapped_column(Date, nullable=False)
+    new_alert_date: Mapped[date] = mapped_column(Date, nullable=False)

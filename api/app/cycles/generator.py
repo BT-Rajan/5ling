@@ -28,12 +28,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.audit import audit
+from app.cycles.extensions import AlertDates, extensions_for
 from app.cycles.service import create_cycle
 from app.models import (
     CalendarVersion,
     Client,
     ClientStatus,
     Cycle,
+    DueDateChange,
     Filing,
     JobRun,
     JobStatus,
@@ -109,15 +111,32 @@ def generate_for_client(db: Session, client: Client, today: date) -> int:
         )
     }
     created = 0
+    alerts: AlertDates | None = None
     for filing_id in filing_ids:
         calendar = calendars.get(filing_id)
         filing = db.get(Filing, filing_id)
         if calendar is None or filing is None:
             continue  # a published package always has published calendars; nothing to plan
-        for planned in periods_wanted(db, calendar, today):
-            if (filing_id, planned.period.start) in existing:
-                continue
-            create_cycle(
+        missing = [
+            p
+            for p in periods_wanted(db, calendar, today)
+            if (filing_id, p.period.start) not in existing
+        ]
+        if not missing:
+            continue
+        extended = extensions_for(db, filing_id)
+        for planned in missing:
+            due, alert = planned.due_date, planned.alert_date
+            extension = extended.get(planned.period.start)
+            if extension is not None and extension.new_due_date <= due:
+                extension = None
+            if extension is not None:
+                # FR-PK-06: the government moved this period's date after it was announced.
+                if alerts is None:
+                    alerts = AlertDates(db)
+                due = extension.new_due_date
+                alert = alerts.alert_for(calendar.id, due)
+            cycle = create_cycle(
                 db,
                 client=client,
                 filing=filing,
@@ -127,9 +146,20 @@ def generate_for_client(db: Session, client: Client, today: date) -> int:
                 period_label=planned.period.label,
                 period_start=planned.period.start,
                 period_end=planned.period.end,
-                due_date=planned.due_date,
-                alert_date=planned.alert_date,
+                due_date=due,
+                alert_date=alert,
             )
+            if extension is not None:
+                db.add(
+                    DueDateChange(
+                        extension_id=extension.id,
+                        cycle_id=cycle.id,
+                        old_due_date=planned.due_date,
+                        old_alert_date=planned.alert_date,
+                        new_due_date=due,
+                        new_alert_date=alert,
+                    )
+                )
             created += 1
     return created
 
