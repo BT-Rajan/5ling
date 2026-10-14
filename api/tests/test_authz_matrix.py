@@ -111,6 +111,7 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/consultant/assignments"): CONSULTANT,
     ("GET", "/api/consultant/assignments/{assignment_id}"): CONSULTANT,
     ("POST", "/api/uploads/consultant/assignments/{assignment_id}"): CONSULTANT,
+    ("POST", "/api/consultant/assignments/{assignment_id}/submit"): CONSULTANT,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -352,6 +353,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 7  # shrinks as chunks land; update with the chunk that adds routes
+    assert len(pending) == 6  # shrinks as chunks land; update with the chunk that adds routes
     assert {c.built_in for c in pending} >= {"C16", "C21", "C28"}
     assert not {"C04", "C05", "C07", "C08"} & {c.built_in for c in pending}

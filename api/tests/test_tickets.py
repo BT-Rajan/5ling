@@ -94,6 +94,14 @@ def make_cycle(url: str, client_id: int) -> str:
     return ticket_code(int(number))
 
 
+@pytest.fixture
+def checker(web: TestClient, migrated_db: str) -> tuple[TestClient, Signed]:
+    """A second Administrator: approving needs someone who did not prepare the work (C22)."""
+    uid = make_user(migrated_db, "checker@firm.in", Role.ADMINISTRATOR, name="Checker Person")
+    client = TestClient(web.app)
+    return client, sign_in_directly(migrated_db, client, uid)
+
+
 def move(
     web: TestClient, signed: Signed, code: str, action: str, expected: str, note: str | None = None
 ) -> Any:
@@ -127,7 +135,7 @@ def state_events(url: str) -> list[tuple[str, str, str]]:
 
 @pytest.mark.requires_db
 def test_a_cycle_walks_every_stage_in_order_and_nothing_can_be_skipped(
-    web: TestClient, admin: Signed, migrated_db: str
+    web: TestClient, admin: Signed, migrated_db: str, checker: tuple[TestClient, Signed]
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
@@ -158,7 +166,7 @@ def test_a_cycle_walks_every_stage_in_order_and_nothing_can_be_skipped(
         ("close", "acknowledged"),
     ]
     for action, at in path:
-        moved = move(web, admin, code, action, at)
+        moved = move(*(checker if action == "approve" else (web, admin)), code, action, at)
         assert moved.status_code == 200, (action, moved.text)
     final = _ok(web.get(f"/api/tickets/{code}"))
     assert final["cycle"]["stage"] == "closed"

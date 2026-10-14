@@ -95,10 +95,10 @@ LL-088,C21,R1,Assignment and consultant access,assignments table; assign in-hous
 LL-089,C21,R1,Assignment and consultant access,Consultant sign-in: emailed link plus one-time code,API,M,NFR-SE-02,Done
 LL-090,C21,R1,Assignment and consultant access,Task-scoped consultant view: assigned cycle documents and upload space only,WEB,M,FR-WF-02,Done
 LL-091,C21,R1,Assignment and consultant access,Withdraw assignment; deny and log everything else,API,S,"FR-WF-02, FR-AU-01",Done
-LL-092,C22,R1,Review: maker-checker,Preparer uploads work as a new version; stage moves to In review,API,M,"BRD s6, FR-AL-05",Todo
-LL-093,C22,R1,Review: maker-checker,Approve or return with comments; return sets stage to Preparing,API,M,FR-WF-04,Todo
-LL-094,C22,R1,Review: maker-checker,Server refuses approval by the preparer,API,S,FR-WF-03,Todo
-LL-095,C22,R1,Review: maker-checker,Review screen with comments,WEB,M,FR-WF-04,Todo
+LL-092,C22,R1,Review: maker-checker,Preparer uploads work as a new version; stage moves to In review,API,M,"BRD s6, FR-AL-05",Done
+LL-093,C22,R1,Review: maker-checker,Approve or return with comments; return sets stage to Preparing,API,M,FR-WF-04,Done
+LL-094,C22,R1,Review: maker-checker,Server refuses approval by the preparer,API,S,FR-WF-03,Done
+LL-095,C22,R1,Review: maker-checker,Review screen with comments,WEB,M,FR-WF-04,Done
 LL-096,C23,R1,Filing and closure,Filed requires uploaded acknowledgement and reference number,API,M,FR-WF-05,Todo
 LL-097,C23,R1,Filing and closure,Close ticket: consultant access ends automatically; next cycle already scheduled,API,S,"FR-WF-02, BRD s6",Todo
 LL-098,C23,R1,Filing and closure,"End-to-end lifecycle test: Scheduled to Closed, with a draft at every state change",TEST,M,"FR-CY-02, CR-03",Todo

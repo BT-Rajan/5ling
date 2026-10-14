@@ -79,16 +79,40 @@ describe("Ticket page", () => {
     });
     expect(await screen.findByRole("button", { name: "Approve" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Mark filed" })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Return to the preparer" }));
     const confirm = screen.getByRole("button", { name: "Return to the preparer" });
     expect(confirm).toBeDisabled();
-    await userEvent.type(screen.getByLabelText(/^Why\?/), "Totals do not match");
+    await userEvent.type(screen.getByLabelText(/^Comments for the preparer/), "Totals do not match");
     await userEvent.click(confirm);
     expect(await screen.findByRole("button", { name: "Send for review" })).toBeInTheDocument();
     expect(posts[0]?.body).toEqual({ action: "return", expected_stage: "in_review", note: "Totals do not match" });
     expect(posts[0]?.headers.get("X-CSRF-Token")).toBe("csrf-1");
     expect(screen.getByRole("list", { name: "Ticket history" })).toHaveTextContent("In review → Preparing");
     expect(screen.getByRole("list", { name: "Ticket history" })).toHaveTextContent("“Totals do not match”");
+  });
+
+  it("does not offer approval to the preparer, and says why", async () => {
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: { ...quiet, "GET /api/tickets/TKT-000001": () => jsonResponse({ ...ticket("in_review", [move("return", "Return to the preparer", "in_review", "preparing", true)]), cycle: { ...ticket("in_review", [move("return", "Return to the preparer", "in_review", "preparing", true)]).cycle, approve_blocked: "You prepared this work, so someone else must approve it." } }) },
+    });
+    expect(await screen.findByText("You prepared this work, so someone else must approve it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("approves with an optional comment", async () => {
+    const posts: Call[] = [];
+    renderApp("/tickets/TKT-000001", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ticket("in_review", [move("approve", "Approve", "in_review", "ready_to_file")])),
+        "POST /api/tickets/TKT-000001/transition": (c) => { posts.push(c); return jsonResponse(ticket("ready_to_file", [move("file", "Mark filed", "ready_to_file", "filed")])); },
+      },
+    });
+    await userEvent.type(await screen.findByLabelText(/^Comments for the preparer/), "Looks right");
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(await screen.findByRole("button", { name: "Mark filed" })).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ action: "approve", expected_stage: "in_review", note: "Looks right" });
   });
 
   it("says when someone else has already moved it", async () => {
