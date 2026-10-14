@@ -126,7 +126,7 @@ def test_running_twice_creates_nothing_the_second_time(
     assert (second.status, second.cycles_created) == (JobStatus.OK, 0)
     assert counts(migrated_db) == (12, 12)  # every cycle has exactly one ticket
     # A month later the window has moved on by one period, and only that one is added.
-    later = run(factory, JobTrigger.SCHEDULED, today=date(2026, 5, 2))
+    later = run(factory, JobTrigger.SCHEDULED, today=date(2026, 5, 1))
     assert later.cycles_created == 1
     assert periods_of(migrated_db, cid)[-1] == "Apr 2027"
 
@@ -230,7 +230,7 @@ def test_new_cycles_use_the_calendar_published_at_the_time(
         )
     )
     _ok(web.post(f"{cal}/publish", headers=admin.headers))
-    run(factory, JobTrigger.SCHEDULED, today=date(2026, 5, 2))
+    run(factory, JobTrigger.SCHEDULED, today=date(2026, 5, 1))  # adds April 2027
     with db_session(migrated_db) as db:
         rows = list(db.scalars(select(Cycle).order_by(Cycle.period_start)))
     assert rows[0].due_date.day == 11  # made before: unchanged (FR-PK-05)

@@ -41,8 +41,22 @@ def test_the_stage_table_never_skips_a_stage() -> None:
 # --- Through the API -------------------------------------------------------------------------
 
 
+def first_ticket(url: str, client_id: int) -> str:
+    """The client's earliest cycle; the generator (C10) makes them when the client is saved."""
+    with db_session(url) as db:
+        number = db.scalar(
+            text(
+                "SELECT t.number FROM cycles c JOIN tickets t ON t.id = c.ticket_id"
+                " JOIN clients k ON k.id = c.client_pk WHERE k.client_id = :c"
+                " ORDER BY c.period_start, t.number LIMIT 1"
+            ),
+            {"c": client_id},
+        )
+    return ticket_code(int(number))
+
+
 def make_cycle(url: str, client_id: int) -> str:
-    """The first period of this year for the client's first filing, as the generator (C10) will."""
+    """Make the first period of 2026-27 for the client's first filing, by hand."""
     with db_session(url) as db:
         client = db.scalar(select(Client).where(Client.client_id == client_id))
         assert client is not None
@@ -105,7 +119,7 @@ def test_a_cycle_walks_every_stage_in_order_and_nothing_can_be_skipped(
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
-    code = make_cycle(migrated_db, cid)
+    code = first_ticket(migrated_db, cid)
     assert code == "TKT-000001"
     ticket = _ok(web.get(f"/api/tickets/{code}"))
     assert ticket["type"] == "filing"
@@ -151,7 +165,7 @@ def test_review_can_return_work_with_a_note_but_not_without(
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
-    code = make_cycle(migrated_db, cid)
+    code = first_ticket(migrated_db, cid)
     for action, at in [
         ("request_documents", "scheduled"),
         ("documents_received", "awaiting_documents"),
@@ -173,7 +187,7 @@ def test_a_second_click_does_not_move_twice(
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
-    code = make_cycle(migrated_db, cid)
+    code = first_ticket(migrated_db, cid)
     _ok(move(web, admin, code, "request_documents", "scheduled"))
     again = move(web, admin, code, "request_documents", "scheduled")
     assert again.status_code == 409
@@ -208,7 +222,7 @@ def test_only_the_owner_and_the_administrator_see_or_move_a_ticket(
     owner_id = make_user(migrated_db, "owner@firm.in", Role.STAFF)
     other_id = make_user(migrated_db, "other@firm.in", Role.STAFF)
     cid = _ok(create(web, admin, client_body(pid, owner_id=owner_id)), 201)["client_id"]
-    code = make_cycle(migrated_db, cid)
+    code = first_ticket(migrated_db, cid)
     other = TestClient(web.app)
     signed_other = sign_in_directly(migrated_db, other, other_id)
     assert other.get(f"/api/tickets/{code}").status_code == 403
@@ -219,7 +233,8 @@ def test_only_the_owner_and_the_administrator_see_or_move_a_ticket(
     assert owner.get(f"/api/tickets/{code}").status_code == 200
     assert move(owner, signed_owner, code, "request_documents", "scheduled").status_code == 200
     listed = _ok(owner.get(f"/api/clients/{cid}/tickets"))
-    assert [(t["code"], t["stage"]) for t in listed] == [(code, "awaiting_documents")]
+    assert (listed[0]["code"], listed[0]["stage"]) == (code, "awaiting_documents")
+    assert all(t["stage"] == "scheduled" for t in listed[1:])  # the rest of the year
     assert owner.get("/api/tickets/TKT-999999").status_code == 404
     assert owner.get("/api/tickets/not-a-ticket").status_code == 404
 
@@ -230,7 +245,7 @@ def test_ticket_numbers_history_and_events_cannot_be_rewritten(
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
-    code = make_cycle(migrated_db, cid)
+    code = first_ticket(migrated_db, cid)
     _ok(move(web, admin, code, "request_documents", "scheduled"))
     engine = create_engine(migrated_db)
     try:
@@ -260,7 +275,7 @@ def test_the_same_period_cannot_have_two_cycles(
 ) -> None:
     pid = publish_package(web, admin)
     cid = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)["client_id"]
-    make_cycle(migrated_db, cid)
+    first_ticket(migrated_db, cid)  # the generator already made April 2026
     with pytest.raises(Exception, match="Duplicate entry"):
         make_cycle(migrated_db, cid)
     with db_session(migrated_db) as db:
