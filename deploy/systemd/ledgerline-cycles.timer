@@ -1,0 +1,12 @@
+# Runs the cycle generator daily at 01:30 India time (before the morning's alerts); catches up
+# after downtime. Install like the audit check timer (see its comments).
+[Unit]
+Description=Daily Ledgerline cycle generator
+
+[Timer]
+OnCalendar=*-*-* 01:30:00 Asia/Kolkata
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

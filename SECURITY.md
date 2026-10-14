@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 to C09)
+## What is in place now (chunks C00 to C10)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -30,6 +30,7 @@ Do not open a public issue. Email the project owner directly with what you found
 | Packages and calendars | Administrator only. Published versions of packages and calendars, and the filings and checklist items under them, cannot be changed or deleted: database triggers refuse it, so cycles can always show exactly what they were built from (FR-PK-05). Every change is audited. Money is stored in whole paise, never as floating point. | `api/tests/test_catalog.py` |
 | Clients | Opening a client is checked on the server for every request: the Administrator sees all, Staff only clients they own (a test proves another Staff member is refused). Staff can only create clients they own. Client IDs come from a database counter, can never be changed or reused, and clients cannot be deleted. PAN and GSTIN are validated (GSTIN by its check character) and unique; a duplicate names the existing client, but not its name when the person asking cannot open it. PAN, GSTIN, email and phone never go into audit details. PAN is masked on screen until "Show" is pressed. Consent changes are kept in an append-only log. Search only ever returns a Staff member's own clients, even when asked by another owner's ID or a known PAN; PANs are masked in lists. Changing owner, package or status needs a reason and goes into an append-only history; a reassigned client is closed to its previous owner from their very next request; only the Administrator reopens a closed client. | `api/tests/test_clients.py`, `test_clients_maintain.py` |
 | Cycle stages | The server holds the only list of allowed stage moves and refuses anything else, including any skip; a move names the stage it expects, so a double click or two people at once cannot move a cycle twice. Returning work needs a note. Ticket numbers come from a counter and cannot be changed or reused; stage history and state events are append-only. Only the client's owner and the Administrator see or move a ticket. Not yet enforced: assignment details (C21), maker-checker on approve (C22), filing proof on "Mark filed" (C23). | `api/tests/test_tickets.py` |
+| Cycle generator | Makes only missing cycles; the database refuses a second cycle for the same client, filing and period; one run at a time (a database lock); each client in its own transaction. Closed clients get none. Every run is recorded; a failure is logged at CRITICAL, written to the audit log, and shown to every Administrator with a "Run again" button until a run succeeds. Errors record client IDs and error types only, never personal data. | `api/tests/test_generator.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)
@@ -46,5 +47,5 @@ Known limits of two-step sign-in today: whoever uses a new account's temporary p
 - Run uvicorn with `--no-server-header --proxy-headers --forwarded-allow-ips 127.0.0.1`, bound to 127.0.0.1 behind the proxy, so the address limit sees real client addresses.
 - Create the first Administrator with `scripts/create-admin`; there is no web sign-up.
 - Separate database accounts: `LL_MIGRATION_DATABASE_URL` (owner: all rights on the database, runs `alembic upgrade head`) and `LL_DATABASE_URL` (app: `SELECT, INSERT, UPDATE, DELETE` only). The app refuses to start in production without both, or with both naming the same account. Creating the audit triggers needs `SUPER` or `log_bin_trust_function_creators = ON` while binary logging is on.
-- Install and enable `deploy/systemd/ledgerline-audit-check.timer` (daily audit log check), and confirm `systemctl list-timers` shows it.
+- Install and enable `deploy/systemd/ledgerline-audit-check.timer` (daily audit log check) and `ledgerline-cycles.timer` (daily cycle generator), and confirm `systemctl list-timers` shows both.
 - Hosting in India as required by the BRD (open question Q6).

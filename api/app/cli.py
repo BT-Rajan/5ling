@@ -18,9 +18,18 @@ from app.audit.verify import PROBLEMS, run_check
 from app.auth import passwords
 from app.auth.sessions import revoke_all_for_user
 from app.config import get_settings
+from app.cycles.generator import run as run_generator
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
-from app.models import CheckTrigger, LoginChallenge, RecoveryCode, Role, User
+from app.models import (
+    CheckTrigger,
+    JobStatus,
+    JobTrigger,
+    LoginChallenge,
+    RecoveryCode,
+    Role,
+    User,
+)
 
 
 def create_admin(email: str, name: str, password: str) -> str:
@@ -89,6 +98,28 @@ def verify_audit() -> tuple[bool, str]:
     )
 
 
+def generate_cycles() -> tuple[bool, str]:
+    """The daily cycle generator (FR-CY-01, FR-CY-05). Run by ledgerline-cycles.timer."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        result = run_generator(
+            make_session_factory(engine), JobTrigger.SCHEDULED, lock_wait_seconds=600
+        )
+    finally:
+        engine.dispose()
+    summary = (
+        f"{result.cycles_created} cycles created for {result.clients_checked} clients"
+        f" ({result.clients_failed} failed)."
+    )
+    if result.status is JobStatus.FAILED:
+        return False, f"CYCLE GENERATOR FAILED: {summary} {result.error or ''}".strip()
+    if result.status is JobStatus.SKIPPED:
+        return False, "Cycle generator skipped: another run did not finish within 10 minutes."
+    return True, f"Cycle generator ran: {summary}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -101,7 +132,15 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "verify-audit", help="check the audit log's chain (the daily job; exit 1 if bad)"
     )
+    sub.add_parser(
+        "generate-cycles", help="make missing filing cycles (the daily job; exit 1 if any fail)"
+    )
     args = parser.parse_args(argv)
+
+    if args.command == "generate-cycles":
+        ok, message = generate_cycles()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "verify-audit":
         ok, message = verify_audit()

@@ -74,6 +74,8 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/tickets/{ticket}"): ADMIN_AND_STAFF,
     ("GET", "/api/clients/{client_id}/tickets"): ADMIN_AND_STAFF,
     ("POST", "/api/tickets/{ticket}/transition"): ADMIN_AND_STAFF,
+    ("GET", "/api/admin/jobs/cycle-generator"): ADMIN,
+    ("POST", "/api/admin/jobs/cycle-generator/run"): ADMIN,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,

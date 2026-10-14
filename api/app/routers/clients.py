@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator, model_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +23,7 @@ from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import rupees
+from app.cycles.generator import run_quietly
 from app.cycles.service import emit_state_event
 from app.errors import ApiHTTPException
 from app.identifiers import PAN_HOLDERS, gstin_problem, pan_in_gstin, pan_problem, tidy
@@ -40,6 +41,7 @@ from app.models import (
     ConsentChange,
     Contact,
     EventKind,
+    JobTrigger,
     Package,
     PackageVersion,
     Role,
@@ -403,6 +405,7 @@ def form_options(
 @router.post("", status_code=201)
 def create_client(
     body: ClientIn,
+    request: Request,
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> ClientOut:
@@ -473,6 +476,13 @@ def create_client(
         },
     )
     db.commit()
+    # FR-CY-01: the year's cycles appear with the client (the daily run catches up if not).
+    run_quietly(
+        request.app.state.session_factory,
+        JobTrigger.CLIENT_CREATED,
+        client_pks=[client.id],
+        requested_by_id=principal.user_id,
+    )
     return _client_out(db, client)
 
 
@@ -692,6 +702,7 @@ def _record_change(
 def change_client(
     client_id: ClientIdPath,
     body: ChangeIn,
+    request: Request,
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> ClientOut:
@@ -760,6 +771,14 @@ def change_client(
     if not changed:
         raise ApiHTTPException(409, "Nothing would change.", code="no_change")
     db.commit()
+    if body.package_id is not None or body.status is not None:
+        # A new package version, or a reopened client, may need cycles from now on.
+        run_quietly(
+            request.app.state.session_factory,
+            JobTrigger.PACKAGE_CHANGED,
+            client_pks=[client.id],
+            requested_by_id=principal.user_id,
+        )
     return _client_out(db, client)
 
 

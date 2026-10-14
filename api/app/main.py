@@ -17,6 +17,7 @@ from app.logging_conf import setup_logging
 from app.routers import (
     admin_audit,
     admin_filings,
+    admin_jobs,
     admin_packages,
     admin_schedule,
     admin_users,
@@ -104,6 +105,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_users.router)
     app.include_router(admin_audit.router)
     app.include_router(admin_filings.router)
+    app.include_router(admin_jobs.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

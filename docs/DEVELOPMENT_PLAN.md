@@ -225,7 +225,7 @@ Total: 151 tickets.
 
 **Done when:** No stage can be skipped; every cycle has a TKT ID; each stage change emits a state_changed event.
 
-### C10 - Cycle generator (R1)
+### C10 - Cycle generator (R1) - DONE
 
 **Goal:** Cycles and their tickets appear automatically and never twice.  
 **Depends on:** C09, C06
