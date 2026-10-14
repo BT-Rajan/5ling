@@ -35,6 +35,8 @@ def make_settings(**overrides: Any) -> Settings:
     if values["env"] == "production":
         # Production refuses to start without a separate migration account.
         values.setdefault("migration_database_url", UNREACHABLE_OWNER_DB)
+        # ...nor with the placeholder sender address.
+        values.setdefault("email_from_address", "no-reply@firm.example.in")
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 

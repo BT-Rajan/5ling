@@ -109,7 +109,12 @@ def test_production_needs_encrypted_smtp_and_a_real_sender() -> None:
     with pytest.raises(ValidationError, match="smtp_security"):
         make_settings(**real, smtp_host="smtp.provider.in", email_from_address="hi@firm.in")
     with pytest.raises(ValidationError, match="real email_from_address"):
-        make_settings(**real, smtp_security="tls", smtp_host="smtp.provider.in")
+        make_settings(
+            **real,
+            smtp_security="tls",
+            smtp_host="smtp.provider.in",
+            email_from_address="no-reply@ledgerline.example.com",
+        )
     ok = make_settings(**real, smtp_security="starttls", email_from_address="hi@firm.in")
     assert ok.smtp_security == "starttls"
     # A relay on the same machine may take plain SMTP.
