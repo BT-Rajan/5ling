@@ -4,13 +4,14 @@ import Stack from "@mui/material/Stack";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink } from "react-router-dom";
-import { CalendarIcon, ClientsIcon, TeamIcon, WorkListIcon } from "../components/Icons";
+import { AuditIcon, CalendarIcon, ClientsIcon, TeamIcon, WorkListIcon } from "../components/Icons";
 
 const SECTIONS: readonly { to: string; title: string; text: string; Icon: ComponentType<SvgIconProps> }[] = [
   { to: "/setup/team", title: "Team", text: "People who can sign in, their roles and two-step sign-in.", Icon: TeamIcon },
   { to: "/setup/filings", title: "Filing calendars", text: "Filing types, their due-date rules and alert lead times.", Icon: WorkListIcon },
   { to: "/setup/holidays", title: "Holidays and lead times", text: "Non-working days, and how many days before a due date clients are alerted.", Icon: CalendarIcon },
   { to: "/setup/extensions", title: "Due-date extensions", text: "Move open cycles to a new due date when the government extends one.", Icon: CalendarIcon },
+  { to: "/setup/email", title: "Email", text: "Every email sent and how it went; send a test email.", Icon: AuditIcon },
   { to: "/setup/packages", title: "Packages", text: "What a client is given: filings, document checklists and the fee.", Icon: ClientsIcon },
 ];
 

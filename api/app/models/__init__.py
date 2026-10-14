@@ -40,6 +40,7 @@ from app.models.cycle import (
     TicketCounter,
     TicketType,
 )
+from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
@@ -70,7 +71,12 @@ __all__ = [
     "Cycle",
     "DueDateChange",
     "DueDateExtension",
+    "Email",
+    "EmailEvent",
+    "EmailKind",
+    "EmailStatus",
     "EventKind",
+    "EventSource",
     "Filing",
     "Frequency",
     "Holiday",

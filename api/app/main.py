@@ -16,6 +16,7 @@ from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
 from app.routers import (
     admin_audit,
+    admin_emails,
     admin_extensions,
     admin_filings,
     admin_jobs,
@@ -24,6 +25,7 @@ from app.routers import (
     admin_users,
     auth,
     clients,
+    email_events,
     health,
     tickets,
 )
@@ -108,6 +110,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_filings.router)
     app.include_router(admin_jobs.router)
     app.include_router(admin_extensions.router)
+    app.include_router(admin_emails.router)
+    app.include_router(email_events.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)

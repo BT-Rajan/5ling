@@ -264,7 +264,7 @@ Total: 151 tickets.
 
 **Done when:** Affected cycles show the new date, alerts are recomputed, change is logged.
 
-### C13 - Email service and outbox (R1)
+### C13 - Email service and outbox (R1) - DONE
 
 **Goal:** One reliable way to send email with delivery status.  
 **Depends on:** C00, C03

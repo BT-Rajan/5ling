@@ -228,7 +228,12 @@ def verify_now(
     actor: Principal = Depends(admin_only),  # noqa: B008
 ) -> CheckOut:
     factory: sessionmaker[Session] = request.app.state.session_factory
-    check = run_check(factory, CheckTrigger.MANUAL, requested_by_id=actor.user_id)
+    check = run_check(
+        factory,
+        CheckTrigger.MANUAL,
+        requested_by_id=actor.user_id,
+        firm_name=request.app.state.settings.firm_name,
+    )
     return _check_out(check)
 
 
@@ -345,7 +350,12 @@ def export(
     db.rollback()
 
     factory: sessionmaker[Session] = request.app.state.session_factory
-    check = run_check(factory, CheckTrigger.EXPORT, requested_by_id=actor.user_id)
+    check = run_check(
+        factory,
+        CheckTrigger.EXPORT,
+        requested_by_id=actor.user_id,
+        firm_name=request.app.state.settings.firm_name,
+    )
     audit(
         db,
         "audit.exported",

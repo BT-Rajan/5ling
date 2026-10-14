@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.audit.chain import AuditRecord, entry_hash
 from app.audit.writer import audit
+from app.mail.outbox import alert_admins_audit_failed
 from app.models import GENESIS_HASH, AuditChain, AuditCheck, AuditEntry, CheckTrigger
 from app.timeutil import utcnow
 
@@ -123,8 +124,12 @@ def run_check(
     trigger: CheckTrigger,
     *,
     requested_by_id: int | None = None,
+    firm_name: str = "Ledgerline",
 ) -> AuditCheck:
-    """Verify the trail, store the result, record it in the trail, and raise the alarm if bad."""
+    """Verify the trail, store the result, record it in the trail, and raise the alarm if bad.
+
+    A failure also emails every Administrator (at most once a day), in the same transaction.
+    """
     started = utcnow()
     with factory() as db:
         # One snapshot for the head, the anchor and every entry, while writers carry on.
@@ -165,6 +170,13 @@ def run_check(
                 "problem": result.problem,
             },
         )
+        if not result.ok:
+            where = f" at entry {result.first_bad_seq}" if result.first_bad_seq else ""
+            alert_admins_audit_failed(
+                db,
+                f"Problem{where}: {PROBLEMS.get(result.problem or '', result.problem)}.",
+                firm_name,
+            )
         db.commit()
 
     facts: dict[str, object] = {

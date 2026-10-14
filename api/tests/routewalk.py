@@ -17,6 +17,8 @@ PUBLIC = frozenset(
         ("POST", "/api/auth/mfa/verify"),
         ("POST", "/api/auth/mfa/enrol/start"),
         ("POST", "/api/auth/mfa/enrol/confirm"),
+        # Delivery reports from the email provider: signed with a shared secret instead.
+        ("POST", "/api/email/events"),
     }
 )
 
