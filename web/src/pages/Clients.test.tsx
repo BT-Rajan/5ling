@@ -149,10 +149,94 @@ describe("A client's page", () => {
     expect(await screen.findByText("You do not have access to this record.")).toBeInTheDocument();
   });
 
-  it("can be opened by its client ID", async () => {
-    renderApp("/clients", { user: staff, handlers: { ...quiet, "GET /api/clients/100001": () => jsonResponse(saved) } });
-    await userEvent.type(await screen.findByLabelText("Client ID"), "100001");
-    await userEvent.click(screen.getByRole("button", { name: "Open" }));
-    expect(await screen.findByTestId("client-id")).toHaveTextContent("100001");
+  it("shows its history and records a change with a reason", async () => {
+    const patches: Call[] = [];
+    let current = saved;
+    renderApp("/clients/100001", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/100001": () => jsonResponse(current),
+        "GET /api/clients/options": () => jsonResponse({ owners: [{ id: 2, full_name: "Asha Rao" }, { id: 3, full_name: "Bina Shah" }], packages: options.packages }),
+        "GET /api/clients/100001/history": () =>
+          jsonResponse(
+            current === saved
+              ? []
+              : [{ id: 1, field: "owner", old: "Asha Rao", new: "Bina Shah", reason: "Asha on leave", changed_by: { id: 1, full_name: "The Boss" }, changed_at: "2026-10-14T06:30:00Z" }],
+          ),
+        "PATCH /api/clients/100001": (c) => {
+          patches.push(c);
+          current = { ...saved, owner: { id: 3, full_name: "Bina Shah" } };
+          return jsonResponse(current);
+        },
+      },
+    });
+    expect(await screen.findByText("No changes since the client was added.")).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save change" });
+    expect(save).toBeDisabled();
+    await userEvent.click(screen.getByRole("combobox", { name: "New owner" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Bina Shah" }));
+    expect(save).toBeDisabled(); // no reason yet
+    await userEvent.type(screen.getByLabelText(/^Reason/), "Asha on leave");
+    await userEvent.click(save);
+    expect(await screen.findByText("Saved, and added to the history.")).toBeInTheDocument();
+    expect(patches[0]?.body).toEqual({ reason: "Asha on leave", owner_id: 3 });
+    const history = await screen.findByRole("list", { name: "History" });
+    expect(history).toHaveTextContent("Owner: Asha Rao → Bina Shah");
+    expect(history).toHaveTextContent("The Boss · “Asha on leave”");
+  });
+
+  it("tells Staff that only the Administrator reopens a closed client", async () => {
+    renderApp("/clients/100001", {
+      user: staff,
+      handlers: { ...quiet, "GET /api/clients/100001": () => jsonResponse({ ...saved, status: "closed" }), "GET /api/clients/100001/history": () => jsonResponse([]), "GET /api/clients/options": () => jsonResponse(options) },
+    });
+    expect(await screen.findByText("This client is closed. Only the Administrator can reopen it.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "New status" })).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
+describe("The client list", () => {
+  const row = (id: number, name: string, over: Record<string, unknown> = {}) => ({
+    client_id: id, kind: "individual", legal_name: name, pan_masked: "AB•••••34F", gstin: null, status: "active",
+    owner: { id: 2, full_name: "Asha Rao" }, package: { id: 5, name: "GST Monthly", version: 1 }, ...over,
+  });
+
+  it("searches, filters and pages, with PANs masked", async () => {
+    const calls: Call[] = [];
+    const pageOne = { items: Array.from({ length: 50 }, (_, i) => row(100001 + i, `Client ${String(i + 1).padStart(2, "0")}`)), total: 51, offset: 0, limit: 50 };
+    renderApp("/clients", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/options": () => jsonResponse(options),
+        "GET /api/clients?limit=50&offset=0": (c) => { calls.push(c); return jsonResponse(pageOne); },
+        "GET /api/clients?limit=50&offset=50": () => jsonResponse({ items: [row(100051, "Client 51")], total: 51, offset: 50, limit: 50 }),
+        "GET /api/clients?limit=50&offset=0&q=ravi": () => jsonResponse({ items: [row(100009, "Ravi Kumar", { status: "paused" })], total: 1, offset: 0, limit: 50 }),
+        "GET /api/clients?limit=50&offset=0&q=ravi&status=paused": () => jsonResponse({ items: [row(100009, "Ravi Kumar", { status: "paused" })], total: 1, offset: 0, limit: 50 }),
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Clients" });
+    expect(within(list).getByRole("link", { name: /100001 · Client 01/ })).toHaveAttribute("href", "/clients/100001");
+    expect(list).toHaveTextContent("AB•••••34F");
+    await userEvent.click(screen.getByRole("button", { name: "Show more" }));
+    expect(await screen.findByText("100051 · Client 51")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show more" })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/^Search/), "ravi");
+    expect(await screen.findByText("100009 · Ravi Kumar")).toBeInTheDocument();
+    expect(screen.getByText(/Paused/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox", { name: "Status" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Paused" }));
+    expect(await screen.findByText("1 client")).toBeInTheDocument();
+  });
+
+  it("does not offer an owner filter to Staff", async () => {
+    renderApp("/clients", {
+      user: staff,
+      handlers: { ...quiet, "GET /api/clients/options": () => jsonResponse(options), "GET /api/clients?limit=50&offset=0": () => jsonResponse({ items: [], total: 0, offset: 0, limit: 50 }) },
+    });
+    expect(await screen.findByText("You have no clients yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Owner" })).not.toBeInTheDocument();
   });
 });

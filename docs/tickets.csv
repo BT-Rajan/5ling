@@ -39,10 +39,10 @@ LL-032,C07,R1,Clients: create,PAN and GSTIN validators,API,S,FR-CL-01,Done
 LL-033,C07,R1,Clients: create,"Create-client API: required fields, duplicate block pointing to existing record",API,M,"FR-CL-01, FR-CL-02, CR-01",Done
 LL-034,C07,R1,Clients: create,"Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log",API,S,"FR-CL-03, FR-AL-08",Done
 LL-035,C07,R1,Clients: create,Create-client form showing the assigned client ID on save,WEB,M,CR-01,Done
-LL-036,C08,R1,"Clients: change, search, reassign","Change owner, package or status with reason; history shown",API,M,FR-CL-04,Todo
-LL-037,C08,R1,"Clients: change, search, reassign","Search and filter by name, PAN, owner, package, status; staff see own clients only; client ID searchable",API,M,"FR-CL-06, CR-01",Todo
-LL-038,C08,R1,"Clients: change, search, reassign",Reassign moves access immediately,API,S,FR-AC-03,Todo
-LL-039,C08,R1,"Clients: change, search, reassign",Client list and client detail with history,WEB,M,,Todo
+LL-036,C08,R1,"Clients: change, search, reassign","Change owner, package or status with reason; history shown",API,M,FR-CL-04,Done
+LL-037,C08,R1,"Clients: change, search, reassign","Search and filter by name, PAN, owner, package, status; staff see own clients only; client ID searchable",API,M,"FR-CL-06, CR-01",Done
+LL-038,C08,R1,"Clients: change, search, reassign",Reassign moves access immediately,API,S,FR-AC-03,Done
+LL-039,C08,R1,"Clients: change, search, reassign",Client list and client detail with history,WEB,M,,Done
 LL-040,C09,R1,Cycles and tickets,tickets table: TKT-000001 style ID from an AUTO_INCREMENT counter; type FILING or TASK; linked to client,DB,M,CR-02,Todo
 LL-041,C09,R1,Cycles and tickets,cycles table linked one-to-one to FILING tickets; package version recorded,DB,M,"FR-PK-05, FR-CY-02",Todo
 LL-042,C09,R1,Cycles and tickets,Stage list and legal-transition table,API,M,FR-CY-02,Todo

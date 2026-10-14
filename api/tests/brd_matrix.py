@@ -29,8 +29,11 @@ class Capability:
 
 
 CAPABILITIES: tuple[Capability, ...] = (
-    Capability("See all clients", "Y", "-", "-", "-", "C08"),
-    Capability("See assigned clients only", "-", "Own", "-", "-", "C08"),
+    # One search route serves both: the server narrows Staff to their own clients.
+    Capability("See all clients", "Y", "-", "-", "-", "C08", routes=(("GET", "/api/clients"),)),
+    Capability(
+        "See assigned clients only", "-", "Own", "-", "-", "C08", routes=(("GET", "/api/clients"),)
+    ),
     Capability("See assigned task only", "-", "-", "Task", "-", "C21"),
     Capability(
         "Create and edit clients",
@@ -44,6 +47,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/clients"),
             ("GET", "/api/clients/{client_id}"),
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
+            ("PATCH", "/api/clients/{client_id}"),
+            ("GET", "/api/clients/{client_id}/history"),
         ),
     ),
     Capability(

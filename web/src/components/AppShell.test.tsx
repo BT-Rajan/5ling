@@ -44,7 +44,7 @@ describe("App shell", () => {
     await userEvent.click(nav.getByRole("link", { name: "Clients" }));
     expect(nav.getByRole("link", { name: "Clients" })).toHaveAttribute("aria-current", "page");
     expect(nav.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByText(/open a client by its 6-digit client ID/)).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Add client" })).toBeInTheDocument();
   });
 
   it("updates the page title and moves focus to the page after navigating", async () => {

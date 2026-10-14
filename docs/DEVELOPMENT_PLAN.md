@@ -195,7 +195,7 @@ Total: 151 tickets.
 
 **Done when:** Duplicate PAN or GSTIN is blocked and links to the existing client; every client has a 6-digit ID.
 
-### C08 - Clients: change, search, reassign (R1)
+### C08 - Clients: change, search, reassign (R1) - DONE
 
 **Goal:** Clients can be maintained safely and found by the right people.  
 **Depends on:** C07
