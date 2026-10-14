@@ -83,11 +83,11 @@ LL-076,C18,R1,Scheduled alerts and reminders,"First alert at alert date with sec
 LL-077,C18,R1,Scheduled alerts and reminders,"Reminders every 2 days, then daily after due date; stop when checklist complete",JOB,M,FR-AL-03,Done
 LL-078,C18,R1,Scheduled alerts and reminders,Failed or bounced send appears on the owner's work list within 15 minutes,API,S,FR-AL-06,Done
 LL-079,C18,R1,Scheduled alerts and reminders,"Tests: single send, stop condition, failure surfacing",TEST,S,"FR-AL-01, FR-AL-03, FR-AL-06",Done
-LL-080,C19,R1,Internal alerts and escalation,In-app notifications table and bell,API,M,FR-IN-01,Todo
-LL-081,C19,R1,Internal alerts and escalation,Last required item arrives: stage Documents received and owner notified within 1 minute,API,M,"FR-IN-01, FR-CY-02",Todo
-LL-082,C19,R1,Internal alerts and escalation,Missing after first alert plus grace: 'Waiting on client' with exact missing items,JOB,M,FR-IN-02,Todo
-LL-083,C19,R1,Internal alerts and escalation,Escalate to Administrator 2 days before due date; one-time; dismiss needs a note,JOB,M,FR-IN-03,Todo
-LL-084,C19,R1,Internal alerts and escalation,Notification list and dismiss-with-note screens,WEB,S,"FR-IN-01, FR-IN-03",Todo
+LL-080,C19,R1,Internal alerts and escalation,In-app notifications table and bell,API,M,FR-IN-01,Done
+LL-081,C19,R1,Internal alerts and escalation,Last required item arrives: stage Documents received and owner notified within 1 minute,API,M,"FR-IN-01, FR-CY-02",Done
+LL-082,C19,R1,Internal alerts and escalation,Missing after first alert plus grace: 'Waiting on client' with exact missing items,JOB,M,FR-IN-02,Done
+LL-083,C19,R1,Internal alerts and escalation,Escalate to Administrator 2 days before due date; one-time; dismiss needs a note,JOB,M,FR-IN-03,Done
+LL-084,C19,R1,Internal alerts and escalation,Notification list and dismiss-with-note screens,WEB,S,"FR-IN-01, FR-IN-03",Done
 LL-085,C20,R1,Daily work list,"Work-list API: received, missing, due this week, overdue",API,M,FR-IN-04,Todo
 LL-086,C20,R1,Daily work list,Work-list screen as the staff landing page,WEB,M,FR-IN-04,Todo
 LL-087,C20,R1,Daily work list,Count-consistency test,TEST,S,FR-IN-04,Todo

@@ -39,6 +39,7 @@ from app.models import (
     Role,
     User,
 )
+from app.notify.service import documents_arrived
 
 
 def create_admin(email: str, name: str, password: str) -> str:
@@ -172,6 +173,9 @@ def scan_documents() -> tuple[bool, str]:
             make_session_factory(engine),
             store_from_settings(settings),
             ClamdScanner(settings.clamd_address),
+            on_clean=lambda db, cycle_id: documents_arrived(
+                db, cycle_id, firm_name=settings.firm_name
+            ),
         )
     finally:
         engine.dispose()

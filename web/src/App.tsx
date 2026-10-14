@@ -17,6 +17,7 @@ import { FilingPage, FilingsPage } from "./pages/FilingsPage";
 import { HolidaysPage } from "./pages/HolidaysPage";
 import { EmailPage } from "./pages/EmailPage";
 import { ExtensionsPage } from "./pages/ExtensionsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { PackagePage, PackagesPage } from "./pages/PackagesPage";
 import { SetupPage } from "./pages/SetupPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -66,6 +67,7 @@ export function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
+        <Route path="notifications" element={<OnlyFor roles={["administrator", "staff"]}><NotificationsPage /></OnlyFor>} />
         <Route path="work" element={<OnlyFor roles={["administrator", "staff"]}><TicketsPage /></OnlyFor>} />
         <Route path="clients" element={<OnlyFor roles={["administrator", "staff"]}><ClientsHome /></OnlyFor>} />
         <Route path="clients/new" element={<OnlyFor roles={["administrator", "staff"]}><NewClientPage /></OnlyFor>} />

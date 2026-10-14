@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     reminder_interval_days: int = 2
     alert_hours_start: int = 9
     alert_hours_end: int = 19
+    # Internal alerts (FR-IN-02, FR-IN-03): days after the first alert before a cycle is
+    # "waiting on client", and days before the due date that empty cycles are escalated.
+    waiting_grace_days: int = 3
+    escalation_days_before: int = 2
 
     # Documents (BRD INT-03, INT-04, NFR-SE-04). Files are encrypted before they are written, with
     # a key kept apart from the database: 32 random bytes, base64 (openssl rand -base64 32).
@@ -144,6 +148,13 @@ class Settings(BaseSettings):
                 raw = b""
             if len(raw) != 32:
                 raise ValueError("storage_key must be 32 random bytes, base64-encoded")
+        return value
+
+    @field_validator("waiting_grace_days", "escalation_days_before")
+    @classmethod
+    def _days(cls, value: int) -> int:
+        if not 0 <= value <= 30:
+            raise ValueError("must be 0 to 30 days")
         return value
 
     @field_validator("reminder_interval_days")

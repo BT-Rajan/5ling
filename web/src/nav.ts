@@ -23,6 +23,7 @@ export const destinations: readonly Destination[] = [
 // Pages below a destination, most specific first. Each also matches its own sub-pages.
 const OTHER_TITLES: readonly (readonly [string, string])[] = [
   ["/account", "Account security"],
+  ["/notifications", "Notifications"],
   ["/clients/new", "Add a client"],
   ["/tickets", "Ticket"],
   ["/setup/team", "Team"],

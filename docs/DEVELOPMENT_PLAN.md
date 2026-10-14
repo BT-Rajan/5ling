@@ -349,7 +349,7 @@ Total: 151 tickets.
 
 **Done when:** Alert sent once on the computed date; reminders stop within one hour of a complete checklist.
 
-### C19 - Internal alerts and escalation (R1)
+### C19 - Internal alerts and escalation (R1) - DONE
 
 **Goal:** The right person knows at once when documents arrive or are missing.  
 **Depends on:** C17, C09
