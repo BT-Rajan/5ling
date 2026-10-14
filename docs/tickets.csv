@@ -53,8 +53,8 @@ LL-046,C10,R1,Cycle generator,Generate current-FY cycles with tickets when a pac
 LL-047,C10,R1,Cycle generator,"Rolling top-up job keeping 12 months ahead; unique key client, filing, period",JOB,M,"FR-CY-01, FR-CY-04",Done
 LL-048,C10,R1,Cycle generator,Failure raises Administrator alert and log entry; safe re-run,JOB,S,FR-CY-05,Done
 LL-049,C10,R1,Cycle generator,"Tests: double run, forced failure, closed client creates nothing",TEST,S,"FR-CY-04, FR-CY-05, FR-CL-04",Done
-LL-050,C11,R1,Ad hoc task tickets,Create and update TASK tickets linked to a client,API,M,CR-02,Todo
-LL-051,C11,R1,Ad hoc task tickets,"Ticket list and filters (type, stage, owner, client ID, TKT ID)",WEB,M,CR-02,Todo
+LL-050,C11,R1,Ad hoc task tickets,Create and update TASK tickets linked to a client,API,M,CR-02,Done
+LL-051,C11,R1,Ad hoc task tickets,"Ticket list and filters (type, stage, owner, client ID, TKT ID)",WEB,M,CR-02,Done
 LL-052,C12,R1,Bulk due-date extension,Apply new due date to all open cycles of a filing with reason,API,M,FR-PK-06,Todo
 LL-053,C12,R1,Bulk due-date extension,Recompute alert dates; audit entry,API,S,FR-PK-06,Todo
 LL-054,C12,R1,Bulk due-date extension,Admin screen with preview of affected cycles,WEB,M,FR-PK-06,Todo

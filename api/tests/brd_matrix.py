@@ -34,6 +34,8 @@ CLIENT_READS: tuple[tuple[str, str], ...] = (
     ("GET", "/api/stages"),
     ("GET", "/api/tickets/{ticket}"),
     ("GET", "/api/clients/{client_id}/tickets"),
+    ("GET", "/api/tickets"),
+    ("GET", "/api/tickets/assignees"),
 )
 
 CAPABILITIES: tuple[Capability, ...] = (
@@ -57,6 +59,9 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/clients/{client_id}/history"),
             # Moving a cycle on; later chunks add maker-checker (C22) and filing proof (C23).
             ("POST", "/api/tickets/{ticket}/transition"),
+            # Ad hoc task tickets on a client (CR-02).
+            ("POST", "/api/tickets"),
+            ("PATCH", "/api/tickets/{ticket}"),
         ),
     ),
     Capability(

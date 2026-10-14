@@ -551,6 +551,61 @@ interface TicketRow {
   due_date: string | null;
 }
 
+function AddTask({ clientId }: { clientId: number }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [people, setPeople] = useState<{ id: number; full_name: string }[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [due, setDue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) api<{ id: number; full_name: string }[]>("/api/tickets/assignees").then(setPeople).catch(() => undefined);
+  }, [open]);
+
+  async function save(event: SyntheticEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const made = await api<{ code: string }>("/api/tickets", {
+        method: "POST",
+        json: { client_id: clientId, title: title.trim(), description: description.trim() || null, assignee_id: assignee ? Number(assignee) : null, due_date: due || null },
+      });
+      void navigate(`/tickets/${made.code}`);
+    } catch (e) {
+      setError(messageFor(e));
+      setBusy(false);
+    }
+  }
+
+  if (!open) return <Button onClick={() => { setOpen(true); }}>Add task</Button>;
+  return (
+    <Paper component="form" onSubmit={(e: SyntheticEvent) => void save(e)} noValidate variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 2 }}>
+      <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mb: 2 }}>New task</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Stack spacing={2}>
+        <TextField label="What needs doing" value={title} onChange={(e) => { setTitle(e.target.value); }} required autoFocus disabled={busy} />
+        <TextField label="Details" value={description} onChange={(e) => { setDescription(e.target.value); }} multiline minRows={2} disabled={busy} />
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
+          <TextField select label="Assign to" value={assignee} onChange={(e) => { setAssignee(e.target.value); }} disabled={busy}>
+            <MenuItem value="">Nobody yet</MenuItem>
+            {people.map((p) => <MenuItem key={p.id} value={String(p.id)}>{p.full_name}</MenuItem>)}
+          </TextField>
+          <TextField label="Due" type="date" value={due} onChange={(e) => { setDue(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} disabled={busy} />
+        </Box>
+        <Stack direction="row" sx={{ gap: 1 }}>
+          <Button type="submit" variant="contained" disabled={busy || !title.trim()}>Create task</Button>
+          <Button disabled={busy} onClick={() => { setOpen(false); }}>Cancel</Button>
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
 function ClientTickets({ clientId }: { clientId: number }) {
   const [rows, setRows] = useState<TicketRow[] | null>(null);
   useEffect(() => {
@@ -558,7 +613,10 @@ function ClientTickets({ clientId }: { clientId: number }) {
   }, [clientId]);
   return (
     <>
-      <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Tickets</Typography>
+      <Stack direction="row" sx={{ mt: 4, mb: 1, alignItems: "center", justifyContent: "space-between" }}>
+        <Typography variant="h5" component="h2">Tickets</Typography>
+      </Stack>
+      <AddTask clientId={clientId} />
       {rows?.length === 0 && <Typography color="text.secondary">No tickets yet. Filing cycles appear here once they are scheduled.</Typography>}
       {rows && rows.length > 0 && (
         <List aria-label="Tickets" disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>

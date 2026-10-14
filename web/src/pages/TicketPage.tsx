@@ -7,6 +7,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
@@ -68,7 +69,85 @@ interface Ticket {
     calendar_version: number;
     moves: Move[];
   } | null;
+  task: {
+    description: string | null;
+    assignee: { id: number; full_name: string } | null;
+    due_date: string | null;
+    status: "open" | "done" | "cancelled";
+    status_label: string;
+    completed_at: string | null;
+  } | null;
   history: { from_stage: StageKey | null; to_stage: StageKey; action: string; note: string | null; changed_by: string | null; changed_at: string }[];
+  can_edit: boolean;
+}
+
+function TaskPanel({ ticket, onChanged }: { ticket: Ticket; onChanged: (t: Ticket) => void }) {
+  const task = ticket.task;
+  const [people, setPeople] = useState<{ id: number; full_name: string }[]>([]);
+  const [title, setTitle] = useState(ticket.title);
+  const [description, setDescription] = useState(task?.description ?? "");
+  const [assignee, setAssignee] = useState(task?.assignee ? String(task.assignee.id) : "");
+  const [due, setDue] = useState(task?.due_date ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (ticket.can_edit) api<{ id: number; full_name: string }[]>("/api/tickets/assignees").then(setPeople).catch(() => undefined);
+  }, [ticket.can_edit]);
+
+  if (!task) return null;
+
+  async function save(body: Record<string, unknown>) {
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await api<Ticket>(`/api/tickets/${ticket.code}`, { method: "PATCH", json: body }));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const status = task.status;
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Box component="dl" sx={{ display: "grid", gridTemplateColumns: "max-content 1fr", columnGap: 3, rowGap: 0.75, mb: 2, "& dt": { color: "text.secondary" }, "& dd": { m: 0 } }}>
+        <dt>Status</dt><dd data-testid="task-status">{task.status_label}{task.completed_at ? ` (${formatIST(task.completed_at)})` : ""}</dd>
+        <dt>Assigned to</dt><dd>{task.assignee?.full_name ?? "Nobody yet"}</dd>
+        <dt>Due</dt><dd>{task.due_date ? formatDay(task.due_date) : "No date"}</dd>
+        {task.description && <><dt>Details</dt><dd style={{ whiteSpace: "pre-wrap" }}>{task.description}</dd></>}
+      </Box>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap", mb: 3 }}>
+        {status === "open" && <Button variant="contained" disabled={busy} onClick={() => void save({ status: "done", expected_status: "open" })}>Mark done</Button>}
+        {status === "open" && ticket.can_edit && <Button disabled={busy} onClick={() => void save({ status: "cancelled", expected_status: "open" })}>Cancel task</Button>}
+        {status !== "open" && <Button variant="outlined" disabled={busy} onClick={() => void save({ status: "open", expected_status: status })}>Reopen</Button>}
+      </Stack>
+      {ticket.can_edit && (
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+          <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 600, mb: 2 }}>Edit task</Typography>
+          <Stack spacing={2}>
+            <TextField label="Title" value={title} onChange={(e) => { setTitle(e.target.value); }} disabled={busy} />
+            <TextField label="Details" value={description} onChange={(e) => { setDescription(e.target.value); }} multiline minRows={2} disabled={busy} />
+            <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
+              <TextField select label="Assigned to" value={assignee} onChange={(e) => { setAssignee(e.target.value); }} disabled={busy}>
+                <MenuItem value="">Nobody yet</MenuItem>
+                {people.map((p) => <MenuItem key={p.id} value={String(p.id)}>{p.full_name}</MenuItem>)}
+              </TextField>
+              <TextField label="Due" type="date" value={due} onChange={(e) => { setDue(e.target.value); }} slotProps={{ inputLabel: { shrink: true } }} disabled={busy} />
+            </Box>
+            <Box>
+              <Button variant="outlined" disabled={busy || !title.trim()}
+                onClick={() => void save({ title: title.trim(), description: description.trim() || null, assignee_id: assignee ? Number(assignee) : null, due_date: due || null })}>
+                Save task
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+      )}
+    </Box>
+  );
 }
 
 function Timeline({ current }: { current: StageKey }) {
@@ -180,9 +259,13 @@ export function TicketPage() {
   const cycle = ticket.cycle;
   return (
     <Box sx={{ maxWidth: 820 }}>
-      <Button component={RouterLink} to={`/clients/${String(ticket.client.client_id)}`} size="small" sx={{ mb: 1, ml: -1 }}>
-        ← {ticket.client.legal_name}
-      </Button>
+      {ticket.can_edit ? (
+        <Button component={RouterLink} to={`/clients/${String(ticket.client.client_id)}`} size="small" sx={{ mb: 1, ml: -1 }}>
+          ← {ticket.client.legal_name}
+        </Button>
+      ) : (
+        <Button component={RouterLink} to="/work" size="small" sx={{ mb: 1, ml: -1 }}>← Work list</Button>
+      )}
       <Typography variant="overline" color="text.secondary" component="p">{ticket.type === "filing" ? "Filing ticket" : "Task ticket"}</Typography>
       <Typography component="p" sx={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "0.04em" }} data-testid="ticket-code">{ticket.code}</Typography>
       <Typography variant="h1" component="h1" sx={{ mb: 2, fontSize: { xs: "1.5rem", md: "2rem" } }}>{ticket.title}</Typography>
@@ -200,6 +283,7 @@ export function TicketPage() {
           <Actions ticket={ticket} onMoved={setTicket} />
         </>
       )}
+      {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={setTicket} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>
       <List aria-label="Ticket history" disablePadding>
         {ticket.history.map((h, i) => (
