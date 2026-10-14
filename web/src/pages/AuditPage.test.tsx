@@ -193,3 +193,43 @@ describe("Tamper alarm", () => {
     expect(calls.some((c) => c.path.startsWith("/api/admin/"))).toBe(false);
   });
 });
+
+describe("Cycle generator alarm", () => {
+  const failedRun = { id: 7, status: "failed", finished_at: "2026-10-14T20:00:00Z", clients_failed: 2, cycles_created: 40, error: "client 100004: ValueError" };
+
+  it("warns the Administrator and runs the generator again on request", async () => {
+    const posts: Call[] = [];
+    renderApp("/", {
+      user: admin,
+      handlers: {
+        ...base,
+        "GET /api/admin/jobs/cycle-generator": () => jsonResponse({ latest: failedRun, recent: [failedRun] }),
+        "POST /api/admin/jobs/cycle-generator/run": (c) => {
+          posts.push(c);
+          return jsonResponse({ ...failedRun, id: 8, status: "ok", clients_failed: 0, error: null });
+        },
+      },
+    });
+    const title = await screen.findByText("Some filing cycles were not created");
+    const alert = title.closest("[role=alert]") as HTMLElement;
+    expect(alert).toHaveTextContent("could not finish 2 clients (client 100004: ValueError)");
+    await userEvent.click(within(alert).getByRole("button", { name: "Run again" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Some filing cycles were not created")).not.toBeInTheDocument();
+    });
+    expect(posts[0]?.headers.get("X-CSRF-Token")).toBe("csrf-1");
+  });
+
+  it("says so if the run fails again", async () => {
+    renderApp("/", {
+      user: admin,
+      handlers: {
+        ...base,
+        "GET /api/admin/jobs/cycle-generator": () => jsonResponse({ latest: failedRun, recent: [failedRun] }),
+        "POST /api/admin/jobs/cycle-generator/run": () => jsonResponse({ ...failedRun, id: 9 }),
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Run again" }));
+    expect(await screen.findByText(/It failed again\./)).toBeInTheDocument();
+  });
+});

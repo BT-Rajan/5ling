@@ -36,6 +36,7 @@ from app.models.cycle import (
     TicketCounter,
     TicketType,
 )
+from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.user import LoginAttempt, Role, User, UserSession
@@ -68,6 +69,9 @@ __all__ = [
     "Frequency",
     "Holiday",
     "HolidayRule",
+    "JobRun",
+    "JobStatus",
+    "JobTrigger",
     "LeadTimeDefaults",
     "LoginAttempt",
     "LoginChallenge",

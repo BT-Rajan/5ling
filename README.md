@@ -2,7 +2,7 @@
 
 Compliance and filing management for chartered accountant firms. Python (FastAPI) API on MySQL 8, React web client that installs on Android as an app (PWA) and looks native there: Material Design 3, bottom navigation on phones, navigation rail on desktop, light and dark.
 
-Status: chunks C00 (foundation), C01 (users and roles), C02 (two-step sign-in), C03 (audit log core), C04 (audit verification and viewer), C05 (packages and filing calendars), C06 (due-date engine), C07 (creating clients), C08 (changing, searching and reassigning clients) and C09 (tickets and cycle stages) done. See `docs/DEVELOPMENT_PLAN.md`.
+Status: chunks C00 (foundation), C01 (users and roles), C02 (two-step sign-in), C03 (audit log core), C04 (audit verification and viewer), C05 (packages and filing calendars), C06 (due-date engine), C07 (creating clients), C08 (changing, searching and reassigning clients), C09 (tickets and cycle stages) and C10 (cycle generator) done. See `docs/DEVELOPMENT_PLAN.md`.
 
 ## Run it (Debian or Ubuntu, no Docker)
 
@@ -44,7 +44,7 @@ cd ../web && npm run lint && npm run typecheck && npm test && npm run build
 | `api/` | FastAPI app, migrations (Alembic), tests |
 | `web/` | React app (Vite, TypeScript, MUI), service worker, manifest |
 | `deploy/nginx/` | Production web server example with security headers |
-| `deploy/systemd/` | Daily audit log check (timer); `python -m app.cli verify-audit` runs it by hand |
+| `deploy/systemd/` | Daily jobs (timers): audit log check (`python -m app.cli verify-audit`) and cycle generator (`python -m app.cli generate-cycles`) |
 | `SECURITY.md` | What is protected now, what is not built yet, production checklist |
 
 ## Working rules

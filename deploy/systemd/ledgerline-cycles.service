@@ -1,0 +1,23 @@
+# The daily cycle generator (BRD FR-CY-01, FR-CY-05). Started by ledgerline-cycles.timer.
+# Adjust paths and user to your install. If any client fails, it exits 1, logs at CRITICAL and
+# shows on every Administrator's screen; running it again is always safe.
+[Unit]
+Description=Ledgerline daily cycle generator
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline/api
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/api/.venv/bin/python -m app.cli generate-cycles
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=

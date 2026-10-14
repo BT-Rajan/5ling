@@ -87,6 +87,9 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("DELETE", "/api/admin/holidays/{day}"),
             ("GET", "/api/admin/lead-times"),
             ("PUT", "/api/admin/lead-times"),
+            # Cycles are made from packages and calendars; the Administrator watches the job.
+            ("GET", "/api/admin/jobs/cycle-generator"),
+            ("POST", "/api/admin/jobs/cycle-generator/run"),
         ),
     ),
     Capability("Assign preparers", "Y", "Own", "-", "-", "C21"),
