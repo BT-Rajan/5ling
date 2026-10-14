@@ -180,7 +180,7 @@ Total: 151 tickets.
 
 **Done when:** A test calendar with a known holiday gives the expected alert date.
 
-### C07 - Clients: create (R1)
+### C07 - Clients: create (R1) - DONE
 
 **Goal:** Clients exist with a unique 6-digit client ID, validated and de-duplicated.  
 **Depends on:** C05, C03

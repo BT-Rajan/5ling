@@ -32,7 +32,20 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("See all clients", "Y", "-", "-", "-", "C08"),
     Capability("See assigned clients only", "-", "Own", "-", "-", "C08"),
     Capability("See assigned task only", "-", "-", "Task", "-", "C21"),
-    Capability("Create and edit clients", "Y", "Own / create", "-", "-", "C07"),
+    Capability(
+        "Create and edit clients",
+        "Y",
+        "Own / create",
+        "-",
+        "-",
+        "C07",
+        routes=(
+            ("GET", "/api/clients/options"),
+            ("POST", "/api/clients"),
+            ("GET", "/api/clients/{client_id}"),
+            ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
+        ),
+    ),
     Capability(
         "Create packages and calendars",
         "Y",

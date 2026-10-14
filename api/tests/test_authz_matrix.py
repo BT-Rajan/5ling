@@ -63,6 +63,10 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("DELETE", "/api/admin/holidays/{day}"): ADMIN,
     ("GET", "/api/admin/lead-times"): ADMIN,
     ("PUT", "/api/admin/lead-times"): ADMIN,
+    ("GET", "/api/clients/options"): ADMIN_AND_STAFF,
+    ("POST", "/api/clients"): ADMIN_AND_STAFF,
+    ("GET", "/api/clients/{client_id}"): ADMIN_AND_STAFF,
+    ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"): ADMIN_AND_STAFF,
     ("GET", "/api/auth/me"): EVERYONE,
     ("POST", "/api/auth/logout"): EVERYONE,
     ("POST", "/api/auth/change-password"): EVERYONE,
@@ -85,6 +89,8 @@ def url_for(path: str) -> str:
         .replace("{filing_id}", "999999")
         .replace("{package_id}", "999999")
         .replace("{day}", "1999-01-01")
+        .replace("{client_id}", "999999")
+        .replace("{contact_id}", "999999")
     )
 
 
@@ -284,6 +290,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 13  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C07", "C08", "C16", "C21", "C28"}
-    assert not {"C04", "C05"} & {c.built_in for c in pending}
+    assert len(pending) == 12  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C08", "C16", "C21", "C28"}
+    assert not {"C04", "C05", "C07"} & {c.built_in for c in pending}
