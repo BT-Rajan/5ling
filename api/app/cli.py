@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import signal
 import sys
+import threading
 
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import delete, select
@@ -21,6 +23,8 @@ from app.config import get_settings
 from app.cycles.generator import run as run_generator
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
+from app.mail.provider import provider_from_settings
+from app.mail.worker import run_forever, send_due
 from app.models import (
     CheckTrigger,
     JobStatus,
@@ -86,7 +90,9 @@ def verify_audit() -> tuple[bool, str]:
     setup_logging(settings.log_level)
     engine = make_engine(settings.database_url.get_secret_value())
     try:
-        check = run_check(make_session_factory(engine), CheckTrigger.SCHEDULED)
+        check = run_check(
+            make_session_factory(engine), CheckTrigger.SCHEDULED, firm_name=settings.firm_name
+        )
     finally:
         engine.dispose()
     if check.ok:
@@ -120,6 +126,29 @@ def generate_cycles() -> tuple[bool, str]:
     return True, f"Cycle generator ran: {summary}"
 
 
+def send_emails(*, once: bool, interval: float) -> tuple[bool, str]:
+    """The send worker (INT-01). Run by deploy/systemd/ledgerline-mailer.service."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    factory = make_session_factory(engine)
+    provider = provider_from_settings(settings)
+    stop = threading.Event()
+    try:
+        if once:
+            tally = send_due(factory, provider)
+            return (
+                True,
+                f"{tally.sent} sent, {tally.retrying} to retry, {tally.failed} failed.",
+            )
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, lambda *_: stop.set())
+        run_forever(factory, provider, interval_seconds=interval, stop=stop)
+        return True, "Email worker stopped."
+    finally:
+        engine.dispose()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -135,7 +164,18 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "generate-cycles", help="make missing filing cycles (the daily job; exit 1 if any fail)"
     )
+    mailer = sub.add_parser("send-emails", help="send queued email (runs until stopped)")
+    mailer.add_argument("--once", action="store_true", help="one round, then exit")
+    mailer.add_argument("--interval", type=float, default=15.0, help="seconds between rounds")
     args = parser.parse_args(argv)
+
+    if args.command == "send-emails":
+        if not 1 <= args.interval <= 3600:
+            print("--interval must be 1 to 3600 seconds.", file=sys.stderr)
+            return 2
+        ok, message = send_emails(once=args.once, interval=args.interval)
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "generate-cycles":
         ok, message = generate_cycles()

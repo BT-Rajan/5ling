@@ -141,6 +141,10 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/admin/audit/checks"),
             ("POST", "/api/admin/audit/verify"),
             ("POST", "/api/admin/audit/export"),
+            # The outbox is the record of every email sent, to every client (INT-01).
+            ("GET", "/api/admin/emails"),
+            ("GET", "/api/admin/emails/{email_id}"),
+            ("POST", "/api/admin/emails/test"),
         ),
     ),
     Capability("Export data", "Y", "Own, logged", "-", "-", "C28"),

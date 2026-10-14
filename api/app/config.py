@@ -9,6 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
+from email_validator import EmailNotValidError, validate_email
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import make_url
@@ -46,21 +47,34 @@ class Settings(BaseSettings):
     max_body_bytes: int = 1_048_576
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
+    # Email (BRD INT-01). Development sends to Mailpit on 127.0.0.1:1025 (scripts/dev-up).
+    firm_name: str = "Ledgerline"
+    email_from_address: str = "no-reply@ledgerline.example.com"  # a reserved domain
+    email_from_name: str = "Ledgerline"
+    smtp_host: str = "127.0.0.1"
+    smtp_port: int = 1025
+    smtp_security: Literal["none", "starttls", "tls"] = "none"
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_timeout_seconds: int = 20
+    # Signs delivery reports posted to /api/email/events. Unset: that endpoint is switched off.
+    email_webhook_secret: SecretStr | None = None
+
     @field_validator("allowed_origins", "allowed_hosts", mode="before")
     @classmethod
     def _csv(cls, value: object) -> object:
         return _split_csv(value)
 
-    @field_validator("secret_key")
+    @field_validator("secret_key", "email_webhook_secret")
     @classmethod
-    def _strong_secret(cls, value: SecretStr) -> SecretStr:
+    def _strong_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None:
+            return None
         raw = value.get_secret_value()
         if len(raw) < MIN_SECRET_LENGTH:
-            raise ValueError(f"secret_key must be at least {MIN_SECRET_LENGTH} characters")
+            raise ValueError(f"secrets must be at least {MIN_SECRET_LENGTH} characters")
         if len(set(raw)) < MIN_DISTINCT_CHARS:
-            raise ValueError(
-                "secret_key looks repetitive; generate one with `openssl rand -hex 32`"
-            )
+            raise ValueError("secret looks repetitive; generate one with `openssl rand -hex 32`")
         return value
 
     @field_validator("database_url", "migration_database_url")
@@ -68,6 +82,29 @@ class Settings(BaseSettings):
     def _mysql_only(cls, value: SecretStr | None) -> SecretStr | None:
         if value is not None and not value.get_secret_value().startswith("mysql+pymysql://"):
             raise ValueError("database urls must use the mysql+pymysql:// driver")
+        return value
+
+    @field_validator("email_from_address")
+    @classmethod
+    def _plain_address(cls, value: str) -> str:
+        try:
+            return validate_email(value, check_deliverability=False).normalized
+        except EmailNotValidError as exc:
+            raise ValueError(f"email_from_address is not a valid address: {exc}") from None
+
+    @field_validator("firm_name", "email_from_name")
+    @classmethod
+    def _one_line(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value or len(value) > 80:
+            raise ValueError("names must be 1 to 80 characters on one line")
+        return value
+
+    @field_validator("smtp_timeout_seconds")
+    @classmethod
+    def _sane_timeout(cls, value: int) -> int:
+        if not 1 <= value <= 120:
+            raise ValueError("smtp_timeout_seconds must be 1 to 120")
         return value
 
     @field_validator("max_body_bytes")
@@ -89,6 +126,15 @@ class Settings(BaseSettings):
             insecure = [o for o in self.allowed_origins if not o.startswith("https://")]
             if insecure:
                 raise ValueError("production allowed_origins must all be https://")
+            local_relay = self.smtp_host in {"127.0.0.1", "localhost", "::1"}
+            if self.smtp_security == "none" and not local_relay:
+                raise ValueError(
+                    "production smtp_security must be starttls or tls unless smtp_host is a "
+                    "relay on this machine"
+                )
+            domain = self.email_from_address.rsplit("@", 1)[-1].lower()
+            if domain == "example.com" or domain.endswith(".example.com"):
+                raise ValueError("production needs a real email_from_address")
             if self.migration_database_url is None:
                 raise ValueError("production needs migration_database_url (a separate account)")
             app_user = make_url(self.database_url.get_secret_value()).username

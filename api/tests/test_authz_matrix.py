@@ -80,6 +80,9 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/admin/extensions/periods"): ADMIN,
     ("POST", "/api/admin/extensions/preview"): ADMIN,
     ("POST", "/api/admin/extensions"): ADMIN,
+    ("GET", "/api/admin/emails"): ADMIN,
+    ("GET", "/api/admin/emails/{email_id}"): ADMIN,
+    ("POST", "/api/admin/emails/test"): ADMIN,
     ("GET", "/api/tickets"): ADMIN_AND_STAFF,
     ("GET", "/api/tickets/assignees"): ADMIN_AND_STAFF,
     ("POST", "/api/tickets"): ADMIN_AND_STAFF,
@@ -109,6 +112,7 @@ def url_for(path: str) -> str:
         .replace("{client_id}", "999999")
         .replace("{contact_id}", "999999")
         .replace("{ticket}", "TKT-999999")
+        .replace("{email_id}", "999999")
     )
 
 
