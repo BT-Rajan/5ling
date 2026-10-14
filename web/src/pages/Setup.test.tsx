@@ -233,3 +233,94 @@ describe("Packages", () => {
     });
   });
 });
+
+describe("Due-date preview", () => {
+  const preview = (year: number) => ({
+    year,
+    year_label: `FY ${String(year)}-${String((year + 1) % 100)}`,
+    lead_days: 4,
+    lead_days_is_default: true,
+    rows: [
+      { key: "M7", label: `Oct ${String(year)}`, period_start: "", period_end: "", due_date: `${String(year)}-11-11`, due_moved_from: null, alert_date: `${String(year)}-11-05`, alert_moved_from: `${String(year)}-11-07` },
+    ],
+  });
+
+  it("shows a full year of dates for the rule being edited, before saving", async () => {
+    const posts: Call[] = [];
+    renderApp("/setup/filings/3", {
+      user: admin,
+      handlers: {
+        ...noHealth,
+        "GET /api/admin/filings/3": () => jsonResponse({ ...gstr1, versions: [calendar()] }),
+        "POST /api/admin/filings/preview": (c) => { posts.push(c); return jsonResponse(preview(2026)); },
+        "POST /api/admin/filings/preview?year=2027": (c) => { posts.push(c); return jsonResponse(preview(2027)); },
+      },
+    });
+    const table = await screen.findByRole("table", { name: "Due and alert dates" });
+    expect(within(table).getByRole("rowheader", { name: "Oct 2026" })).toBeInTheDocument();
+    expect(table).toHaveTextContent("Wed 11 Nov 2026");
+    expect(table).toHaveTextContent("Thu 5 Nov 2026moved from Sat 7 Nov 2026");
+    expect(screen.getByText(/Alert 4 days before the due date \(the default\)/)).toBeInTheDocument();
+    expect(posts[0]?.body).toMatchObject({ frequency: "monthly", due: { months_after: 1, day: 11, overrides: {} } });
+    // Nothing is saved by previewing.
+    expect(posts.every((c) => c.path.startsWith("/api/admin/filings/preview"))).toBe(true);
+    await userEvent.click(screen.getByRole("button", { name: "Next year" }));
+    expect(await screen.findByRole("rowheader", { name: "Oct 2027" })).toBeInTheDocument();
+  });
+
+  it("follows the rule as it is edited", async () => {
+    const posts: Call[] = [];
+    renderApp("/setup/filings/3", {
+      user: admin,
+      handlers: {
+        ...noHealth,
+        "GET /api/admin/filings/3": () => jsonResponse({ ...gstr1, versions: [calendar()] }),
+        "POST /api/admin/filings/preview": (c) => { posts.push(c); return jsonResponse(preview(2026)); },
+      },
+    });
+    await screen.findByRole("table", { name: "Due and alert dates" });
+    const day = screen.getByLabelText("Due: day of that month");
+    await userEvent.clear(day);
+    await userEvent.type(day, "20");
+    await waitFor(() => {
+      expect(posts.at(-1)?.body).toMatchObject({ due: { day: 20 } });
+    });
+  });
+});
+
+describe("Holidays and lead times", () => {
+  it("adds and removes holidays, and saves the default lead times", async () => {
+    const year = new Date().getFullYear();
+    const calls: Call[] = [];
+    let holidays = [{ day: `${String(year)}-10-02`, name: "Gandhi Jayanti" }];
+    const range = `?from_date=${String(year)}-01-01&to_date=${String(year)}-12-31`;
+    renderApp("/setup/holidays", {
+      user: admin,
+      handlers: {
+        ...noHealth,
+        "GET /api/admin/lead-times": () => jsonResponse({ monthly_days: 4, quarterly_days: 10, yearly_days: 21, updated_at: "", updated_by_id: null }),
+        "PUT /api/admin/lead-times": (c) => { calls.push(c); return jsonResponse({ monthly_days: 4, quarterly_days: 14, yearly_days: 21, updated_at: "", updated_by_id: 1 }); },
+        [`GET /api/admin/holidays${range}`]: () => jsonResponse(holidays),
+        "POST /api/admin/holidays": (c) => { calls.push(c); holidays = [...holidays, { day: `${String(year)}-11-06`, name: "Firm day" }]; return jsonResponse(holidays[1], 201); },
+        [`DELETE /api/admin/holidays/${String(year)}-10-02`]: (c) => { calls.push(c); holidays = holidays.filter((h) => h.name !== "Gandhi Jayanti"); return new Response(null, { status: 204 }); },
+      },
+    });
+    const quarterly = await screen.findByLabelText("Quarterly filings");
+    await waitFor(() => { expect(quarterly).toHaveValue("10"); });
+    await userEvent.clear(quarterly);
+    await userEvent.type(quarterly, "14");
+    await userEvent.click(screen.getByRole("button", { name: "Save lead times" }));
+    expect(await screen.findByText(/Calendars without their own lead time use these/)).toBeInTheDocument();
+    expect(calls[0]?.body).toEqual({ monthly_days: 4, quarterly_days: 14, yearly_days: 21 });
+
+    expect(await screen.findByText("Gandhi Jayanti")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Date"), `${String(year)}-11-06`);
+    await userEvent.type(screen.getByLabelText("Holiday"), "Firm day");
+    await userEvent.click(screen.getByRole("button", { name: "Add holiday" }));
+    expect(await screen.findByText("Firm day")).toBeInTheDocument();
+    expect(calls[1]?.body).toEqual({ day: `${String(year)}-11-06`, name: "Firm day" });
+    await userEvent.click(screen.getByRole("button", { name: "Remove Gandhi Jayanti" }));
+    await waitFor(() => { expect(screen.queryByText("Gandhi Jayanti")).not.toBeInTheDocument(); });
+    expect(calls[2]?.headers.get("X-CSRF-Token")).toBe("csrf-1");
+  });
+});

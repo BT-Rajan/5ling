@@ -165,7 +165,7 @@ Total: 151 tickets.
 
 **Done when:** A package cannot be published without a filing and a fee; editing creates a new version.
 
-### C06 - Due-date engine (R1)
+### C06 - Due-date engine (R1) - DONE
 
 **Goal:** Correct due dates and alert dates from data, not code.  
 **Depends on:** C05

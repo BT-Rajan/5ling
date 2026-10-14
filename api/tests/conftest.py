@@ -114,7 +114,7 @@ def migrated_db(db_url: str) -> str:
     else:
         with engine.begin() as conn:
             conn.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
-            for table in tables - {"alembic_version", "app_meta"}:
+            for table in tables - {"alembic_version", "app_meta", "lead_time_defaults"}:
                 # TRUNCATE fires no triggers, so it can empty the append-only audit trail; only
                 # the test owner account may run it (the app's account has no DROP right).
                 conn.execute(text(f"TRUNCATE TABLE `{table}`"))
@@ -122,6 +122,13 @@ def migrated_db(db_url: str) -> str:
             conn.execute(
                 text("INSERT INTO audit_chain (id, last_seq, last_hash) VALUES (1, 0, :g)"),
                 {"g": GENESIS_HASH},
+            )
+            # Seeded by migration 0007; put back the defaults in case a test changed them.
+            conn.execute(
+                text(
+                    "UPDATE lead_time_defaults SET monthly_days = 4, quarterly_days = 10,"
+                    " yearly_days = 21, updated_by_id = NULL WHERE id = 1"
+                )
             )
     engine.dispose()
     return db_url
