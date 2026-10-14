@@ -297,7 +297,9 @@ def test_the_app_account_cannot_remove_the_protections(migrated_db: str) -> None
         "CREATE TRIGGER sneaky BEFORE INSERT ON audit_entries FOR EACH ROW SET NEW.event = 'x'",
     ):
         message = _refused(APP_DB_URL, sql)
-        assert "denied" in message, (sql, message)
+        # With binary logging on and log_bin_trust_function_creators OFF, MySQL refuses
+        # CREATE TRIGGER for lack of SUPER (1419) before it checks the TRIGGER right.
+        assert "denied" in message or "SUPER privilege" in message, (sql, message)
     for sql in ("UPDATE audit_entries SET event = 'x'", "DELETE FROM audit_entries"):
         assert "append-only" in _refused(APP_DB_URL, sql)
     assert events(migrated_db) == ["test.one", "test.two", "test.by_app"]
