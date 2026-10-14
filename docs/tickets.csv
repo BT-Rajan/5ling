@@ -21,10 +21,10 @@ LL-151,C02,R1,Two-step sign-in and sessions,"Recovery codes, administrator and c
 LL-015,C03,R1,Audit log core,audit_entries table; MySQL triggers and revoked privileges block update and delete,DB,M,FR-AU-02,Done
 LL-016,C03,R1,Audit log core,Hash-chain writer (previous hash plus entry hash),API,M,FR-AU-03,Done
 LL-017,C03,R1,Audit log core,"audit() helper and middleware: sign-in, failures, denied requests",API,M,FR-AU-01,Done
-LL-018,C04,R1,Audit verification and viewer,Chain verification service and on-demand endpoint,API,S,FR-AU-03,Todo
-LL-019,C04,R1,Audit verification and viewer,Daily verification job; alert Administrator and Partners on failure,JOB,S,FR-AU-03,Todo
-LL-020,C04,R1,Audit verification and viewer,Admin audit viewer with filters and export including chain result,WEB,M,FR-AU-04,Todo
-LL-021,C04,R1,Audit verification and viewer,Tamper test on a database copy,TEST,S,FR-AU-03,Todo
+LL-018,C04,R1,Audit verification and viewer,Chain verification service and on-demand endpoint,API,S,FR-AU-03,Done
+LL-019,C04,R1,Audit verification and viewer,Daily verification job; alert Administrator and Partners on failure,JOB,S,FR-AU-03,Done
+LL-020,C04,R1,Audit verification and viewer,Admin audit viewer with filters and export including chain result,WEB,M,FR-AU-04,Done
+LL-021,C04,R1,Audit verification and viewer,Tamper test on a database copy,TEST,S,FR-AU-03,Done
 LL-022,C05,R1,Packages and filing calendars,"Tables: filings, packages, package filings, checklist templates, calendars (versioned)",DB,M,"FR-PK-01, FR-PK-02, FR-PK-05",Todo
 LL-023,C05,R1,Packages and filing calendars,Package API with publish rules,API,M,FR-PK-01,Todo
 LL-024,C05,R1,Packages and filing calendars,"Calendar API: type, frequency, due-date rule, FY handling, lead time",API,M,FR-PK-02,Todo
@@ -61,7 +61,7 @@ LL-054,C12,R1,Bulk due-date extension,Admin screen with preview of affected cycl
 LL-055,C13,R1,Email service and outbox,Email provider interface (SMTP or cloud) with Mailpit in development,API,M,INT-01,Todo
 LL-056,C13,R1,Email service and outbox,"Template engine; variables include client name, client ID, ticket ID, stage, due date",API,M,CR-03,Todo
 LL-057,C13,R1,Email service and outbox,"Outbox table with statuses: draft, queued, sent, delivered, failed, bounced",DB,M,"FR-AL-06, CR-03",Todo
-LL-058,C13,R1,Email service and outbox,Send worker with 24-hour retry and provider delivery callbacks,JOB,M,INT-01,Todo
+LL-058,C13,R1,Email service and outbox,Send worker with 24-hour retry and provider delivery callbacks; also emails every Administrator when the audit log check fails (C04 alerts on screen and in the log until then),JOB,M,"INT-01, FR-AU-03",Todo
 LL-059,C14,R1,Secure links and client portal shell,"Link tokens: one client, one cycle, hashed at rest, 72-hour default expiry",API,M,FR-AL-02,Todo
 LL-060,C14,R1,Secure links and client portal shell,Staff renew link; client can request a new link,API,M,FR-AL-02,Todo
 LL-061,C14,R1,Secure links and client portal shell,Mobile-first client portal shell validating the link,WEB,M,"FR-AL-02, NFR-US-01",Todo

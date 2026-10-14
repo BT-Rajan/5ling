@@ -9,10 +9,20 @@ without firing triggers, and the trail must outlive whatever it describes.
 
 from __future__ import annotations
 
+import enum
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, CheckConstraint, Index, SmallInteger, String
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Enum,
+    Index,
+    SmallInteger,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, UTCDateTime
@@ -60,3 +70,36 @@ class AuditChain(Base):
     id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=False)
     last_seq: Mapped[int] = mapped_column(BigInteger, nullable=False)
     last_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class CheckTrigger(enum.StrEnum):
+    SCHEDULED = "scheduled"  # the daily job
+    MANUAL = "manual"  # an Administrator pressed "Check now"
+    EXPORT = "export"  # run as part of an export, whose file carries the result
+
+
+class AuditCheck(Base):
+    """One run of the chain check (BRD FR-AU-03). Also append-only (triggers, migration 0005).
+
+    A passing check records the newest entry's number and hash. The next check confirms that
+    entry still has that hash, so rewriting the trail and recomputing every hash is caught too,
+    unless this table is rewritten as well.
+    """
+
+    __tablename__ = "audit_checks"
+    __table_args__ = (Index("ix_audit_checks_ok_id", "ok", "id"), _TABLE)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    finished_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    trigger: Mapped[CheckTrigger] = mapped_column(
+        Enum(CheckTrigger, values_callable=lambda e: [m.value for m in e], name="trigger"),
+        nullable=False,
+    )
+    requested_by_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ok: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    entries_checked: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_seq: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    last_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    first_bad_seq: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    problem: Mapped[str | None] = mapped_column(String(32), nullable=True)

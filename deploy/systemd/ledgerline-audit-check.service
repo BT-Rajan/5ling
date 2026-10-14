@@ -1,0 +1,24 @@
+# The daily audit log check (BRD FR-AU-03). Started by ledgerline-audit-check.timer.
+# Adjust the paths and user to your install. A failed check exits 1 (so `systemctl --failed`
+# and any OnFailure= hook see it), logs at CRITICAL, and shows on every Administrator's screen.
+[Unit]
+Description=Ledgerline daily audit log check
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline/api
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/api/.venv/bin/python -m app.cli verify-audit
+# Read-only, unprivileged sandbox: the check only reads the database and appends its result.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=

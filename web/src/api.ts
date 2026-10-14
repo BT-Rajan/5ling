@@ -67,25 +67,82 @@ export async function api<T>(
         body = null;
       }
     }
-    if (!response.ok) {
-      const err = (body as ErrorEnvelope | null)?.error;
-      const failure = new ApiError(
-        response.status,
-        typeof err?.code === "string" ? err.code : `http_${response.status}`,
-        typeof err?.message === "string" ? err.message : "The request failed.",
-        typeof err?.request_id === "string" ? err.request_id : undefined,
-        body,
-      );
-      // A 401 from the sign-in steps means "wrong details", not "your session ended".
-      if (response.status === 401 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/mfa/")) {
-        onUnauthorized?.(failure);
-      }
-      throw failure;
-    }
+    if (!response.ok) throw failureFrom(path, response.status, body);
     return body as T;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function failureFrom(path: string, status: number, body: unknown): ApiError {
+  const err = (body as ErrorEnvelope | null)?.error;
+  const failure = new ApiError(
+    status,
+    typeof err?.code === "string" ? err.code : `http_${status}`,
+    typeof err?.message === "string" ? err.message : "The request failed.",
+    typeof err?.request_id === "string" ? err.request_id : undefined,
+    body,
+  );
+  // A 401 from the sign-in steps means "wrong details", not "your session ended".
+  if (status === 401 && !path.startsWith("/api/auth/login") && !path.startsWith("/api/auth/mfa/")) {
+    onUnauthorized?.(failure);
+  }
+  return failure;
+}
+
+export interface Download {
+  blob: Blob;
+  filename: string;
+  headers: Headers;
+}
+
+/** POST for a file (an export). Same rules as api(): same-origin, CSRF token, no stored tokens. */
+export async function download(path: string, json: unknown, timeoutMs = 120_000): Promise<Download> {
+  if (!path.startsWith("/api/")) throw new Error("download() only calls /api/ paths on this site");
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+    const response = await fetch(path, {
+      method: "POST",
+      body: JSON.stringify(json),
+      headers,
+      credentials: "same-origin",
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      let body: unknown = null;
+      try {
+        body = JSON.parse(await response.text());
+      } catch {
+        body = null;
+      }
+      throw failureFrom(path, response.status, body);
+    }
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const named = /filename="([^"\\/]+)"/.exec(disposition)?.[1];
+    return { blob: await response.blob(), filename: named ?? "download", headers: response.headers };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Hand a downloaded file to the browser to save. */
+export function saveFile({ blob, filename }: Download): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 /** A sentence safe to show a person for any failure. */

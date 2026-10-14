@@ -26,6 +26,10 @@ export const TeamIcon = (p: SvgIconProps) => (
   <Outline {...p} d="M12 12.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM5 20c0-3.6 3.1-5.8 7-5.8s7 2.2 7 5.8M3.5 9.5l1.5 1.5 3-3" />
 );
 
+export const AuditIcon = (p: SvgIconProps) => (
+  <Outline {...p} d="M12 3.5 5 6.3v5.2c0 4.3 2.9 7.7 7 9 4.1-1.3 7-4.7 7-9V6.3L12 3.5ZM8.8 12.2l2.2 2.2 4.2-4.4" />
+);
+
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Ledgerline">

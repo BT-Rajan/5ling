@@ -131,7 +131,7 @@ CHUNKS = [
      [("Email provider interface (SMTP or cloud) with Mailpit in development", "API", "M", "INT-01"),
       ("Template engine; variables include client name, client ID, ticket ID, stage, due date", "API", "M", "CR-03"),
       ("Outbox table with statuses: draft, queued, sent, delivered, failed, bounced", "DB", "M", "FR-AL-06, CR-03"),
-      ("Send worker with 24-hour retry and provider delivery callbacks", "JOB", "M", "INT-01")]),
+      ("Send worker with 24-hour retry and provider delivery callbacks; also emails every Administrator when the audit log check fails (C04 alerts on screen and in the log until then)", "JOB", "M", "INT-01, FR-AU-03")]),
 
     ("C14", "R1", "Secure links and client portal shell",
      "Clients act on one cycle through a private, expiring link.", "C13, C09",
@@ -375,7 +375,7 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 """
 
 
-DONE_CHUNKS = {"C00", "C01", "C02", "C03"}
+DONE_CHUNKS = {"C00", "C01", "C02", "C03", "C04"}
 
 
 def main():

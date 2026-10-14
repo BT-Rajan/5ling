@@ -14,11 +14,13 @@ from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import delete, select
 
 from app.audit import audit
+from app.audit.verify import PROBLEMS, run_check
 from app.auth import passwords
 from app.auth.sessions import revoke_all_for_user
 from app.config import get_settings
 from app.db import make_engine, make_session_factory
-from app.models import LoginChallenge, RecoveryCode, Role, User
+from app.logging_conf import setup_logging
+from app.models import CheckTrigger, LoginChallenge, RecoveryCode, Role, User
 
 
 def create_admin(email: str, name: str, password: str) -> str:
@@ -69,6 +71,24 @@ def reset_mfa(email: str) -> str:
     return ""
 
 
+def verify_audit() -> tuple[bool, str]:
+    """The daily check (BRD FR-AU-03). Run by deploy/systemd/ledgerline-audit-check.timer."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        check = run_check(make_session_factory(engine), CheckTrigger.SCHEDULED)
+    finally:
+        engine.dispose()
+    if check.ok:
+        return True, f"Audit log intact: {check.entries_checked} entries checked."
+    where = f" at entry {check.first_bad_seq}" if check.first_bad_seq else ""
+    return (
+        False,
+        f"AUDIT LOG CHECK FAILED{where}: {PROBLEMS.get(check.problem or '', check.problem)}",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -78,7 +98,15 @@ def main(argv: list[str] | None = None) -> int:
     admin.add_argument("--password-stdin", action="store_true", help="read the password from stdin")
     reset = sub.add_parser("reset-mfa", help="clear someone's two-step setup (emergency)")
     reset.add_argument("--email", required=True)
+    sub.add_parser(
+        "verify-audit", help="check the audit log's chain (the daily job; exit 1 if bad)"
+    )
     args = parser.parse_args(argv)
+
+    if args.command == "verify-audit":
+        ok, message = verify_audit()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "reset-mfa":
         error = reset_mfa(args.email)

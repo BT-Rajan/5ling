@@ -137,7 +137,7 @@ Total: 151 tickets.
 
 **Done when:** A scripted set of actions produces the expected entries with no gaps.
 
-### C04 - Audit verification and viewer (R1)
+### C04 - Audit verification and viewer (R1) - DONE
 
 **Goal:** Tampering is detectable and auditors can read and export the log.  
 **Depends on:** C03
@@ -274,7 +274,7 @@ Total: 151 tickets.
 | LL-055 | API | M | Email provider interface (SMTP or cloud) with Mailpit in development | INT-01 |
 | LL-056 | API | M | Template engine; variables include client name, client ID, ticket ID, stage, due date | CR-03 |
 | LL-057 | DB | M | Outbox table with statuses: draft, queued, sent, delivered, failed, bounced | FR-AL-06, CR-03 |
-| LL-058 | JOB | M | Send worker with 24-hour retry and provider delivery callbacks | INT-01 |
+| LL-058 | JOB | M | Send worker with 24-hour retry and provider delivery callbacks; also emails every Administrator when the audit log check fails (C04 alerts on screen and in the log until then) | INT-01, FR-AU-03 |
 
 **Done when:** A test email moves queued to sent to delivered; a forced failure shows failed.
 
