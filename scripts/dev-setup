@@ -61,27 +61,63 @@ if [ -n "$ARCH" ]; then
   fi
 fi
 
-say "Databases and .env"
-if [ ! -f .env ]; then
-  APP_PW="$(openssl rand -hex 24)"
+say "Databases, accounts and .env"
+# Two database accounts. ledgerline_owner runs migrations and owns the tables and the audit-log
+# triggers. ledgerline_app, used by the running app, may only read and write rows: it cannot drop,
+# alter or truncate tables or remove triggers, so it cannot undo the audit log's protections.
+# With binary logging on (the MySQL 8 default) only SUPER may create triggers unless this is ON.
+$SUDO mysql -e "SET PERSIST log_bin_trust_function_creators = ON"
+create_accounts() { # OWNER_PW APP_PW
   cat <<SQL | $SUDO mysql
 CREATE DATABASE IF NOT EXISTS ledgerline      CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 CREATE DATABASE IF NOT EXISTS ledgerline_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER IF NOT EXISTS 'ledgerline_app'@'localhost' IDENTIFIED BY '$APP_PW';
-ALTER USER 'ledgerline_app'@'localhost' IDENTIFIED BY '$APP_PW';
-GRANT ALL ON ledgerline.*      TO 'ledgerline_app'@'localhost';
-GRANT ALL ON ledgerline_test.* TO 'ledgerline_app'@'localhost';
+CREATE USER IF NOT EXISTS 'ledgerline_owner'@'localhost' IDENTIFIED BY '$1';
+ALTER USER 'ledgerline_owner'@'localhost' IDENTIFIED BY '$1';
+GRANT ALL ON ledgerline.*      TO 'ledgerline_owner'@'localhost';
+GRANT ALL ON ledgerline_test.* TO 'ledgerline_owner'@'localhost';
+CREATE USER IF NOT EXISTS 'ledgerline_app'@'localhost' IDENTIFIED BY '$2';
+ALTER USER 'ledgerline_app'@'localhost' IDENTIFIED BY '$2';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'ledgerline_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ledgerline.*      TO 'ledgerline_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ledgerline_test.* TO 'ledgerline_app'@'localhost';
 SQL
+}
+db_url() { # USER PASSWORD DATABASE
+  printf 'mysql+pymysql://%s:%s@127.0.0.1:3306/%s?charset=utf8mb4' "$1" "$2" "$3"
+}
+if [ ! -f .env ]; then
+  OWNER_PW="$(openssl rand -hex 24)"
+  APP_PW="$(openssl rand -hex 24)"
+  create_accounts "$OWNER_PW" "$APP_PW"
   umask 077
   cat > .env <<ENV
 LL_ENV=development
-LL_DATABASE_URL=mysql+pymysql://ledgerline_app:$APP_PW@127.0.0.1:3306/ledgerline?charset=utf8mb4
-LL_TEST_DATABASE_URL=mysql+pymysql://ledgerline_app:$APP_PW@127.0.0.1:3306/ledgerline_test?charset=utf8mb4
+LL_DATABASE_URL=$(db_url ledgerline_app "$APP_PW" ledgerline)
+LL_MIGRATION_DATABASE_URL=$(db_url ledgerline_owner "$OWNER_PW" ledgerline)
+LL_TEST_DATABASE_URL=$(db_url ledgerline_owner "$OWNER_PW" ledgerline_test)
+LL_TEST_APP_DATABASE_URL=$(db_url ledgerline_app "$APP_PW" ledgerline_test)
 LL_SECRET_KEY=$(openssl rand -hex 32)
 LL_ALLOWED_HOSTS=localhost,127.0.0.1
 LL_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ENV
   echo "Created .env (private to you, never committed)."
+elif ! grep -q '^LL_MIGRATION_DATABASE_URL=' .env; then
+  # An .env from before chunk C03, when one account did everything: split it in two.
+  APP_PW="$(sed -n 's#^LL_DATABASE_URL=mysql+pymysql://ledgerline_app:\([0-9a-f]*\)@.*#\1#p' .env)"
+  if [ -n "$APP_PW" ]; then
+    OWNER_PW="$(openssl rand -hex 24)"
+    create_accounts "$OWNER_PW" "$APP_PW"
+    cp -p .env .env.before-c03
+    sed -i '/^LL_TEST_DATABASE_URL=/d' .env
+    {
+      echo "LL_MIGRATION_DATABASE_URL=$(db_url ledgerline_owner "$OWNER_PW" ledgerline)"
+      echo "LL_TEST_DATABASE_URL=$(db_url ledgerline_owner "$OWNER_PW" ledgerline_test)"
+      echo "LL_TEST_APP_DATABASE_URL=$(db_url ledgerline_app "$APP_PW" ledgerline_test)"
+    } >> .env
+    echo "Split the database account: migrations now run as ledgerline_owner (old .env kept as .env.before-c03)."
+  else
+    warn ".env uses a database account dev-setup did not create; add LL_MIGRATION_DATABASE_URL by hand (see .env.example)"
+  fi
 else
   echo ".env already exists: leaving credentials alone."
   printf 'CREATE DATABASE IF NOT EXISTS ledgerline CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\nCREATE DATABASE IF NOT EXISTS ledgerline_test CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;\n' | $SUDO mysql

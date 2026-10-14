@@ -1,6 +1,7 @@
 """Security middleware (pure ASGI): headers, request ids and logging, host check, body size limit.
 
-Order, outermost first: SecurityHeaders > RequestContext > TrustedHost > BodyLimit > CORS.
+Order, outermost first: SecurityHeaders > RequestContext > AuditContext > TrustedHost >
+OriginCheck > BodyLimit > CORS.
 SecurityHeaders is outermost so even error responses and rejected hosts carry the headers.
 """
 
@@ -14,6 +15,8 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any
+
+from app.audit.context import deny_reason
 
 Scope = MutableMapping[str, Any]
 Message = MutableMapping[str, Any]
@@ -177,7 +180,7 @@ class OriginCheckMiddleware:
         if scope["type"] == "http" and scope["method"] in _UNSAFE_METHODS:
             origin = dict(scope.get("headers", [])).get(b"origin")
             if origin is not None and origin.decode("latin-1") not in self.allowed:
-                log.warning("origin rejected", extra={"ctx": {"event": "origin.rejected"}})
+                deny_reason(scope, "origin.rejected")  # audited (and logged) once it is sent
                 rid = scope.get("state", {}).get("request_id")
                 await send_error(
                     send, 403, "bad_origin", "This request came from an untrusted site.", rid

@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -35,6 +36,10 @@ class Settings(BaseSettings):
 
     env: Literal["development", "test", "production"] = "development"
     database_url: SecretStr
+    # The account that runs migrations (owns the tables and the audit triggers). The app's own
+    # account must not have DDL rights, or it could drop the triggers that keep the audit
+    # trail append-only. Required in production; falls back to database_url elsewhere.
+    migration_database_url: SecretStr | None = None
     secret_key: SecretStr
     allowed_origins: Annotated[list[str], NoDecode] = []
     allowed_hosts: Annotated[list[str], NoDecode] = ["localhost", "127.0.0.1"]
@@ -58,11 +63,11 @@ class Settings(BaseSettings):
             )
         return value
 
-    @field_validator("database_url")
+    @field_validator("database_url", "migration_database_url")
     @classmethod
-    def _mysql_only(cls, value: SecretStr) -> SecretStr:
-        if not value.get_secret_value().startswith("mysql+pymysql://"):
-            raise ValueError("database_url must use the mysql+pymysql:// driver")
+    def _mysql_only(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not value.get_secret_value().startswith("mysql+pymysql://"):
+            raise ValueError("database urls must use the mysql+pymysql:// driver")
         return value
 
     @field_validator("max_body_bytes")
@@ -84,11 +89,25 @@ class Settings(BaseSettings):
             insecure = [o for o in self.allowed_origins if not o.startswith("https://")]
             if insecure:
                 raise ValueError("production allowed_origins must all be https://")
+            if self.migration_database_url is None:
+                raise ValueError("production needs migration_database_url (a separate account)")
+            app_user = make_url(self.database_url.get_secret_value()).username
+            owner = make_url(self.migration_database_url.get_secret_value()).username
+            if app_user == owner:
+                raise ValueError(
+                    "production database_url and migration_database_url must use different "
+                    "accounts, so the app cannot alter the audit trail's protections"
+                )
         return self
 
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+    @property
+    def migration_url(self) -> str:
+        chosen = self.migration_database_url or self.database_url
+        return chosen.get_secret_value()
 
 
 @lru_cache

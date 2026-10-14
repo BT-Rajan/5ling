@@ -126,13 +126,16 @@ def create_person(
     )
     db.add(user)
     try:
-        db.commit()
+        db.flush()  # assigns the id, or finds the duplicate email
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=409, detail="Someone with that email already exists."
         ) from None
-    security_event("user.created", actor_id=actor.user_id, user_id=user.id, role=user.role.value)
+    security_event(
+        "user.created", db=db, actor_id=actor.user_id, user_id=user.id, role=user.role.value
+    )
+    db.commit()
     return CreatedOut(person=_out(user), temporary_password=temp)
 
 
@@ -160,8 +163,10 @@ def disable_person(
         user.is_active = False
         user.disabled_at = utcnow()
     ended = revoke_all_for_user(db, user.id)
+    security_event(
+        "user.disabled", db=db, actor_id=actor.user_id, user_id=user.id, sessions_ended=ended
+    )
     db.commit()
-    security_event("user.disabled", actor_id=actor.user_id, user_id=user.id, sessions_ended=ended)
     return _out(user)
 
 
@@ -175,8 +180,8 @@ def enable_person(
     user.is_active = True
     user.disabled_at = None
     throttle.register_success(user)
+    security_event("user.enabled", db=db, actor_id=actor.user_id, user_id=user.id)
     db.commit()
-    security_event("user.enabled", actor_id=actor.user_id, user_id=user.id)
     return _out(user)
 
 
@@ -195,8 +200,8 @@ def reset_password(
     user.password_changed_at = utcnow()
     throttle.register_success(user)
     revoke_all_for_user(db, user.id)
+    security_event("user.password_reset", db=db, actor_id=actor.user_id, user_id=user.id)
     db.commit()
-    security_event("user.password_reset", actor_id=actor.user_id, user_id=user.id)
     return ResetOut(temporary_password=temp)
 
 
@@ -222,6 +227,8 @@ def reset_two_step(
     db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
     db.execute(delete(LoginChallenge).where(LoginChallenge.user_id == user.id))
     ended = revoke_all_for_user(db, user.id)
+    security_event(
+        "user.mfa_reset", db=db, actor_id=actor.user_id, user_id=user.id, sessions_ended=ended
+    )
     db.commit()
-    security_event("user.mfa_reset", actor_id=actor.user_id, user_id=user.id, sessions_ended=ended)
     return _out(user)

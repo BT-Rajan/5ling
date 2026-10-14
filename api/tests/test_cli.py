@@ -9,6 +9,7 @@ from app.models import Role, User
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
+from tests.audit_helpers import entries, events
 from tests.conftest import GOOD_SECRET
 from tests.helpers import db_session, login
 
@@ -42,6 +43,11 @@ def test_creates_a_working_administrator(
         assert user.must_change_password is False
         assert user.password_hash is not None
         assert user.password_hash.startswith("$argon2id$")
+        new_id = user.id
+    (created,) = entries(cli_env)
+    assert (created.event, created.actor_user_id) == ("user.created", None)
+    assert (created.target_type, created.target_id) == ("user", str(new_id))
+    assert created.details == {"role": "administrator", "via": "cli"}
     resp = login(web, "boss@firm.in", "a long passphrase here")
     assert resp.status_code == 200
     # A new Administrator has no authenticator yet, so the next step is to set one up.
@@ -75,6 +81,7 @@ def test_reset_mfa_clears_two_step_and_ends_sessions(
 
     assert main(["reset-mfa", "--email", "BOSS@firm.in"]) == 0
     assert "will set it up again" in capsys.readouterr().out
+    assert events(cli_env)[-1] == "user.mfa_reset"
 
     assert web.get("/api/auth/me").status_code == 401  # session ended
     with db_session(cli_env) as db:

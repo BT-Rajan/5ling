@@ -18,9 +18,9 @@ LL-012,C02,R1,Two-step sign-in and sessions,"20-minute idle timeout on the serve
 LL-013,C02,R1,Two-step sign-in and sessions,"Set-up (QR code, manual key, recovery codes) and code-entry screens",WEB,S,,Done
 LL-014,C02,R1,Two-step sign-in and sessions,"Authorization test harness: every endpoint against every role and every kind of dead session, with the BRD matrix as a checklist",TEST,M,"NFR-SE-01, FR-AC-01",Done
 LL-151,C02,R1,Two-step sign-in and sessions,"Recovery codes, administrator and command-line reset of two-step sign-in, Account security screen",API,M,NFR-SE-02,Done
-LL-015,C03,R1,Audit log core,audit_entries table; MySQL triggers and revoked privileges block update and delete,DB,M,FR-AU-02,Todo
-LL-016,C03,R1,Audit log core,Hash-chain writer (previous hash plus entry hash),API,M,FR-AU-03,Todo
-LL-017,C03,R1,Audit log core,"audit() helper and middleware: sign-in, failures, denied requests",API,M,FR-AU-01,Todo
+LL-015,C03,R1,Audit log core,audit_entries table; MySQL triggers and revoked privileges block update and delete,DB,M,FR-AU-02,Done
+LL-016,C03,R1,Audit log core,Hash-chain writer (previous hash plus entry hash),API,M,FR-AU-03,Done
+LL-017,C03,R1,Audit log core,"audit() helper and middleware: sign-in, failures, denied requests",API,M,FR-AU-01,Done
 LL-018,C04,R1,Audit verification and viewer,Chain verification service and on-demand endpoint,API,S,FR-AU-03,Todo
 LL-019,C04,R1,Audit verification and viewer,Daily verification job; alert Administrator and Partners on failure,JOB,S,FR-AU-03,Todo
 LL-020,C04,R1,Audit verification and viewer,Admin audit viewer with filters and export including chain result,WEB,M,FR-AU-04,Todo

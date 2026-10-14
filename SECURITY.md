@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 to C02)
+## What is in place now (chunks C00 to C03)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -24,11 +24,14 @@ Do not open a public issue. Email the project owner directly with what you found
 | Two-step sign-in | Staff and Administrators need a code from an authenticator app. A correct password earns only a single-use challenge (5 minutes, 5 attempts); the session cookie is issued only after the code is verified, and a test proves sessions are created in exactly one place. Codes cannot be replayed; wrong codes count towards the account lockout; recovery codes (10, single use, stored as keyed hashes) cover a lost phone; the authenticator secret is stored encrypted. | `api/tests/test_totp.py` (RFC 6238 vectors), `test_mfa_flow.py` |
 | Inactivity | Staff and Administrator sessions end after 20 minutes without activity, measured on every request; the screen also signs out by itself so a forgotten tab does not keep showing data. | `api/tests/test_idle.py`, `web` tests |
 | Every endpoint, every caller | Each endpoint is called as Administrator, Staff, Consultant, a signed-out visitor, someone with a temporary password, and four kinds of dead session (disabled, revoked, idle, expired), against a table written by hand from the BRD. Forged-request and foreign-origin checks run on every state-changing route. Breaking the code on purpose makes these tests fail (checked). | `api/tests/test_authz_matrix.py`, `brd_matrix.py` |
+| Audit trail | Sign-ins (each step), failures, lockouts, sign-outs, refused requests (wrong role, missing CSRF token, foreign origin, dead session) and every account change are recorded with who, when, from where and the request id. Entries for a change are saved in the same transaction as the change, so neither exists without the other; failures and refusals are saved in a transaction of their own so they survive the request failing. Each entry is numbered with no gaps and carries a SHA-256 hash over its contents and the previous entry's hash. MySQL triggers refuse any UPDATE or DELETE of an entry, and any insert that skips a number or forks the chain; the app's database account cannot truncate the table, alter it or drop the triggers. Details are redacted like the logs. | `api/tests/test_audit.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)
 
-The tamper-evident audit log (C03-C04; until then security events go to the redacted application log). **Do not load real client data until the audit log exists**, because the BRD requires every view and download to be recorded. Also to come: consultant sign-in by emailed link and code (C21, so consultants cannot sign in yet); secure client links (C14); private file storage and virus scanning (C16); owner and assignment checks on real records (C07, C21; the matrix in `brd_matrix.py` lists the other 15 BRD capabilities and the chunk that builds each); PAN and bank masking, encryption review and independent security test (C30).
+Checking the audit trail's hashes (on demand and daily, with an alert) and the audit viewer come in C04; until then tampering is prevented by the database but not yet detected by a routine check. Records of client data being viewed and downloaded arrive with that data (C07 onwards, C16). Also to come: consultant sign-in by emailed link and code (C21, so consultants cannot sign in yet); secure client links (C14); private file storage and virus scanning (C16); owner and assignment checks on real records (C07, C21; the matrix in `brd_matrix.py` lists the other 15 BRD capabilities and the chunk that builds each); PAN and bank masking, encryption review and independent security test (C30).
+
+Known limits of the audit trail today: the hashes are plain SHA-256, so someone holding the database owner's account could drop the triggers, rewrite the trail and recompute every hash; C04's daily check and keeping exported copies elsewhere narrow that. If the database is unreachable when a refusal or failed sign-in is being recorded, the request is still refused and the missing entry is logged as an error (`audit entry not written`) rather than turned into a server error. Entries for changes never go missing this way: if they cannot be written, the change is not saved either.
 
 Known limits of two-step sign-in today: whoever uses a new account's temporary password first sets up its authenticator, so hand the password over directly and check the Team screen shows "Two-step on" afterwards. The authenticator secret is encrypted with a key derived from `LL_SECRET_KEY`: changing that key makes existing authenticators unreadable, and an Administrator would need to reset them. If the only Administrator loses their phone and recovery codes, `python -m app.cli reset-mfa --email ...` (needs server access) clears it.
 
@@ -37,5 +40,5 @@ Known limits of two-step sign-in today: whoever uses a new account's temporary p
 - TLS in front, using `deploy/nginx/`; set `LL_ENV=production`, exact `LL_ALLOWED_HOSTS` and https `LL_ALLOWED_ORIGINS`.
 - Run uvicorn with `--no-server-header --proxy-headers --forwarded-allow-ips 127.0.0.1`, bound to 127.0.0.1 behind the proxy, so the address limit sees real client addresses.
 - Create the first Administrator with `scripts/create-admin`; there is no web sign-up.
-- Separate database accounts for migrations and for the running app (set up in C03 so the audit log can be made append-only).
+- Separate database accounts: `LL_MIGRATION_DATABASE_URL` (owner: all rights on the database, runs `alembic upgrade head`) and `LL_DATABASE_URL` (app: `SELECT, INSERT, UPDATE, DELETE` only). The app refuses to start in production without both, or with both naming the same account. Creating the audit triggers needs `SUPER` or `log_bin_trust_function_creators = ON` while binary logging is on.
 - Hosting in India as required by the BRD (open question Q6).
