@@ -43,7 +43,7 @@ describe("starting up", () => {
   it("asks anonymous visitors to sign in, whichever page they asked for", async () => {
     renderApp("/clients", signedOut);
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
-    expect(screen.queryByText(/No clients yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/open a client by its 6-digit client ID/)).not.toBeInTheDocument();
   });
 });
 
@@ -85,7 +85,7 @@ describe("signing in", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument(); // not signed in yet
     await userEvent.type(screen.getByLabelText(/6-digit code/i), "123456");
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText(/No clients yet/)).toBeInTheDocument();
+    expect(await screen.findByText(/open a client by its 6-digit client ID/)).toBeInTheDocument();
     expect(calls[0]?.body).toEqual({ email: "asha@firm.in", password: "a long passphrase" });
     expect(calls[1]?.body).toEqual({ challenge: "c".repeat(30), code: "123456" });
 

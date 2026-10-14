@@ -34,11 +34,11 @@ LL-027,C06,R1,Due-date engine,"Due-date rule evaluator for monthly, quarterly, y
 LL-028,C06,R1,Due-date engine,"Alert date: default 4 and 21 days, quarterly set by Admin, per-entry override, holiday rule",API,M,"FR-PK-03, FR-PK-04",Done
 LL-029,C06,R1,Due-date engine,Full-year due-date preview before saving a calendar,WEB,S,FR-PK-02,Done
 LL-030,C06,R1,Due-date engine,Month-end and holiday test cases,TEST,S,NFR-AU-01,Done
-LL-031,C07,R1,Clients: create,"clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused)",DB,S,CR-01,Todo
-LL-032,C07,R1,Clients: create,PAN and GSTIN validators,API,S,FR-CL-01,Todo
-LL-033,C07,R1,Clients: create,"Create-client API: required fields, duplicate block pointing to existing record",API,M,"FR-CL-01, FR-CL-02, CR-01",Todo
-LL-034,C07,R1,Clients: create,"Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log",API,S,"FR-CL-03, FR-AL-08",Todo
-LL-035,C07,R1,Clients: create,Create-client form showing the assigned client ID on save,WEB,M,CR-01,Todo
+LL-031,C07,R1,Clients: create,"clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused)",DB,S,CR-01,Done
+LL-032,C07,R1,Clients: create,PAN and GSTIN validators,API,S,FR-CL-01,Done
+LL-033,C07,R1,Clients: create,"Create-client API: required fields, duplicate block pointing to existing record",API,M,"FR-CL-01, FR-CL-02, CR-01",Done
+LL-034,C07,R1,Clients: create,"Several contacts with one primary; channel consent record (email on, WhatsApp and SMS off) with change log",API,S,"FR-CL-03, FR-AL-08",Done
+LL-035,C07,R1,Clients: create,Create-client form showing the assigned client ID on save,WEB,M,CR-01,Done
 LL-036,C08,R1,"Clients: change, search, reassign","Change owner, package or status with reason; history shown",API,M,FR-CL-04,Todo
 LL-037,C08,R1,"Clients: change, search, reassign","Search and filter by name, PAN, owner, package, status; staff see own clients only; client ID searchable",API,M,"FR-CL-06, CR-01",Todo
 LL-038,C08,R1,"Clients: change, search, reassign",Reassign moves access immediately,API,S,FR-AC-03,Todo

@@ -15,6 +15,9 @@ class ApiHTTPException(HTTPException):
         *,
         code: str | None = None,
         headers: Mapping[str, str] | None = None,
+        extra: Mapping[str, object] | None = None,
     ) -> None:
         super().__init__(status_code=status_code, detail=detail, headers=dict(headers or {}))
         self.code = code or f"http_{status_code}"
+        # More for the web app to act on, e.g. which record a duplicate matched.
+        self.extra = dict(extra or {})

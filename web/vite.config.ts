@@ -86,6 +86,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test-setup.ts"],
+    // Form tests type character by character, which is slow on busy CI runners.
+    testTimeout: 20_000,
     css: false,
   },
 });

@@ -13,12 +13,25 @@ from app.models.catalog import (
     PackageVersion,
     PeriodBasis,
 )
+from app.models.client import (
+    FIRST_CLIENT_ID,
+    LAST_CLIENT_ID,
+    Channel,
+    Client,
+    ClientIdCounter,
+    ClientKind,
+    ClientStatus,
+    ConsentChange,
+    Contact,
+)
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.user import LoginAttempt, Role, User, UserSession
 
 __all__ = [
+    "FIRST_CLIENT_ID",
     "GENESIS_HASH",
+    "LAST_CLIENT_ID",
     "AppMeta",
     "AuditChain",
     "AuditCheck",
@@ -26,8 +39,15 @@ __all__ = [
     "BillingFrequency",
     "CalendarVersion",
     "ChallengePurpose",
+    "Channel",
     "CheckTrigger",
     "ChecklistItem",
+    "Client",
+    "ClientIdCounter",
+    "ClientKind",
+    "ClientStatus",
+    "ConsentChange",
+    "Contact",
     "Filing",
     "Frequency",
     "Holiday",

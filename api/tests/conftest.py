@@ -123,6 +123,8 @@ def migrated_db(db_url: str) -> str:
                 text("INSERT INTO audit_chain (id, last_seq, last_hash) VALUES (1, 0, :g)"),
                 {"g": GENESIS_HASH},
             )
+            # TRUNCATE restarts AUTO_INCREMENT at 1; client IDs start at 100001 (CR-01).
+            conn.execute(text("ALTER TABLE client_id_counter AUTO_INCREMENT = 100001"))
             # Seeded by migration 0007; put back the defaults in case a test changed them.
             conn.execute(
                 text(

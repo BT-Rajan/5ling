@@ -8,6 +8,7 @@ import { useAuth, useUser, type Role } from "./auth/AuthProvider";
 import { AppShell } from "./components/AppShell";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { AuditPage } from "./pages/AuditPage";
+import { ClientPage, ClientsHome, NewClientPage } from "./pages/ClientsPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { EmptyPage } from "./pages/EmptyPage";
 import { HomePage } from "./pages/HomePage";
@@ -62,7 +63,9 @@ export function App() {
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route path="work" element={<EmptyPage title="Work list">Nothing to do yet. Your daily work list will appear here once filings are set up.</EmptyPage>} />
-        <Route path="clients" element={<EmptyPage title="Clients">No clients yet. Add your first client once client records are available.</EmptyPage>} />
+        <Route path="clients" element={<OnlyFor roles={["administrator", "staff"]}><ClientsHome /></OnlyFor>} />
+        <Route path="clients/new" element={<OnlyFor roles={["administrator", "staff"]}><NewClientPage /></OnlyFor>} />
+        <Route path="clients/:clientId" element={<OnlyFor roles={["administrator", "staff"]}><ClientPage /></OnlyFor>} />
         <Route path="team" element={<Navigate to="/setup/team" replace />} />
         <Route path="setup" element={<OnlyFor roles={["administrator"]}><SetupPage /></OnlyFor>} />
         <Route path="setup/team" element={<OnlyFor roles={["administrator"]}><TeamPage /></OnlyFor>} />

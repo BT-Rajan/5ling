@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 to C05)
+## What is in place now (chunks C00 to C07)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -28,6 +28,7 @@ Do not open a public issue. Email the project owner directly with what you found
 | Tamper detection | The whole trail is re-checked daily (systemd timer in `deploy/systemd/`), on request, and with every export: numbering, links and every hash, read in one consistent snapshot. Each passing check records the newest entry's hash, and the next check confirms it is unchanged, so even a rewrite that recomputes every hash is caught (unless the check history is rewritten too). Check results are append-only. A failure is logged at CRITICAL, written to the trail, and shown to every Administrator on every screen until a later check passes. The newest verified hash is also written to the application log, which gives an anchor outside the database once logs are shipped off the server. | `api/tests/test_audit_verify.py` (each kind of tampering), `test_admin_audit.py` |
 | Audit viewer and export | Administrator only: filter by event, person, record and India dates; export to CSV headed by a fresh chain check, with the hashes so auditors can verify independently. Spreadsheet formulas in cells are neutralised. Every export is itself recorded. Nothing offers to edit or delete an entry. | `api/tests/test_admin_audit.py`, `web` tests |
 | Packages and calendars | Administrator only. Published versions of packages and calendars, and the filings and checklist items under them, cannot be changed or deleted: database triggers refuse it, so cycles can always show exactly what they were built from (FR-PK-05). Every change is audited. Money is stored in whole paise, never as floating point. | `api/tests/test_catalog.py` |
+| Clients | Opening a client is checked on the server for every request: the Administrator sees all, Staff only clients they own (a test proves another Staff member is refused). Staff can only create clients they own. Client IDs come from a database counter, can never be changed or reused, and clients cannot be deleted. PAN and GSTIN are validated (GSTIN by its check character) and unique; a duplicate names the existing client, but not its name when the person asking cannot open it. PAN, GSTIN, email and phone never go into audit details. PAN is masked on screen until "Show" is pressed. Consent changes are kept in an append-only log. | `api/tests/test_clients.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)

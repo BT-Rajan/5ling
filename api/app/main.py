@@ -21,6 +21,7 @@ from app.routers import (
     admin_schedule,
     admin_users,
     auth,
+    clients,
     health,
 )
 from app.security import (
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
                     "code": getattr(exc, "code", f"http_{exc.status_code}"),
                     "message": str(exc.detail),
                     "request_id": rid(request),
+                    **getattr(exc, "extra", {}),
                 }
             },
             status_code=exc.status_code,
@@ -103,6 +105,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_filings.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
+    app.include_router(clients.router)
 
     # add_middleware puts the newest outermost; the first one added is closest to the app.
     app.add_middleware(
