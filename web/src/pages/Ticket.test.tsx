@@ -151,6 +151,51 @@ describe("Client link", () => {
   });
 });
 
+describe("Updates to the client", () => {
+  const update = (over: Record<string, unknown> = {}) => ({ id: 31, status: "draft", from_state: "scheduled", to_state: "awaiting_documents", subject: "GSTR-1 Apr 2026: Awaiting documents (TKT-000001)", to: ["asha@example.in"], cc: [], created_at: "2026-10-14T05:00:00Z", queued_at: null, sent_by: null, sent_at: null, delivered_at: null, failed_at: null, ...over });
+  const preview = (cc: string[], note: string) => ({
+    subject: "GSTR-1 Apr 2026: Awaiting documents (TKT-000001)",
+    body: `Dear Asha Rao,\n\nYour GSTR-1 for Apr 2026 has moved from Scheduled to Awaiting documents.\n\n${note}\n\nAsha Rao\nLedgerline\n`,
+    to: ["asha@example.in"],
+    cc,
+    other_contacts: [{ id: 9, name: "Ravi Rao", email: "ravi@example.in" }],
+  });
+
+  it("shows waiting drafts, previews one, and sends it only on the click", async () => {
+    const sends: Call[] = [];
+    let list = [update(), update({ id: 30, status: "delivered", from_state: "assigned", to_state: "preparing", sent_by: "Asha Rao", queued_at: "2026-10-13T05:00:00Z" })];
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ticket("scheduled", [])),
+        "GET /api/tickets/TKT-000001/updates": () => jsonResponse(list),
+        "POST /api/updates/31/preview": (c) => {
+          const b = c.body as { note: string; cc_contact_ids: number[] };
+          return jsonResponse(preview(b.cc_contact_ids.length ? ["ravi@example.in"] : [], b.note));
+        },
+        "POST /api/updates/31/send": (c) => { sends.push(c); list = [update({ status: "queued", sent_by: "Asha Rao", queued_at: "2026-10-14T06:00:00Z" }), ...list.slice(1)]; return jsonResponse(list[0]); },
+      },
+    });
+    expect(await screen.findByTestId("drafts-badge")).toHaveTextContent("1 to send");
+    const updates = screen.getByRole("list", { name: "Updates to the client" });
+    expect(updates).toHaveTextContent("Scheduled → Awaiting documents");
+    expect(updates).toHaveTextContent("Delivered");
+    expect(sends).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Preview and send" }));
+    expect(await screen.findByTestId("update-preview")).toHaveTextContent("moved from Scheduled to Awaiting documents");
+    await userEvent.type(screen.getByLabelText("Personal note (optional)"), "Please send the sales register.");
+    await userEvent.click(screen.getByLabelText("Ravi Rao (ravi@example.in)"));
+    expect(await screen.findByText(/copy to ravi@example.in/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send update to client" }));
+    expect(await screen.findByText("Sent to the client.")).toBeInTheDocument();
+    expect(sends).toHaveLength(1);
+    expect(sends[0]?.body).toEqual({ note: "Please send the sales register.", cc_contact_ids: [9] });
+    expect(screen.queryByTestId("drafts-badge")).not.toBeInTheDocument();
+  });
+});
+
 describe("Task tickets", () => {
   const task = (status: string, over: Record<string, unknown> = {}) => ({
     code: "TKT-000050",

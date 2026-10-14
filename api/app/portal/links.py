@@ -226,7 +226,9 @@ def find(db: Session, token: str, *, lock: bool = False) -> PortalLink:
     if not token or len(token) > 100:
         raise invalid()
     stmt = select(PortalLink).where(PortalLink.token_hash == hash_secret(token))
-    link = db.scalar(stmt.with_for_update() if lock else stmt)
+    link = db.scalar(
+        stmt.with_for_update().execution_options(populate_existing=True) if lock else stmt
+    )
     if link is None:
         raise invalid()
     return link

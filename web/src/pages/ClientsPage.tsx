@@ -17,6 +17,7 @@ import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatDay, formatIST } from "../time";
 import { api, ApiError, messageFor } from "../api";
+import { ClientUpdates } from "../components/ClientUpdates";
 import { useUser } from "../auth/AuthProvider";
 import { BILLING_LABEL, money, type BillingFrequency } from "../catalog";
 
@@ -441,6 +442,10 @@ export function ClientPage() {
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Change owner, package or status</Typography>
       {changed && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setChanged(null); }}>{changed}</Alert>}
       <ChangeForm key={round} client={client} onChanged={(text) => { setChanged(text); setRound((r) => r + 1); }} />
+
+      <Box sx={{ mt: 4 }}>
+        <ClientUpdates key={round} source={`/api/clients/${String(client.client_id)}/updates`} />
+      </Box>
 
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>History</Typography>
       {history?.length === 0 && <Typography color="text.secondary">No changes since the client was added.</Typography>}

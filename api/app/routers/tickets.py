@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Request
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session, aliased
@@ -27,8 +27,9 @@ from app.cycles.service import (
     ticket_code,
     transition,
 )
-from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, moves_from
+from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
+from app.mail.updates import draft_updates
 from app.models import (
     FIRST_CLIENT_ID,
     LAST_CLIENT_ID,
@@ -160,13 +161,6 @@ class TicketRow(BaseModel):
     stage: Stage | None
     stage_label: str | None
     due_date: date | None
-
-
-TASK_LABEL: dict[TaskStatus, str] = {
-    TaskStatus.OPEN: "Open",
-    TaskStatus.DONE: "Done",
-    TaskStatus.CANCELLED: "Cancelled",
-}
 
 
 class TransitionIn(BaseModel):
@@ -506,6 +500,7 @@ def create_task(
 def update_task(
     ticket: TicketRef,
     body: TaskPatch,
+    request: Request,
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> TicketOut:
@@ -563,6 +558,7 @@ def update_task(
         target=("ticket", ticket_code(found.number)),
         details={"changed": sorted(changes), "status": task.status.value},
     )
+    draft_updates(db, request.app.state.settings.firm_name, client_pk=client.id)  # CR-03
     db.commit()
     return _ticket_out(db, found, client, principal)
 
@@ -581,6 +577,7 @@ def get_ticket(
 def move_ticket(
     ticket: TicketRef,
     body: TransitionIn,
+    request: Request,
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> TicketOut:
@@ -608,6 +605,7 @@ def move_ticket(
             code=refused.code,
             extra={"allowed": [m.action for m in refused.allowed]},
         ) from None
+    draft_updates(db, request.app.state.settings.firm_name, client_pk=client.id)  # CR-03
     db.commit()
     return _ticket_out(db, found, client, principal)
 

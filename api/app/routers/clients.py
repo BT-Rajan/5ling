@@ -27,6 +27,7 @@ from app.cycles.generator import run_quietly
 from app.cycles.service import emit_state_event
 from app.errors import ApiHTTPException
 from app.identifiers import PAN_HOLDERS, gstin_problem, pan_in_gstin, pan_problem, tidy
+from app.mail.updates import draft_updates
 from app.models import (
     FIRST_CLIENT_ID,
     LAST_CLIENT_ID,
@@ -269,7 +270,9 @@ def can_open(principal: Principal, client: Client) -> bool:
 def load_client(db: Session, principal: Principal, client_id: int, *, lock: bool = False) -> Client:
     """The client, if this person may open it (record-level check, NFR-SE-01)."""
     stmt = select(Client).where(Client.client_id == client_id)
-    client = db.scalar(stmt.with_for_update() if lock else stmt)
+    client = db.scalar(
+        stmt.with_for_update().execution_options(populate_existing=True) if lock else stmt
+    )
     if client is None:
         authorize_record(principal, None, what="client")  # raises 404
         raise ApiHTTPException(404, "Not found.", code="not_found")
@@ -770,6 +773,7 @@ def change_client(
 
     if not changed:
         raise ApiHTTPException(409, "Nothing would change.", code="no_change")
+    draft_updates(db, request.app.state.settings.firm_name, client_pk=client.id)  # CR-03
     db.commit()
     if body.package_id is not None or body.status is not None:
         # A new package version, or a reopened client, may need cycles from now on.

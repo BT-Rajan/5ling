@@ -66,6 +66,11 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/tickets/{ticket}/links"),
             ("POST", "/api/tickets/{ticket}/links"),
             ("POST", "/api/tickets/{ticket}/links/{link_id}/withdraw"),
+            # Client updates: one draft per state change, sent by hand (CR-03).
+            ("GET", "/api/tickets/{ticket}/updates"),
+            ("GET", "/api/clients/{client_id}/updates"),
+            ("POST", "/api/updates/{email_id}/preview"),
+            ("POST", "/api/updates/{email_id}/send"),
         ),
     ),
     Capability(

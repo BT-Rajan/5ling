@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.models import Stage
+from app.models import ClientStatus, Stage, TaskStatus
 
 ORDER: tuple[Stage, ...] = tuple(Stage)
 
@@ -92,3 +92,16 @@ def _check_table() -> None:
 
 
 _check_table()
+
+
+TASK_LABEL: dict[TaskStatus, str] = {
+    TaskStatus.OPEN: "Open",
+    TaskStatus.DONE: "Done",
+    TaskStatus.CANCELLED: "Cancelled",
+}
+
+CLIENT_STATUS_LABEL: dict[ClientStatus, str] = {
+    ClientStatus.ACTIVE: "Active",
+    ClientStatus.PAUSED: "Paused",
+    ClientStatus.CLOSED: "Closed",
+}

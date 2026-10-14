@@ -24,6 +24,7 @@ from app.cycles.generator import run as run_generator
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
 from app.mail.provider import provider_from_settings
+from app.mail.updates import sweep
 from app.mail.worker import run_forever, send_due
 from app.models import (
     CheckTrigger,
@@ -135,15 +136,23 @@ def send_emails(*, once: bool, interval: float) -> tuple[bool, str]:
     provider = provider_from_settings(settings)
     stop = threading.Event()
     try:
+        drafted = sweep(factory, settings.firm_name)
         if once:
             tally = send_due(factory, provider)
             return (
                 True,
-                f"{tally.sent} sent, {tally.retrying} to retry, {tally.failed} failed.",
+                f"{drafted} drafted, {tally.sent} sent, {tally.retrying} to retry, "
+                f"{tally.failed} failed.",
             )
         for sig in (signal.SIGTERM, signal.SIGINT):
             signal.signal(sig, lambda *_: stop.set())
-        run_forever(factory, provider, interval_seconds=interval, stop=stop)
+        run_forever(
+            factory,
+            provider,
+            interval_seconds=interval,
+            stop=stop,
+            before_round=lambda: sweep(factory, settings.firm_name),
+        )
         return True, "Email worker stopped."
     finally:
         engine.dispose()

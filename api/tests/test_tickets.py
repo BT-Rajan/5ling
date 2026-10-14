@@ -260,9 +260,13 @@ def test_ticket_numbers_history_and_events_cannot_be_rewritten(
         ):
             with pytest.raises(Exception, match=message), engine.begin() as conn:
                 conn.execute(text(sql))
-        # Marking an event handled is the one change allowed, and only once.
+        # Marking an event handled is the one change allowed, and only once: drafting its
+        # client update (C15) already did, so it cannot be marked again.
         with engine.begin() as conn:
-            conn.execute(text("UPDATE state_events SET handled_at = UTC_TIMESTAMP(6)"))
+            handled = conn.execute(
+                text("SELECT COUNT(*) FROM state_events WHERE handled_at IS NULL")
+            ).scalar()
+        assert handled == 0
         with pytest.raises(Exception, match="handled, once"), engine.begin() as conn:
             conn.execute(text("UPDATE state_events SET handled_at = UTC_TIMESTAMP(6)"))
     finally:

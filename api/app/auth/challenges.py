@@ -45,7 +45,10 @@ def load(
     db: Session, token: str, purpose: ChallengePurpose, now: datetime
 ) -> LoginChallenge | None:
     row = db.scalar(
-        select(LoginChallenge).where(LoginChallenge.token_hash == _hash(token)).with_for_update()
+        select(LoginChallenge)
+        .where(LoginChallenge.token_hash == _hash(token))
+        .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if (
         row is None

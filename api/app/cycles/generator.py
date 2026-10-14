@@ -247,7 +247,12 @@ def run(
             for pk in pks:
                 tally.checked += 1
                 with factory() as db:
-                    client = db.scalar(select(Client).where(Client.id == pk).with_for_update())
+                    client = db.scalar(
+                        select(Client)
+                        .where(Client.id == pk)
+                        .with_for_update()
+                        .execution_options(populate_existing=True)
+                    )
                     if client is None:
                         continue
                     try:

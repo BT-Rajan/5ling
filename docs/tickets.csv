@@ -65,12 +65,12 @@ LL-058,C13,R1,Email service and outbox,Send worker with 24-hour retry and provid
 LL-059,C14,R1,Secure links and client portal shell,"Link tokens: one client, one cycle, hashed at rest, 72-hour default expiry",API,M,FR-AL-02,Done
 LL-060,C14,R1,Secure links and client portal shell,Staff renew link; client can request a new link,API,M,FR-AL-02,Done
 LL-061,C14,R1,Secure links and client portal shell,Mobile-first client portal shell validating the link,WEB,M,"FR-AL-02, NFR-US-01",Done
-LL-062,C15,R1,Manual state-change emails,Consume state_changed: create one DRAFT notification per stage change (nothing is sent),API,M,CR-03,Todo
-LL-063,C15,R1,Manual state-change emails,"Draft preview, optional personal note, Send endpoint with once-only guard; Own or Admin only",API,M,"CR-03, FR-AC-01",Todo
-LL-064,C15,R1,Manual state-change emails,'Send update to client' button and draft badge on ticket page,WEB,M,CR-03,Todo
-LL-065,C15,R1,Manual state-change emails,"Client status changes (active, paused, closed) also create drafts",API,S,"CR-03, FR-CL-04",Todo
-LL-066,C15,R1,Manual state-change emails,Send goes to primary contact; other contacts copied only if chosen; send result audited,API,S,"FR-CL-03, FR-AU-01",Todo
-LL-067,C15,R1,Manual state-change emails,"Tests: no auto-send, one draft per change, double-click sends once, audit entries present",TEST,S,CR-03,Todo
+LL-062,C15,R1,Manual state-change emails,Consume state_changed: create one DRAFT notification per stage change (nothing is sent),API,M,CR-03,Done
+LL-063,C15,R1,Manual state-change emails,"Draft preview, optional personal note, Send endpoint with once-only guard; Own or Admin only",API,M,"CR-03, FR-AC-01",Done
+LL-064,C15,R1,Manual state-change emails,'Send update to client' button and draft badge on ticket page,WEB,M,CR-03,Done
+LL-065,C15,R1,Manual state-change emails,"Client status changes (active, paused, closed) also create drafts",API,S,"CR-03, FR-CL-04",Done
+LL-066,C15,R1,Manual state-change emails,Send goes to primary contact; other contacts copied only if chosen; send result audited,API,S,"FR-CL-03, FR-AU-01",Done
+LL-067,C15,R1,Manual state-change emails,"Tests: no auto-send, one draft per change, double-click sends once, audit entries present",TEST,S,CR-03,Done
 LL-068,C16,R1,Documents and storage,Encrypted object-storage adapter (India region); no public addresses; choose the development backend (local filesystem adapter or an S3-compatible server),API,M,"INT-04, NFR-SE-05, NFR-SE-04",Todo
 LL-069,C16,R1,Documents and storage,documents and versions tables; upload never overwrites,API,M,FR-AL-05,Todo
 LL-070,C16,R1,Documents and storage,Virus scan on upload; file held until clean; type and size limits,JOB,M,"FR-AL-04, INT-03",Todo

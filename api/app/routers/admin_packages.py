@@ -197,7 +197,12 @@ def _package_out(db: Session, package: Package) -> PackageOut:
 
 
 def _locked(db: Session, package_id: int) -> Package:
-    package = db.scalar(select(Package).where(Package.id == package_id).with_for_update())
+    package = db.scalar(
+        select(Package)
+        .where(Package.id == package_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if package is None:
         raise ApiHTTPException(404, "No such package.", code="not_found")
     return package

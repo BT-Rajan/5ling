@@ -218,7 +218,12 @@ def _detail(db: Session, filing: Filing) -> FilingDetailOut:
 
 
 def _locked(db: Session, filing_id: int) -> Filing:
-    filing = db.scalar(select(Filing).where(Filing.id == filing_id).with_for_update())
+    filing = db.scalar(
+        select(Filing)
+        .where(Filing.id == filing_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if filing is None:
         raise ApiHTTPException(404, "No such filing type.", code="not_found")
     return filing
