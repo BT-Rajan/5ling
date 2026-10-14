@@ -4,7 +4,7 @@
 
 Do not open a public issue. Email the project owner directly with what you found and how to reproduce it.
 
-## What is in place now (chunks C00 to C08)
+## What is in place now (chunks C00 to C09)
 
 | Area | Control | Proven by |
 | --- | --- | --- |
@@ -29,6 +29,7 @@ Do not open a public issue. Email the project owner directly with what you found
 | Audit viewer and export | Administrator only: filter by event, person, record and India dates; export to CSV headed by a fresh chain check, with the hashes so auditors can verify independently. Spreadsheet formulas in cells are neutralised. Every export is itself recorded. Nothing offers to edit or delete an entry. | `api/tests/test_admin_audit.py`, `web` tests |
 | Packages and calendars | Administrator only. Published versions of packages and calendars, and the filings and checklist items under them, cannot be changed or deleted: database triggers refuse it, so cycles can always show exactly what they were built from (FR-PK-05). Every change is audited. Money is stored in whole paise, never as floating point. | `api/tests/test_catalog.py` |
 | Clients | Opening a client is checked on the server for every request: the Administrator sees all, Staff only clients they own (a test proves another Staff member is refused). Staff can only create clients they own. Client IDs come from a database counter, can never be changed or reused, and clients cannot be deleted. PAN and GSTIN are validated (GSTIN by its check character) and unique; a duplicate names the existing client, but not its name when the person asking cannot open it. PAN, GSTIN, email and phone never go into audit details. PAN is masked on screen until "Show" is pressed. Consent changes are kept in an append-only log. Search only ever returns a Staff member's own clients, even when asked by another owner's ID or a known PAN; PANs are masked in lists. Changing owner, package or status needs a reason and goes into an append-only history; a reassigned client is closed to its previous owner from their very next request; only the Administrator reopens a closed client. | `api/tests/test_clients.py`, `test_clients_maintain.py` |
+| Cycle stages | The server holds the only list of allowed stage moves and refuses anything else, including any skip; a move names the stage it expects, so a double click or two people at once cannot move a cycle twice. Returning work needs a note. Ticket numbers come from a counter and cannot be changed or reused; stage history and state events are append-only. Only the client's owner and the Administrator see or move a ticket. Not yet enforced: assignment details (C21), maker-checker on approve (C22), filing proof on "Mark filed" (C23). | `api/tests/test_tickets.py` |
 | People | Administrator creates and disables accounts; disabling takes effect on the very next request; the last Administrator cannot be locked out; consultants need a recorded agreement date (enforced by the database too). | `api/tests/test_admin_users.py` |
 
 ## Not built yet (and where it comes)

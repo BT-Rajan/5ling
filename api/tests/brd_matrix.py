@@ -28,12 +28,18 @@ class Capability:
         return bool(getattr(self, who) != "-")
 
 
+# Reading a client's records: one route each, narrowed to their own clients for Staff.
+CLIENT_READS: tuple[tuple[str, str], ...] = (
+    ("GET", "/api/clients"),
+    ("GET", "/api/stages"),
+    ("GET", "/api/tickets/{ticket}"),
+    ("GET", "/api/clients/{client_id}/tickets"),
+)
+
 CAPABILITIES: tuple[Capability, ...] = (
     # One search route serves both: the server narrows Staff to their own clients.
-    Capability("See all clients", "Y", "-", "-", "-", "C08", routes=(("GET", "/api/clients"),)),
-    Capability(
-        "See assigned clients only", "-", "Own", "-", "-", "C08", routes=(("GET", "/api/clients"),)
-    ),
+    Capability("See all clients", "Y", "-", "-", "-", "C08", routes=CLIENT_READS),
+    Capability("See assigned clients only", "-", "Own", "-", "-", "C08", routes=CLIENT_READS),
     Capability("See assigned task only", "-", "-", "Task", "-", "C21"),
     Capability(
         "Create and edit clients",
@@ -49,6 +55,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
             ("PATCH", "/api/clients/{client_id}"),
             ("GET", "/api/clients/{client_id}/history"),
+            # Moving a cycle on; later chunks add maker-checker (C22) and filing proof (C23).
+            ("POST", "/api/tickets/{ticket}/transition"),
         ),
     ),
     Capability(

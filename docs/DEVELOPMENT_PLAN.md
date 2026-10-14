@@ -209,7 +209,7 @@ Total: 151 tickets.
 
 **Done when:** Previous owner sees 'no access' on the next request after reassignment.
 
-### C09 - Cycles and tickets (R1)
+### C09 - Cycles and tickets (R1) - DONE
 
 **Goal:** Every task is a ticket with an ID; stages follow the BRD and illegal moves are refused.  
 **Depends on:** C07, C06

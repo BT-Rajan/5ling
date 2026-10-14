@@ -15,7 +15,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
-import { formatIST } from "../time";
+import { formatDay, formatIST } from "../time";
 import { api, ApiError, messageFor } from "../api";
 import { useUser } from "../auth/AuthProvider";
 import { BILLING_LABEL, money, type BillingFrequency } from "../catalog";
@@ -436,6 +436,8 @@ export function ClientPage() {
         ))}
       </Stack>
 
+      <ClientTickets clientId={client.client_id} />
+
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Change owner, package or status</Typography>
       {changed && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setChanged(null); }}>{changed}</Alert>}
       <ChangeForm key={round} client={client} onChanged={(text) => { setChanged(text); setRound((r) => r + 1); }} />
@@ -537,5 +539,36 @@ function ChangeForm({ client, onChanged }: { client: Client; onChanged: (text: s
         )}
       </Stack>
     </Box>
+  );
+}
+
+interface TicketRow {
+  code: string;
+  type: "filing" | "task";
+  title: string;
+  stage: string | null;
+  stage_label: string | null;
+  due_date: string | null;
+}
+
+function ClientTickets({ clientId }: { clientId: number }) {
+  const [rows, setRows] = useState<TicketRow[] | null>(null);
+  useEffect(() => {
+    api<TicketRow[]>(`/api/clients/${String(clientId)}/tickets`).then(setRows).catch(() => { setRows([]); });
+  }, [clientId]);
+  return (
+    <>
+      <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Tickets</Typography>
+      {rows?.length === 0 && <Typography color="text.secondary">No tickets yet. Filing cycles appear here once they are scheduled.</Typography>}
+      {rows && rows.length > 0 && (
+        <List aria-label="Tickets" disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+          {rows.map((t, i) => (
+            <ListItemButton key={t.code} component={RouterLink} to={`/tickets/${t.code}`} divider={i < rows.length - 1}>
+              <ListItemText primary={`${t.code} · ${t.title}`} secondary={[t.stage_label, t.due_date ? `due ${formatDay(t.due_date)}` : null].filter(Boolean).join(" · ")} />
+            </ListItemButton>
+          ))}
+        </List>
+      )}
+    </>
   );
 }
