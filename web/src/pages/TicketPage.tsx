@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -10,7 +10,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
-import { api, messageFor } from "../api";
+import { api, messageFor, uploadFile } from "../api";
 import { AssignmentPanel } from "../components/AssignmentPanel";
 import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
@@ -74,6 +74,8 @@ interface Ticket {
     calendar_version: number;
     moves: Move[];
     approve_blocked?: string | null;
+    can_file?: boolean;
+    proof?: { reference: string; version_id: number; filename: string; filed_by: string | null; filed_at: string } | null;
     extensions: { old_due_date: string; new_due_date: string; old_alert_date: string; new_alert_date: string; reason: string; applied_at: string; applied_by: string | null }[];
   } | null;
   task: {
@@ -228,6 +230,78 @@ function Review({ ticket, busy, error, run }: { ticket: Ticket; busy: boolean; e
   );
 }
 
+// Portal acknowledgement numbers and ARNs; the server checks the same rule.
+const REFERENCE = /^[A-Za-z0-9][A-Za-z0-9/-]{3,48}[A-Za-z0-9]$/;
+
+/** FR-WF-05: marking it filed takes the acknowledgement file and the reference number. */
+function Filing({ ticket, onFiled }: { ticket: Ticket; onFiled: (t: Ticket) => void }) {
+  const [reference, setReference] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const ref = reference.trim();
+  const valid = REFERENCE.test(ref);
+
+  async function submit() {
+    if (!file || !valid) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onFiled(await uploadFile<Ticket>(`/api/uploads/tickets/${ticket.code}/filing?reference=${encodeURIComponent(ref)}`, file));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Paper component="section" aria-labelledby="filing-heading" variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+      <Typography id="filing-heading" variant="h6" component="h2" sx={{ mb: 1 }}>Mark filed</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Upload the acknowledgement from the portal and enter its reference number. Both are needed.</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <TextField
+        label="Reference number"
+        value={reference}
+        onChange={(e) => { setReference(e.target.value); }}
+        error={ref.length > 0 && !valid}
+        helperText={ref.length > 0 && !valid ? "5 to 50 letters and digits, exactly as the portal gave it." : " "}
+        slotProps={{ htmlInput: { maxLength: 50, autoComplete: "off", spellCheck: false } }}
+        disabled={busy}
+        fullWidth
+      />
+      <Stack direction="row" sx={{ alignItems: "center", gap: 2, flexWrap: "wrap", mt: 1 }}>
+        <input ref={input} type="file" hidden aria-label="Acknowledgement file" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+        <Button variant="outlined" disabled={busy} onClick={() => input.current?.click()}>Choose the acknowledgement</Button>
+        <Typography variant="body2" color="text.secondary" data-testid="filing-file">{file ? file.name : "No file chosen"}</Typography>
+      </Stack>
+      <Button variant="contained" sx={{ mt: 2 }} disabled={busy || !file || !valid} onClick={() => void submit()}>Mark filed</Button>
+    </Paper>
+  );
+}
+
+function Proof({ proof }: { proof: NonNullable<NonNullable<Ticket["cycle"]>["proof"]> }) {
+  const [error, setError] = useState<string | null>(null);
+  async function open() {
+    setError(null);
+    try {
+      const link = await api<{ url: string }>(`/api/documents/versions/${String(proof.version_id)}/link`, { method: "POST" });
+      window.location.assign(link.url);
+    } catch (e) {
+      setError(messageFor(e));
+    }
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }} data-testid="filing-proof">
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Typography sx={{ fontWeight: 600 }}>Filed · reference {proof.reference}</Typography>
+      <Typography variant="body2" color="text.secondary">{proof.filed_by ?? "System"}, {formatIST(proof.filed_at)}</Typography>
+      <Button size="small" sx={{ mt: 1, ml: -1 }} onClick={() => void open()}>Download {proof.filename}</Button>
+    </Paper>
+  );
+}
+
 function Actions({ ticket, onMoved }: { ticket: Ticket; onMoved: (t: Ticket) => void }) {
   const cycle = ticket.cycle;
   const [noteFor, setNoteFor] = useState<Move | null>(null);
@@ -257,6 +331,9 @@ function Actions({ ticket, onMoved }: { ticket: Ticket; onMoved: (t: Ticket) => 
 
   if (cycle.stage === "closed") return <Typography color="text.secondary" sx={{ mb: 3 }}>This cycle is closed.</Typography>;
   if (cycle.stage === "in_review") return <Review ticket={ticket} busy={busy} error={error} run={run} />;
+  if (cycle.stage === "ready_to_file" && cycle.moves.length === 0) {
+    return cycle.can_file ? <Filing ticket={ticket} onFiled={onMoved} /> : <Typography color="text.secondary" sx={{ mb: 3 }}>Ready for the client's owner or an Administrator to file.</Typography>;
+  }
   if (cycle.moves.length === 0) {
     return (
       <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -341,6 +418,7 @@ export function TicketPage() {
           </Box>
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
+          {cycle.proof && <Proof proof={cycle.proof} />}
           <Actions ticket={ticket} onMoved={changed} />
           {ticket.can_edit && <AssignmentPanel code={ticket.code} onChanged={load} />}
           <Documents code={ticket.code} />

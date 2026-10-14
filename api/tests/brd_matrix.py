@@ -75,7 +75,7 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
             ("PATCH", "/api/clients/{client_id}"),
             ("GET", "/api/clients/{client_id}/history"),
-            # Moving a cycle on; approve is refused to the preparer (C22); filing proof is C23.
+            # Moving a cycle on; approve is refused to the preparer (C22); filing needs proof (C23).
             ("POST", "/api/tickets/{ticket}/transition"),
             # Ad hoc task tickets on a client (CR-02).
             ("POST", "/api/tickets"),
@@ -175,7 +175,16 @@ CAPABILITIES: tuple[Capability, ...] = (
         # The approve action; the server refuses it to anyone who prepared the work.
         routes=(("POST", "/api/tickets/{ticket}/transition"),),
     ),
-    Capability("Mark filed", "Y", "Own", "-", "-", "C23"),
+    Capability(
+        "Mark filed",
+        "Y",
+        "Own",
+        "-",
+        "-",
+        "C23",
+        # With the acknowledgement and reference number, in one request (FR-WF-05).
+        routes=(("POST", "/api/uploads/tickets/{ticket}/filing"),),
+    ),
     Capability("See fee ledger", "Y", "Own", "-", "-", "C25"),
     Capability("Record payments", "Y", "Own", "-", "-", "C25"),
     Capability("Approve credit, discount, write-off", "Y", "-", "-", "-", "C26"),

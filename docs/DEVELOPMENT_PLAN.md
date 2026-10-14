@@ -405,7 +405,7 @@ Total: 151 tickets.
 
 **Done when:** Approve is unavailable to the preparer and refused by the server if attempted.
 
-### C23 - Filing and closure (R1)
+### C23 - Filing and closure (R1) - DONE
 
 **Goal:** A filing is complete only with proof; closure ends outside access.  
 **Depends on:** C22

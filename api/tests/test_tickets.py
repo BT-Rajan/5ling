@@ -102,6 +102,10 @@ def checker(web: TestClient, migrated_db: str) -> tuple[TestClient, Signed]:
     return client, sign_in_directly(migrated_db, client, uid)
 
 
+# A minimal PDF, as the portal's acknowledgement.
+ACKNOWLEDGEMENT = b"%PDF-1.7\n1 0 obj << >> endobj\ntrailer << >>\n%%EOF\n"
+
+
 def move(
     web: TestClient, signed: Signed, code: str, action: str, expected: str, note: str | None = None
 ) -> Any:
@@ -116,6 +120,13 @@ def move(
             f"/api/tickets/{code}/assignment/withdraw",
             json={"note": note or "Taken back"},
             headers=signed.headers,
+        )
+    if action == "file" and expected == "ready_to_file":  # filed with its proof (C23)
+        return web.post(
+            f"/api/uploads/tickets/{code}/filing",
+            params={"reference": note or "AA0705260012345"},
+            content=ACKNOWLEDGEMENT,
+            headers={**signed.headers, "X-File-Name": "acknowledgement.pdf"},
         )
     body: dict[str, Any] = {"action": action, "expected_stage": expected}
     if note is not None:
