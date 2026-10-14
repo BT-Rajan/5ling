@@ -68,9 +68,14 @@ def test_a_task_gets_an_id_an_assignee_and_a_due_date_and_is_listed(
         row = listed["items"][0]
         assert (row["state"], row["state_label"], row["due_date"]) == ("open", "Open", "2026-11-20")
     assert codes(_ok(web.get("/api/tickets", params={"q": code}))) == [code]
-    assert codes(_ok(web.get("/api/tickets", params={"q": code.split("-")[1].lstrip("0")}))) == [
+    # "TKT…" finds that ticket only; a bare number also finds titles containing it.
+    assert codes(_ok(web.get("/api/tickets", params={"q": code.replace("-", "").lower()}))) == [
         code
     ]
+    bare = codes(
+        _ok(web.get("/api/tickets", params={"q": code.split("-")[1].lstrip("0"), "limit": 100}))
+    )
+    assert code in bare
     assert codes(_ok(web.get("/api/tickets", params={"assignee_id": helper_s.user_id}))) == [code]
     assert code in [t["code"] for t in _ok(owner.get(f"/api/clients/{cid}/tickets"))]
     # Filings and tasks share the list, soonest due first.

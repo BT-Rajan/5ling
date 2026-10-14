@@ -387,10 +387,13 @@ def list_tickets(
         pattern = (
             "%" + text_query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         )
-        matches: list[ColumnElement[bool]] = [Ticket.title.like(pattern, escape="\\")]
-        if number is not None:
-            matches.append(Ticket.number == number)
-        stmt = stmt.where(or_(*matches))
+        if number is not None and text_query.upper().startswith("TKT"):
+            stmt = stmt.where(Ticket.number == number)  # a ticket ID, and only that
+        else:
+            matches: list[ColumnElement[bool]] = [Ticket.title.like(pattern, escape="\\")]
+            if number is not None:
+                matches.append(Ticket.number == number)
+            stmt = stmt.where(or_(*matches))
     total = int(db.scalar(select(func.count()).select_from(stmt.subquery())) or 0)
     rows = db.execute(
         stmt.order_by(due.is_(None), due, Ticket.number).offset(offset).limit(limit)
