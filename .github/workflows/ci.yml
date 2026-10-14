@@ -25,7 +25,7 @@ jobs:
       LL_TEST_APP_DATABASE_URL: mysql+pymysql://ll_test_app:ci-only-app-pw@127.0.0.1:3306/ledgerline_test?charset=utf8mb4
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
