@@ -37,6 +37,7 @@ def make_settings(**overrides: Any) -> Settings:
         values.setdefault("migration_database_url", UNREACHABLE_OWNER_DB)
         # ...nor with the placeholder sender address.
         values.setdefault("email_from_address", "no-reply@firm.example.in")
+        values.setdefault("public_url", "https://app.example.test")
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 

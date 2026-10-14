@@ -53,6 +53,7 @@ class EmailKind(enum.StrEnum):
     TEST = "test"  # sent by an Administrator to check the setup
     AUDIT_ALERT = "audit_alert"  # the audit log check failed (FR-AU-03)
     CLIENT_UPDATE = "client_update"  # a state change, sent by hand (CR-03, chunk C15)
+    PORTAL_LINK = "portal_link"  # a private link to the client portal (FR-AL-02)
 
 
 class EventSource(enum.StrEnum):

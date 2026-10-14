@@ -44,6 +44,7 @@ from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSou
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
+from app.models.portal import LinkOrigin, PortalLink
 from app.models.user import LoginAttempt, Role, User, UserSession
 
 __all__ = [
@@ -85,12 +86,14 @@ __all__ = [
     "JobStatus",
     "JobTrigger",
     "LeadTimeDefaults",
+    "LinkOrigin",
     "LoginAttempt",
     "LoginChallenge",
     "Package",
     "PackageFiling",
     "PackageVersion",
     "PeriodBasis",
+    "PortalLink",
     "RecoveryCode",
     "Role",
     "Stage",

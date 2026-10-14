@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     max_body_bytes: int = 1_048_576
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
+    # Client portal links (BRD FR-AL-02): where the web app is, and how long a link lasts.
+    public_url: str = "http://localhost:5173"
+    portal_link_hours: int = 72
+
     # Email (BRD INT-01). Development sends to Mailpit on 127.0.0.1:1025 (scripts/dev-up).
     firm_name: str = "Ledgerline"
     email_from_address: str = "no-reply@ledgerline.example.com"  # a reserved domain
@@ -100,6 +104,21 @@ class Settings(BaseSettings):
             raise ValueError("names must be 1 to 80 characters on one line")
         return value
 
+    @field_validator("public_url")
+    @classmethod
+    def _base_url(cls, value: str) -> str:
+        value = value.rstrip("/")
+        if not value.startswith(("http://", "https://")) or any(c in value for c in "?#@ "):
+            raise ValueError("public_url must be a plain http(s) address, e.g. https://app.firm.in")
+        return value
+
+    @field_validator("portal_link_hours")
+    @classmethod
+    def _link_hours(cls, value: int) -> int:
+        if not 1 <= value <= 720:
+            raise ValueError("portal_link_hours must be 1 to 720")
+        return value
+
     @field_validator("smtp_timeout_seconds")
     @classmethod
     def _sane_timeout(cls, value: int) -> int:
@@ -126,6 +145,8 @@ class Settings(BaseSettings):
             insecure = [o for o in self.allowed_origins if not o.startswith("https://")]
             if insecure:
                 raise ValueError("production allowed_origins must all be https://")
+            if not self.public_url.startswith("https://"):
+                raise ValueError("production public_url must be https://")
             local_relay = self.smtp_host in {"127.0.0.1", "localhost", "::1"}
             if self.smtp_security == "none" and not local_relay:
                 raise ValueError(

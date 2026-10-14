@@ -2,7 +2,11 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { admin, errorResponse, jsonResponse, renderApp, staff, stubScreen, type Call } from "../test-utils";
 
-const quiet = { "GET /api/health/ready": () => new Promise<Response>(() => undefined), "GET /api/admin/audit/status": () => jsonResponse({ latest: null }) };
+const quiet = {
+  "GET /api/health/ready": () => new Promise<Response>(() => undefined),
+  "GET /api/admin/audit/status": () => jsonResponse({ latest: null }),
+  "GET /api/tickets/TKT-000001/links": () => jsonResponse([]),
+};
 
 const move = (action: string, label: string, source: string, target: string, needs_note = false) => ({ action, label, source, target, needs_note });
 
@@ -109,6 +113,41 @@ describe("Ticket page", () => {
     const link = await screen.findByRole("link", { name: /TKT-000001 · GSTR-1 Apr 2026/ });
     expect(link).toHaveAttribute("href", "/tickets/TKT-000001");
     expect(link).toHaveTextContent("Scheduled · due Mon 11 May 2026");
+  });
+});
+
+describe("Client link", () => {
+  const link = (over: Record<string, unknown> = {}) => ({ id: 7, status: "waiting", status_label: "Not opened yet", origin: "staff", created_by: "Asha Rao", created_at: "2026-10-14T05:00:00Z", expires_at: "2026-10-17T05:00:00Z", opened_at: null, last_seen_at: null, ...over });
+
+  it("emails a new link, or makes one to copy, and withdraws one", async () => {
+    const posts: Call[] = [];
+    let links = [link({ id: 6, status: "opened", status_label: "Opened", opened_at: "2026-10-14T06:00:00Z" })];
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ticket("scheduled", [])),
+        "GET /api/tickets/TKT-000001/links": () => jsonResponse(links),
+        "POST /api/tickets/TKT-000001/links": (c) => {
+          posts.push(c);
+          const sent = (c.body as { send_email: boolean }).send_email;
+          links = [link(), ...links];
+          return jsonResponse({ link: link(), url: "http://localhost:5173/portal#t=secret", emailed_to: sent ? "a•••@example.in" : null }, 201);
+        },
+        "POST /api/tickets/TKT-000001/links/6/withdraw": (c) => { posts.push(c); return jsonResponse(link({ id: 6, status: "ended", status_label: "Ended" })); },
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Client links" });
+    expect(list).toHaveTextContent("Opened");
+    await userEvent.click(screen.getByRole("button", { name: "Email a new link to the client" }));
+    expect(await screen.findByText(/on its way to a•••@example.in/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Private link")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Make a link to copy" }));
+    expect(await screen.findByLabelText("Private link")).toHaveValue("http://localhost:5173/portal#t=secret");
+    expect(posts.map((p) => p.body)).toEqual([{ send_email: true }, { send_email: false }]);
+    const withdraw = await screen.findAllByRole("button", { name: "Withdraw" });
+    await userEvent.click(withdraw[withdraw.length - 1] as HTMLElement);
+    expect(await screen.findByText("Withdrawn. It stops working at once.")).toBeInTheDocument();
   });
 });
 
