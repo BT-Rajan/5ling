@@ -200,7 +200,12 @@ def apply_report(
     Reports can arrive twice or out of order; one that does not move the status forward is
     ignored rather than refused, so the provider does not keep retrying it.
     """
-    email = db.scalar(select(Email).where(Email.public_id == public_id).with_for_update())
+    email = db.scalar(
+        select(Email)
+        .where(Email.public_id == public_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     if email is None:
         return None
     if email.status is EmailStatus.QUEUED and status is not EmailStatus.FAILED:

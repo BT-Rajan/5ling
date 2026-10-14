@@ -211,6 +211,7 @@ def _use_recovery_code(db: Session, user: User, code: str, key: str) -> bool:
             RecoveryCode.used_at.is_(None),
         )
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if row is None:
         return False

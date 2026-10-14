@@ -291,7 +291,7 @@ Total: 151 tickets.
 
 **Done when:** An expired or reused link shows a clear message and offers a new link; nothing is visible without a valid link.
 
-### C15 - Manual state-change emails (R1)
+### C15 - Manual state-change emails (R1) - DONE
 
 **Goal:** Every state change prepares an email to the client; it is sent only when staff click Send.  
 **Depends on:** C13, C09, C07

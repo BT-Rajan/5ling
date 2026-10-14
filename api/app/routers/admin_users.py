@@ -154,6 +154,7 @@ def disable_person(
             select(User)
             .where(User.role == Role.ADMINISTRATOR, User.is_active.is_(True))
             .with_for_update()
+            .execution_options(populate_existing=True)
         ).all()
         if len(admins) <= 1:
             raise HTTPException(

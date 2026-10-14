@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -102,7 +103,12 @@ def _record(
     now: datetime,
 ) -> None:
     with factory() as db:
-        email = db.scalar(select(Email).where(Email.id == email_id).with_for_update())
+        email = db.scalar(
+            select(Email)
+            .where(Email.id == email_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         if email is None or email.status is not EmailStatus.QUEUED:
             return  # a delivery report already moved it on
         context = {"email": email.public_id, "kind": email.kind.value, "try": email.attempts}
@@ -178,12 +184,15 @@ def run_forever(
     *,
     interval_seconds: float = 15,
     stop: threading.Event | None = None,
+    before_round: Callable[[], object] | None = None,
 ) -> None:
     """The long-running worker (deploy/systemd/ledgerline-mailer.service)."""
     stop = stop or threading.Event()
     log.info("email worker started")
     while not stop.is_set():
         try:
+            if before_round is not None:
+                before_round()
             tally = send_due(factory, provider)
         except Exception:
             log.exception("email worker round failed; trying again shortly")

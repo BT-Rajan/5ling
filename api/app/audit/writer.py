@@ -111,6 +111,7 @@ def append(session: Session, records: Sequence[AuditRecord]) -> int:
         select(AuditChain.last_seq, AuditChain.last_hash)
         .where(AuditChain.id == 1)
         .with_for_update()
+        .execution_options(populate_existing=True)
     ).one_or_none()
     if head is None:
         raise AuditChainMissing("audit_chain has no head row")

@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor } from "../api";
 import { ClientLinks } from "../components/ClientLinks";
+import { ClientUpdates } from "../components/ClientUpdates";
 import { formatDay, formatIST } from "../time";
 
 export type StageKey =
@@ -247,6 +248,9 @@ function Actions({ ticket, onMoved }: { ticket: Ticket; onMoved: (t: Ticket) => 
 export function TicketPage() {
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [updatesRound, setUpdatesRound] = useState(0);
+  // A move or a task change prepares a new client update: list it at once.
+  const changed = (next: Ticket) => { setTicket(next); setUpdatesRound((r) => r + 1); };
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -289,11 +293,12 @@ export function TicketPage() {
           </Box>
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
-          <Actions ticket={ticket} onMoved={setTicket} />
+          <Actions ticket={ticket} onMoved={changed} />
           {ticket.can_edit && <ClientLinks code={ticket.code} />}
         </>
       )}
-      {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={setTicket} />}
+      {ticket.can_edit && <ClientUpdates key={updatesRound} source={`/api/tickets/${ticket.code}/updates`} />}
+      {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={changed} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>
       <List aria-label="Ticket history" disablePadding>
         {ticket.history.map((h, i) => (

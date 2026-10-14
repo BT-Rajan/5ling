@@ -140,7 +140,7 @@ def plan(
         .order_by(Cycle.id)
     )
     if lock:
-        stmt = stmt.with_for_update(of=Cycle)
+        stmt = stmt.with_for_update(of=Cycle).execution_options(populate_existing=True)
     alerts = AlertDates(db)
     changes: list[Planned] = []
     unchanged = 0

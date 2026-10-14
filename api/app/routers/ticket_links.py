@@ -177,6 +177,7 @@ def withdraw_link(
         select(PortalLink)
         .where(PortalLink.id == link_id, PortalLink.cycle_id == cycle.id)
         .with_for_update()
+        .execution_options(populate_existing=True)
     )
     if link is None:
         raise ApiHTTPException(404, "No such link on this ticket.", code="not_found")

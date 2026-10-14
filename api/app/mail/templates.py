@@ -97,6 +97,15 @@ TEMPLATES: dict[str, Template] = {
             "{{firm_name}}\n",
         ),
         Template(
+            "task_status_change",
+            "{{detail}}: {{stage}} ({{ticket_id}})",
+            "Dear {{client_name}},\n\n"
+            '"{{detail}}" has moved from {{previous_stage}} to {{stage}}.\n\n'
+            "{{note}}\n\n"
+            "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{sender_name}}\n{{firm_name}}\n",
+        ),
+        Template(
             "client_status_change",
             "Your account with {{firm_name}} is now {{stage}} (client ID {{client_id}})",
             "Dear {{client_name}},\n\n"
