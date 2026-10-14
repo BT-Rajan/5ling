@@ -58,7 +58,23 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/admin/users/{user_id}/reset-mfa"),
         ),
     ),
-    Capability("View audit log", "Y", "-", "-", "-", "C04"),
+    Capability(
+        "View audit log",
+        "Y",
+        "-",
+        "-",
+        "-",
+        "C04",
+        # Checking and exporting the log are part of reviewing it (FR-AU-03, FR-AU-04).
+        routes=(
+            ("GET", "/api/admin/audit/entries"),
+            ("GET", "/api/admin/audit/events"),
+            ("GET", "/api/admin/audit/status"),
+            ("GET", "/api/admin/audit/checks"),
+            ("POST", "/api/admin/audit/verify"),
+            ("POST", "/api/admin/audit/export"),
+        ),
+    ),
     Capability("Export data", "Y", "Own, logged", "-", "-", "C28"),
 )
 

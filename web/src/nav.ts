@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import type { SvgIconProps } from "@mui/material/SvgIcon";
 import type { Role } from "./auth/AuthProvider";
-import { ClientsIcon, HomeIcon, TeamIcon, WorkListIcon } from "./components/Icons";
+import { AuditIcon, ClientsIcon, HomeIcon, TeamIcon, WorkListIcon } from "./components/Icons";
 
 export interface Destination {
   to: string;
@@ -17,6 +17,7 @@ export const destinations: readonly Destination[] = [
   { to: "/work", label: "Work list", Icon: WorkListIcon, end: false, roles: ["administrator", "staff"] },
   { to: "/clients", label: "Clients", Icon: ClientsIcon, end: false, roles: ["administrator", "staff"] },
   { to: "/team", label: "Team", Icon: TeamIcon, end: false, roles: ["administrator"] },
+  { to: "/audit", label: "Audit log", Icon: AuditIcon, end: false, roles: ["administrator"] },
 ];
 
 const OTHER_TITLES: readonly (readonly [string, string])[] = [["/account", "Account security"]];

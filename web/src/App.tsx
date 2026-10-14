@@ -7,6 +7,7 @@ import { Route, Routes } from "react-router-dom";
 import { useAuth, useUser, type Role } from "./auth/AuthProvider";
 import { AppShell } from "./components/AppShell";
 import { AccountSecurityPage } from "./pages/AccountSecurityPage";
+import { AuditPage } from "./pages/AuditPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { EmptyPage } from "./pages/EmptyPage";
 import { HomePage } from "./pages/HomePage";
@@ -59,6 +60,7 @@ export function App() {
         <Route path="work" element={<EmptyPage title="Work list">Nothing to do yet. Your daily work list will appear here once filings are set up.</EmptyPage>} />
         <Route path="clients" element={<EmptyPage title="Clients">No clients yet. Add your first client once client records are available.</EmptyPage>} />
         <Route path="team" element={<OnlyFor roles={["administrator"]}><TeamPage /></OnlyFor>} />
+        <Route path="audit" element={<OnlyFor roles={["administrator"]}><AuditPage /></OnlyFor>} />
         <Route path="account" element={<AccountSecurityPage />} />
         <Route path="*" element={<EmptyPage title="Page not found">Check the address, or use the menu to go back.</EmptyPage>} />
       </Route>
