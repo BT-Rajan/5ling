@@ -11,7 +11,7 @@ Foreign keys here never cascade: a cascade would change rows without firing thos
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -19,6 +19,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Date,
     Enum,
     ForeignKey,
     Integer,
@@ -211,3 +212,37 @@ class ChecklistItem(Base):
     position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
     required: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+class Holiday(Base):
+    """A day the firm treats as non-working, besides Saturdays and Sundays (FR-PK-04)."""
+
+    __tablename__ = "holidays"
+    __table_args__ = _TABLE
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+
+
+class LeadTimeDefaults(Base):
+    """FR-PK-03: alert lead time when a calendar does not set its own. One row."""
+
+    __tablename__ = "lead_time_defaults"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="single_row"),
+        CheckConstraint("monthly_days BETWEEN 0 AND 90", name="monthly_range"),
+        CheckConstraint("quarterly_days BETWEEN 0 AND 90", name="quarterly_range"),
+        CheckConstraint("yearly_days BETWEEN 0 AND 90", name="yearly_range"),
+        _TABLE,
+    )
+
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True, autoincrement=False)
+    monthly_days: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    quarterly_days: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    yearly_days: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    updated_by_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id"), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

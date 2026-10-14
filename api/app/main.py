@@ -14,7 +14,15 @@ from app.auth.sessions import cookie_name
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
 from app.logging_conf import setup_logging
-from app.routers import admin_audit, admin_filings, admin_packages, admin_users, auth, health
+from app.routers import (
+    admin_audit,
+    admin_filings,
+    admin_packages,
+    admin_schedule,
+    admin_users,
+    auth,
+    health,
+)
 from app.security import (
     BodyLimitMiddleware,
     OriginCheckMiddleware,
@@ -94,6 +102,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_audit.router)
     app.include_router(admin_filings.router)
     app.include_router(admin_packages.router)
+    app.include_router(admin_schedule.router)
 
     # add_middleware puts the newest outermost; the first one added is closest to the app.
     app.add_middleware(

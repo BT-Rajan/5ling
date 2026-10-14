@@ -36,7 +36,7 @@ import {
   type PeriodBasis,
 } from "../catalog";
 import { ChecklistEditor, cleanChecklist } from "../components/ChecklistEditor";
-import { formatIST } from "../time";
+import { formatDay, formatIST } from "../time";
 
 function BackLink({ to, children }: { to: string; children: string }) {
   return (
@@ -169,6 +169,93 @@ function calendarBody(f: CalendarForm) {
   };
 }
 
+interface PreviewRow {
+  key: string;
+  label: string;
+  due_date: string;
+  due_moved_from: string | null;
+  alert_date: string;
+  alert_moved_from: string | null;
+}
+
+interface Preview {
+  year: number;
+  year_label: string;
+  lead_days: number;
+  lead_days_is_default: boolean;
+  rows: PreviewRow[];
+}
+
+/** FR-PK-02: a full year of due and alert dates, recalculated as the rule is edited. */
+function CalendarPreview({ body }: { body: ReturnType<typeof calendarBody> }) {
+  const [year, setYear] = useState<number | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const request = JSON.stringify(body);
+
+  useEffect(() => {
+    let live = true;
+    const timer = setTimeout(() => {
+      const query = year === null ? "" : `?year=${String(year)}`;
+      api<Preview>(`/api/admin/filings/preview${query}`, { method: "POST", json: JSON.parse(request) as unknown })
+        .then((p) => {
+          if (!live) return;
+          setPreview(p);
+          setProblem(null);
+        })
+        .catch((e: unknown) => {
+          if (!live) return;
+          setPreview(null);
+          setProblem(`The dates cannot be worked out yet: ${messageFor(e)}`);
+        });
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [request, year]);
+
+  return (
+    <Box component="section" aria-labelledby="preview-heading" sx={{ mt: 3, maxWidth: 720 }}>
+      <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1, flexWrap: "wrap" }}>
+        <Typography id="preview-heading" variant="subtitle1" component="h3" sx={{ fontWeight: 600, mr: "auto" }}>
+          Dates for {preview?.year_label ?? "the year"}
+        </Typography>
+        <Button size="small" disabled={!preview} onClick={() => { if (preview) setYear(preview.year - 1); }}>Previous year</Button>
+        <Button size="small" disabled={!preview} onClick={() => { if (preview) setYear(preview.year + 1); }}>Next year</Button>
+      </Stack>
+      {problem && <Alert severity="warning">{problem}</Alert>}
+      {preview && (
+        <>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Alert {preview.lead_days} days before the due date{preview.lead_days_is_default ? " (the default)" : ""}. Weekends and the firm&apos;s holidays are applied.
+          </Typography>
+          <Box component="table" aria-label="Due and alert dates" sx={{ width: "100%", borderCollapse: "collapse", "& th, & td": { textAlign: "left", py: 0.75, pr: 2, borderBottom: 1, borderColor: "divider", verticalAlign: "top" } }}>
+            <thead>
+              <tr><th scope="col">Period</th><th scope="col">Due</th><th scope="col">Alert</th></tr>
+            </thead>
+            <tbody>
+              {preview.rows.map((r) => (
+                <tr key={r.key}>
+                  <th scope="row" style={{ fontWeight: 500 }}>{r.label}</th>
+                  <td>
+                    {formatDay(r.due_date)}
+                    {r.due_moved_from && <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>moved from {formatDay(r.due_moved_from)}</Typography>}
+                  </td>
+                  <td>
+                    {formatDay(r.alert_date)}
+                    {r.alert_moved_from && <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>moved from {formatDay(r.alert_moved_from)}</Typography>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Box>
+        </>
+      )}
+    </Box>
+  );
+}
+
 function CalendarEditor({ filing, onSaved }: { filing: FilingDetail; onSaved: (notice: string) => void }) {
   const [form, setForm] = useState<CalendarForm>(() => formFrom(filing.draft ?? filing.current));
   const [busy, setBusy] = useState(false);
@@ -221,7 +308,7 @@ function CalendarEditor({ filing, onSaved }: { filing: FilingDetail; onSaved: (n
         </TextField>
         <TextField label="Due: months after the period" value={form.months_after} onChange={(e) => { set("months_after", e.target.value); }} slotProps={{ htmlInput: n(form.months_after) }} helperText="0 to 12" disabled={busy} />
         <TextField label="Due: day of that month" value={form.day} onChange={(e) => { set("day", e.target.value); }} slotProps={{ htmlInput: n(form.day) }} helperText="1 to 31; 31 means the last day" disabled={busy} />
-        <TextField label="Alert lead time (days)" value={form.lead_days} onChange={(e) => { set("lead_days", e.target.value); }} slotProps={{ htmlInput: n(form.lead_days) }} helperText="Leave blank for the default (4 days monthly, 21 days yearly)" disabled={busy} />
+        <TextField label="Alert lead time (days)" value={form.lead_days} onChange={(e) => { set("lead_days", e.target.value); }} slotProps={{ htmlInput: n(form.lead_days) }} helperText="Leave blank for the default set under Holidays and lead times" disabled={busy} />
         <TextField select label="If a date falls on a holiday" value={form.holiday_rule} onChange={(e) => { set("holiday_rule", e.target.value as HolidayRule); }} disabled={busy}>
           {(Object.keys(HOLIDAY_LABEL) as HolidayRule[]).map((k) => <MenuItem key={k} value={k}>{HOLIDAY_LABEL[k]}</MenuItem>)}
         </TextField>
@@ -258,6 +345,7 @@ function CalendarEditor({ filing, onSaved }: { filing: FilingDetail; onSaved: (n
         </Box>
       )}
       <TextField label="Notes" value={form.notes} onChange={(e) => { set("notes", e.target.value); }} fullWidth multiline minRows={2} sx={{ mt: 2, maxWidth: 720 }} disabled={busy} />
+      <CalendarPreview body={calendarBody(form)} />
       <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
         <Button variant="contained" onClick={() => void run("publish")} disabled={busy}>Save and publish</Button>
         <Button variant="outlined" onClick={() => void run("save")} disabled={busy}>Save draft</Button>

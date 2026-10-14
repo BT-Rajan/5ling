@@ -37,6 +37,10 @@ export const SetupIcon = (p: SvgIconProps) => (
   />
 );
 
+export const CalendarIcon = (p: SvgIconProps) => (
+  <Outline {...p} d="M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4M8 14h2M12 14h2M8 17h2" />
+);
+
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Ledgerline">

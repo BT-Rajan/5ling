@@ -29,11 +29,11 @@ LL-022,C05,R1,Packages and filing calendars,"Tables: filings, packages, package 
 LL-023,C05,R1,Packages and filing calendars,Package API with publish rules,API,M,FR-PK-01,Done
 LL-024,C05,R1,Packages and filing calendars,"Calendar API: type, frequency, due-date rule, FY handling, lead time",API,M,FR-PK-02,Done
 LL-025,C05,R1,Packages and filing calendars,Admin screens for packages and calendars,WEB,M,,Done
-LL-026,C06,R1,Due-date engine,Holiday table with Administrator editing,API,S,FR-PK-04,Todo
-LL-027,C06,R1,Due-date engine,"Due-date rule evaluator for monthly, quarterly, yearly and FY handling",API,M,"FR-PK-02, NFR-MN-01",Todo
-LL-028,C06,R1,Due-date engine,"Alert date: default 4 and 21 days, quarterly set by Admin, per-entry override, holiday rule",API,M,"FR-PK-03, FR-PK-04",Todo
-LL-029,C06,R1,Due-date engine,Full-year due-date preview before saving a calendar,WEB,S,FR-PK-02,Todo
-LL-030,C06,R1,Due-date engine,Month-end and holiday test cases,TEST,S,NFR-AU-01,Todo
+LL-026,C06,R1,Due-date engine,Holiday table with Administrator editing,API,S,FR-PK-04,Done
+LL-027,C06,R1,Due-date engine,"Due-date rule evaluator for monthly, quarterly, yearly and FY handling",API,M,"FR-PK-02, NFR-MN-01",Done
+LL-028,C06,R1,Due-date engine,"Alert date: default 4 and 21 days, quarterly set by Admin, per-entry override, holiday rule",API,M,"FR-PK-03, FR-PK-04",Done
+LL-029,C06,R1,Due-date engine,Full-year due-date preview before saving a calendar,WEB,S,FR-PK-02,Done
+LL-030,C06,R1,Due-date engine,Month-end and holiday test cases,TEST,S,NFR-AU-01,Done
 LL-031,C07,R1,Clients: create,"clients and contacts tables; client_id from a dedicated AUTO_INCREMENT counter table starting at 100001 (6 digits, unique, immutable, never reused)",DB,S,CR-01,Todo
 LL-032,C07,R1,Clients: create,PAN and GSTIN validators,API,S,FR-CL-01,Todo
 LL-033,C07,R1,Clients: create,"Create-client API: required fields, duplicate block pointing to existing record",API,M,"FR-CL-01, FR-CL-02, CR-01",Todo

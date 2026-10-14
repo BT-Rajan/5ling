@@ -7,10 +7,10 @@ cycles already built keep the version they were built from (chunk C09 records it
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +21,8 @@ from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import MAX_CHECKLIST, ChecklistEntry, next_version, status_of, unique_labels
 from app.errors import ApiHTTPException
 from app.models import CalendarVersion, Filing, Frequency, HolidayRule, PeriodBasis, Role
+from app.schedule.engine import NoWorkingDay
+from app.schedule.service import current_year, lead_defaults, make_rule, schedule_year
 from app.timeutil import utcnow
 
 router = APIRouter(prefix="/api/admin/filings", tags=["admin: filings and calendars"])
@@ -130,6 +132,25 @@ class FilingOut(BaseModel):
 
 class FilingDetailOut(FilingOut):
     versions: list[CalendarOut]  # newest first
+
+
+class PreviewRow(BaseModel):
+    key: str
+    label: str
+    period_start: date
+    period_end: date
+    due_date: date
+    due_moved_from: date | None  # set when the holiday rule moved it
+    alert_date: date
+    alert_moved_from: date | None
+
+
+class PreviewOut(BaseModel):
+    year: int
+    year_label: str
+    lead_days: int
+    lead_days_is_default: bool
+    rows: list[PreviewRow]
 
 
 def calendar_out(cv: CalendarVersion) -> CalendarOut:
@@ -248,6 +269,55 @@ def create_filing(
     )
     db.commit()
     return _detail(db, filing)
+
+
+@router.post("/preview")
+def preview_calendar(
+    body: CalendarIn,
+    _: Principal = Depends(admin_only),  # noqa: B008
+    year: int | None = Query(None, ge=2000, le=2100),
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PreviewOut:
+    """FR-PK-02: a full year of due and alert dates for a calendar, before it is saved."""
+    rule = make_rule(
+        frequency=body.frequency,
+        period_basis=body.period_basis,
+        months_after=body.due.months_after,
+        day=body.due.day,
+        overrides={k: v.model_dump() for k, v in body.due.overrides.items()},
+        lead_days=body.lead_days,
+        holiday_rule=body.holiday_rule,
+        defaults=lead_defaults(db),
+    )
+    chosen = year if year is not None else current_year(body.period_basis)
+    try:
+        rows = schedule_year(db, rule, chosen)
+    except NoWorkingDay as exc:
+        raise ApiHTTPException(422, str(exc), code="no_working_day") from None
+    label = (
+        f"FY {chosen}-{(chosen + 1) % 100:02d}"
+        if body.period_basis is PeriodBasis.FINANCIAL_YEAR
+        else str(chosen)
+    )
+    return PreviewOut(
+        year=chosen,
+        year_label=label,
+        lead_days=rule.lead_days,
+        lead_days_is_default=body.lead_days is None,
+        rows=[
+            PreviewRow(
+                key=r.period.key,
+                label=r.period.label,
+                period_start=r.period.start,
+                period_end=r.period.end,
+                due_date=r.due_date,
+                due_moved_from=r.due_rule_date if r.due_rule_date != r.due_date else None,
+                alert_date=r.alert_date,
+                alert_moved_from=r.alert_rule_date if r.alert_rule_date != r.alert_date else None,
+            )
+            for r in rows
+        ],
+    )
 
 
 @router.get("/{filing_id}")
