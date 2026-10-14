@@ -97,6 +97,30 @@ TEMPLATES: dict[str, Template] = {
             "{{firm_name}}\n",
         ),
         Template(
+            "first_alert",
+            "{{filing}} {{period}}: documents needed by {{due_date}} ({{ticket_id}})",
+            "Dear {{client_name}},\n\n"
+            "Your {{filing}} for {{period}} is due on {{due_date}}. To file it on time, please "
+            "upload these documents:\n\n{{detail}}\n\n"
+            "Upload them here, on your phone or computer:\n{{link}}\n\n"
+            "The link opens once, on one device, and works until {{expires}}. Please do not "
+            "forward it.\n\n"
+            "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{firm_name}}\n",
+        ),
+        Template(
+            "reminder",
+            "Reminder: {{filing}} {{period}} documents still needed ({{ticket_id}})",
+            "Dear {{client_name}},\n\n"
+            "{{note}}\n\n"
+            "We still need these documents for your {{filing}} for {{period}}, due on "
+            "{{due_date}}:\n\n{{detail}}\n\n"
+            "Upload them here:\n{{link}}\n\n"
+            "The link opens once, on one device, and works until {{expires}}.\n\n"
+            "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{firm_name}}\n",
+        ),
+        Template(
             "task_status_change",
             "{{detail}}: {{stage}} ({{ticket_id}})",
             "Dear {{client_name}},\n\n"

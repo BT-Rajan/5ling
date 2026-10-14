@@ -29,6 +29,8 @@ from app.cycles.service import (
 )
 from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
+from app.mail.problems import LABEL as PROBLEM_LABEL
+from app.mail.problems import is_problem, problems_for
 from app.mail.updates import draft_updates
 from app.models import (
     FIRST_CLIENT_ID,
@@ -38,6 +40,7 @@ from app.models import (
     Cycle,
     DueDateChange,
     DueDateExtension,
+    Email,
     EventKind,
     Filing,
     Package,
@@ -324,6 +327,8 @@ class ListRow(BaseModel):
     state: str  # the cycle stage or the task status
     state_label: str
     due_date: date | None
+    email_problem: str | None = None  # "failed" or "delayed" (FR-AL-06)
+    email_problem_label: str | None = None
 
 
 class ListOut(BaseModel):
@@ -373,6 +378,7 @@ def list_tickets(
     client_id: int | None = Query(None, ge=FIRST_CLIENT_ID, le=LAST_CLIENT_ID),
     q: str | None = Query(None, max_length=100),
     open_only: bool = False,
+    email_problems: bool = False,
     offset: int = Query(0, ge=0, le=100_000),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),  # noqa: B008
@@ -406,6 +412,10 @@ def list_tickets(
         stmt = stmt.where(Client.client_id == client_id)
     if open_only:
         stmt = stmt.where(or_(Cycle.stage != Stage.CLOSED, Task.status == TaskStatus.OPEN))
+    if email_problems:  # FR-AL-06: client emails that did not get through
+        stmt = stmt.where(
+            select(Email.id).where(Email.ticket_id == Ticket.id, is_problem()).exists()
+        )
     text_query = " ".join((q or "").split())
     if text_query:
         number = parse_ticket(text_query)
@@ -423,6 +433,7 @@ def list_tickets(
     rows = db.execute(
         stmt.order_by(due.is_(None), due, Ticket.number).offset(offset).limit(limit)
     ).all()
+    problems = problems_for(db, (r[0].id for r in rows))
     items = []
     for ticket, client, cycle, task, owner_name, assignee_pk, assignee_name in rows:
         if cycle is not None:
@@ -444,6 +455,8 @@ def list_tickets(
                 state=state_key,
                 state_label=label,
                 due_date=cycle.due_date if cycle else task.due_date if task else None,
+                email_problem=problems.get(ticket.id),
+                email_problem_label=PROBLEM_LABEL.get(problems.get(ticket.id, "")),
             )
         )
     return ListOut(items=items, total=total, offset=offset, limit=limit)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import List from "@mui/material/List";
@@ -31,6 +32,8 @@ interface Row {
   state: string;
   state_label: string;
   due_date: string | null;
+  email_problem: "failed" | "delayed" | null;
+  email_problem_label: string | null;
 }
 
 interface Page {
@@ -48,7 +51,7 @@ export function TicketsPage() {
   const me = useUser();
   const isAdmin = me.role === "administrator";
   const [people, setPeople] = useState<Person[]>([]);
-  const [filters, setFilters] = useState({ type: "", state: "", owner: "", assignee: "", client: "", q: "", open: true });
+  const [filters, setFilters] = useState({ type: "", state: "", owner: "", assignee: "", client: "", q: "", open: true, problems: false });
   const [offset, setOffset] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
   const [page, setPage] = useState<Page | null>(null);
@@ -66,6 +69,7 @@ export function TicketsPage() {
   if (/^\d{6}$/.test(filters.client.trim())) params.set("client_id", filters.client.trim());
   if (filters.q.trim()) params.set("q", filters.q.trim());
   if (filters.open) params.set("open_only", "true");
+  if (filters.problems) params.set("email_problems", "true");
   const url = `/api/tickets?${params.toString()}`;
 
   useEffect(() => {
@@ -116,7 +120,10 @@ export function TicketsPage() {
           </TextField>
         )}
       </Box>
-      <FormControlLabel control={<Switch checked={filters.open} onChange={(e) => { set("open", e.target.checked); }} />} label="Only work still to do" sx={{ mb: 2 }} />
+      <Box sx={{ display: "flex", flexWrap: "wrap", columnGap: 3, mb: 2 }}>
+        <FormControlLabel control={<Switch checked={filters.open} onChange={(e) => { set("open", e.target.checked); }} />} label="Only work still to do" />
+        <FormControlLabel control={<Switch checked={filters.problems} onChange={(e) => { set("problems", e.target.checked); }} />} label="Only emails that did not get through" />
+      </Box>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {page === null && !error && <Typography color="text.secondary">Loading…</Typography>}
       {page && rows.length === 0 && <Typography color="text.secondary">Nothing here.</Typography>}
@@ -127,7 +134,7 @@ export function TicketsPage() {
             {rows.map((r, i) => (
               <ListItemButton key={r.code} component={RouterLink} to={`/tickets/${r.code}`} divider={i < rows.length - 1}>
                 <ListItemText
-                  primary={`${r.code} · ${r.title}`}
+                  primary={r.email_problem ? <Box component="span" sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}><span>{`${r.code} · ${r.title}`}</span><Chip size="small" color={r.email_problem === "failed" ? "error" : "warning"} label={r.email_problem_label} /></Box> : `${r.code} · ${r.title}`}
                   secondary={[
                     `${String(r.client.client_id)} ${r.client.legal_name}`,
                     r.state_label,

@@ -15,6 +15,7 @@ import threading
 from email_validator import EmailNotValidError, validate_email
 from sqlalchemy import delete, select
 
+from app.alerts.job import run as run_alerts
 from app.audit import audit
 from app.audit.verify import PROBLEMS, run_check
 from app.auth import passwords
@@ -182,6 +183,23 @@ def scan_documents() -> tuple[bool, str]:
     return True, summary
 
 
+def send_alerts() -> tuple[bool, str]:
+    """Automatic client alerts and reminders (FR-AL-01, FR-AL-03). Run every 15 minutes."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        tally = run_alerts(make_session_factory(engine), settings)
+    finally:
+        engine.dispose()
+    if tally.skipped_reason:
+        return True, f"No alerts sent: {tally.skipped_reason}."
+    summary = f"{tally.sent} alerts sent, {tally.checked} cycles checked, {tally.failed} failed."
+    if tally.failed:
+        return False, f"CLIENT ALERTS FAILED: {summary} {'; '.join(tally.failures)}"
+    return True, summary
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -201,7 +219,13 @@ def main(argv: list[str] | None = None) -> int:
     mailer.add_argument("--once", action="store_true", help="one round, then exit")
     mailer.add_argument("--interval", type=float, default=15.0, help="seconds between rounds")
     sub.add_parser("scan-documents", help="scan files held while the virus scanner was down")
+    sub.add_parser("send-alerts", help="send due client alerts and reminders (every 15 min)")
     args = parser.parse_args(argv)
+
+    if args.command == "send-alerts":
+        ok, message = send_alerts()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "scan-documents":
         ok, message = scan_documents()

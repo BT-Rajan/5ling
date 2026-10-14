@@ -19,6 +19,8 @@ from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.config import Settings
 from app.errors import ApiHTTPException
+from app.mail.problems import CLIENT_KINDS, problem_of
+from app.mail.problems import LABEL as PROBLEM_LABEL
 from app.mail.updates import UpdateRefused, prepare, send_update
 from app.models import (
     Client,
@@ -30,6 +32,7 @@ from app.models import (
     User,
 )
 from app.routers.tickets import _load
+from app.timeutil import utcnow
 
 router = APIRouter(tags=["client updates"])
 
@@ -217,3 +220,100 @@ def send(
     )
     db.commit()
     return _rows(db, Email.id == email.id)[0]
+
+
+KIND_LABEL = {
+    EmailKind.CLIENT_ALERT: "Alert",
+    EmailKind.CLIENT_UPDATE: "Update",
+    EmailKind.PORTAL_LINK: "Private link",
+}
+
+
+class ClientEmailOut(BaseModel):
+    id: int
+    kind: EmailKind
+    kind_label: str
+    status: EmailStatus
+    subject: str
+    to: list[str]
+    queued_at: datetime | None
+    attempts: int
+    last_error: str | None
+    problem: str | None  # failed or delayed, until followed up (FR-AL-06)
+    problem_label: str | None
+    followed_up_by: str | None
+    followed_up_at: datetime | None
+
+
+def _client_email_out(email: Email, followed_by: str | None) -> ClientEmailOut:
+    problem = problem_of(email)
+    return ClientEmailOut(
+        id=email.id,
+        kind=email.kind,
+        kind_label=KIND_LABEL.get(email.kind, email.kind.value),
+        status=email.status,
+        subject=email.subject,
+        to=list(email.to_addresses),
+        queued_at=email.queued_at,
+        attempts=email.attempts,
+        last_error=email.last_error,
+        problem=problem,
+        problem_label=PROBLEM_LABEL.get(problem or ""),
+        followed_up_by=followed_by,
+        followed_up_at=email.problem_handled_at,
+    )
+
+
+@router.get("/api/tickets/{ticket}/emails")
+def ticket_emails(
+    ticket: str,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[ClientEmailOut]:
+    """FR-AL-06: every email that went to the client about this ticket, and how it went."""
+    found, client = _load(db, principal, ticket)
+    _editable_client(principal, client)
+    rows = db.execute(
+        select(Email, User.full_name)
+        .outerjoin(User, User.id == Email.problem_handled_by_id)
+        .where(
+            Email.ticket_id == found.id,
+            Email.kind.in_(CLIENT_KINDS),
+            Email.status != EmailStatus.DRAFT,
+        )
+        .order_by(Email.id.desc())
+        .limit(100)
+    )
+    return [_client_email_out(e, name) for e, name in rows]
+
+
+@router.post("/api/emails/{email_id}/followed-up")
+def mark_followed_up(
+    email_id: int,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ClientEmailOut:
+    """The owner has called the client about a failed or delayed email: take it off the list."""
+    email = db.scalar(
+        select(Email)
+        .where(Email.id == email_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if email is None or email.kind not in CLIENT_KINDS or email.client_pk is None:
+        raise ApiHTTPException(404, "No such email.", code="not_found")
+    _editable_client(principal, db.get(Client, email.client_pk))
+    if problem_of(email) is None:
+        raise ApiHTTPException(409, "This email needs no follow-up.", code="no_problem")
+    email.problem_handled_at = utcnow()
+    email.problem_handled_by_id = principal.user_id
+    audit(
+        db,
+        "email.followed_up",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("email", email.id),
+        details={"status": email.status},
+    )
+    db.commit()
+    return _client_email_out(email, principal.full_name)

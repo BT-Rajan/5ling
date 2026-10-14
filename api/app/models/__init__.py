@@ -1,3 +1,4 @@
+from app.models.alert import AlertKind, CycleAlert
 from app.models.audit import GENESIS_HASH, AuditChain, AuditCheck, AuditEntry, CheckTrigger
 from app.models.catalog import (
     BillingFrequency,
@@ -58,6 +59,7 @@ __all__ = [
     "FIRST_CLIENT_ID",
     "GENESIS_HASH",
     "LAST_CLIENT_ID",
+    "AlertKind",
     "AppMeta",
     "AuditChain",
     "AuditCheck",
@@ -77,6 +79,7 @@ __all__ = [
     "ConsentChange",
     "Contact",
     "Cycle",
+    "CycleAlert",
     "CycleChecklistItem",
     "Document",
     "DocumentVersion",

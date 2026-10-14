@@ -8,6 +8,7 @@ const quiet = {
   "GET /api/tickets/TKT-000001/links": () => jsonResponse([]),
   "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
   "GET /api/tickets/TKT-000001/checklist": () => jsonResponse([]),
+  "GET /api/tickets/TKT-000001/emails": () => jsonResponse([]),
 };
 
 const move = (action: string, label: string, source: string, target: string, needs_note = false) => ({ action, label, source, target, needs_note });
@@ -230,6 +231,35 @@ describe("Documents", () => {
     expect(within(updated).getAllByRole("listitem")[0]).toHaveTextContent("Version 2");
     expect(updated).toHaveTextContent("Waiting for the virus check");
     expect(within(updated).getAllByRole("button", { name: "Download" })).toHaveLength(1);
+  });
+});
+
+describe("Emails to the client", () => {
+  it("flags a failed alert and takes it off the list once followed up", async () => {
+    const posts: Call[] = [];
+    const failed = { id: 77, kind_label: "Alert", status: "failed", subject: "GSTR-1 Apr 2026: documents needed", to: ["asha@example.in"], queued_at: "2026-10-14T05:00:00Z", attempts: 1, last_error: "the mail server replied 550", problem: "failed", problem_label: "Email to the client failed: call them", followed_up_by: null, followed_up_at: null };
+    let emails: Record<string, unknown>[] = [failed];
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(ticket("awaiting_documents", [])),
+        "GET /api/tickets/TKT-000001/updates": () => jsonResponse([]),
+        "GET /api/tickets/TKT-000001/emails": () => jsonResponse(emails),
+        "POST /api/emails/77/followed-up": (c) => {
+          posts.push(c);
+          emails = [{ ...failed, problem: null, problem_label: null, followed_up_by: "Asha Rao", followed_up_at: "2026-10-14T06:00:00Z" }];
+          return jsonResponse(emails[0]);
+        },
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Emails to the client" });
+    expect(list).toHaveTextContent("Email to the client failed: call them");
+    expect(list).toHaveTextContent("the mail server replied 550");
+    await userEvent.click(within(list).getByRole("button", { name: "Mark followed up" }));
+    expect(await within(list).findByText(/followed up by Asha Rao/)).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: "Mark followed up" })).not.toBeInTheDocument();
+    expect(posts).toHaveLength(1);
   });
 });
 

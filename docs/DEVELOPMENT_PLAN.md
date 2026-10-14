@@ -335,7 +335,7 @@ Total: 151 tickets.
 
 **Done when:** Rejected files show a reason to the client and appear in the log.
 
-### C18 - Scheduled alerts and reminders (R1)
+### C18 - Scheduled alerts and reminders (R1) - DONE
 
 **Goal:** Clients are alerted automatically before the due date and chased until complete.  
 **Depends on:** C17, C13, C10

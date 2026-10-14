@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     public_url: str = "http://localhost:5173"
     portal_link_hours: int = 72
 
+    # Client alerts (BRD FR-AL-01, FR-AL-03): reminder spacing, and the hours (India time) in
+    # which automatic emails go out.
+    reminder_interval_days: int = 2
+    alert_hours_start: int = 9
+    alert_hours_end: int = 19
+
     # Documents (BRD INT-03, INT-04, NFR-SE-04). Files are encrypted before they are written, with
     # a key kept apart from the database: 32 random bytes, base64 (openssl rand -base64 32).
     storage_dir: Path = ROOT / ".dev" / "storage"
@@ -140,6 +146,20 @@ class Settings(BaseSettings):
                 raise ValueError("storage_key must be 32 random bytes, base64-encoded")
         return value
 
+    @field_validator("reminder_interval_days")
+    @classmethod
+    def _interval(cls, value: int) -> int:
+        if not 1 <= value <= 14:
+            raise ValueError("reminder_interval_days must be 1 to 14")
+        return value
+
+    @field_validator("alert_hours_start", "alert_hours_end")
+    @classmethod
+    def _hour(cls, value: int) -> int:
+        if not 0 <= value <= 24:
+            raise ValueError("alert hours must be 0 to 24")
+        return value
+
     @field_validator("max_upload_bytes")
     @classmethod
     def _upload_limit(cls, value: int) -> int:
@@ -174,6 +194,8 @@ class Settings(BaseSettings):
             raise ValueError("allowed_origins must list exact origins, no wildcards")
         if any("*" in host for host in self.allowed_hosts):
             raise ValueError("allowed_hosts must list exact hosts, no wildcards")
+        if self.alert_hours_start >= self.alert_hours_end:
+            raise ValueError("alert_hours_start must be before alert_hours_end")
         if self.env == "production":
             if not self.allowed_hosts or "localhost" in self.allowed_hosts:
                 raise ValueError("production needs explicit public allowed_hosts")

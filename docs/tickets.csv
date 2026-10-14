@@ -79,10 +79,10 @@ LL-072,C16,R1,Documents and storage,Version history screen for staff,WEB,S,FR-AL
 LL-073,C17,R1,Checklist and client upload,Create cycle checklist from the package version,API,S,"FR-AL-04, FR-PK-05",Done
 LL-074,C17,R1,Checklist and client upload,Portal upload per checklist item with pending list,WEB,M,FR-AL-04,Done
 LL-075,C17,R1,Checklist and client upload,Rejection reasons shown to client and logged,API,S,FR-AL-04,Done
-LL-076,C18,R1,Scheduled alerts and reminders,"First alert at alert date with secure link, due date and checklist (automatic)",JOB,M,FR-AL-01,Todo
-LL-077,C18,R1,Scheduled alerts and reminders,"Reminders every 2 days, then daily after due date; stop when checklist complete",JOB,M,FR-AL-03,Todo
-LL-078,C18,R1,Scheduled alerts and reminders,Failed or bounced send appears on the owner's work list within 15 minutes,API,S,FR-AL-06,Todo
-LL-079,C18,R1,Scheduled alerts and reminders,"Tests: single send, stop condition, failure surfacing",TEST,S,"FR-AL-01, FR-AL-03, FR-AL-06",Todo
+LL-076,C18,R1,Scheduled alerts and reminders,"First alert at alert date with secure link, due date and checklist (automatic)",JOB,M,FR-AL-01,Done
+LL-077,C18,R1,Scheduled alerts and reminders,"Reminders every 2 days, then daily after due date; stop when checklist complete",JOB,M,FR-AL-03,Done
+LL-078,C18,R1,Scheduled alerts and reminders,Failed or bounced send appears on the owner's work list within 15 minutes,API,S,FR-AL-06,Done
+LL-079,C18,R1,Scheduled alerts and reminders,"Tests: single send, stop condition, failure surfacing",TEST,S,"FR-AL-01, FR-AL-03, FR-AL-06",Done
 LL-080,C19,R1,Internal alerts and escalation,In-app notifications table and bell,API,M,FR-IN-01,Todo
 LL-081,C19,R1,Internal alerts and escalation,Last required item arrives: stage Documents received and owner notified within 1 minute,API,M,"FR-IN-01, FR-CY-02",Todo
 LL-082,C19,R1,Internal alerts and escalation,Missing after first alert plus grace: 'Waiting on client' with exact missing items,JOB,M,FR-IN-02,Todo
