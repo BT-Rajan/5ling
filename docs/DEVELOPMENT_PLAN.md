@@ -307,7 +307,7 @@ Total: 151 tickets.
 
 **Done when:** No email leaves the system without a click; each state change yields exactly one draft.
 
-### C16 - Documents and storage (R1)
+### C16 - Documents and storage (R1) - DONE
 
 **Goal:** Files are stored safely, never overwritten and scanned.  
 **Depends on:** C00, C03

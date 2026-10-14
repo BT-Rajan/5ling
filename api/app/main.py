@@ -13,6 +13,8 @@ from app.audit.context import AuditContextMiddleware
 from app.auth.sessions import cookie_name
 from app.config import Settings, get_settings
 from app.db import make_engine, make_session_factory
+from app.files.scan import ClamdScanner
+from app.files.store import store_from_settings
 from app.logging_conf import setup_logging
 from app.routers import (
     admin_audit,
@@ -26,6 +28,7 @@ from app.routers import (
     auth,
     client_updates,
     clients,
+    documents,
     email_events,
     health,
     portal,
@@ -69,6 +72,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     )
     app.state.settings = settings
     app.state.session_factory = make_session_factory(engine)
+    app.state.store = store_from_settings(settings)  # documents, encrypted (C16)
+    app.state.scanner = ClamdScanner(settings.clamd_address)
 
     def rid(request: Request) -> str | None:
         return getattr(request.state, "request_id", None)
@@ -118,6 +123,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(ticket_links.router)
     app.include_router(portal.router)
     app.include_router(client_updates.router)
+    app.include_router(documents.router)
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)
@@ -132,7 +138,12 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         allow_headers=["Content-Type", "X-Request-Id"],
         max_age=600,
     )
-    app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
+    app.add_middleware(
+        BodyLimitMiddleware,
+        max_bytes=settings.max_body_bytes,
+        # File uploads, and nothing else, may be larger (FR-AL-04).
+        overrides={"/api/uploads/": settings.max_upload_bytes + 1024},
+    )
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
     app.add_middleware(

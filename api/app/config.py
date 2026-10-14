@@ -5,6 +5,8 @@ Fail fast: the app refuses to start with weak or contradictory security settings
 
 from __future__ import annotations
 
+import base64
+import binascii
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -50,6 +52,13 @@ class Settings(BaseSettings):
     # Client portal links (BRD FR-AL-02): where the web app is, and how long a link lasts.
     public_url: str = "http://localhost:5173"
     portal_link_hours: int = 72
+
+    # Documents (BRD INT-03, INT-04, NFR-SE-04). Files are encrypted before they are written, with
+    # a key kept apart from the database: 32 random bytes, base64 (openssl rand -base64 32).
+    storage_dir: Path = ROOT / ".dev" / "storage"
+    storage_key: SecretStr | None = None  # required in production; development derives one
+    max_upload_bytes: int = 20 * 1024 * 1024
+    clamd_address: str = "unix:/var/run/clamav/clamd.ctl"  # or tcp:127.0.0.1:3310
 
     # Email (BRD INT-01). Development sends to Mailpit on 127.0.0.1:1025 (scripts/dev-up).
     firm_name: str = "Ledgerline"
@@ -119,6 +128,32 @@ class Settings(BaseSettings):
             raise ValueError("portal_link_hours must be 1 to 720")
         return value
 
+    @field_validator("storage_key")
+    @classmethod
+    def _storage_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None:
+            try:
+                raw = base64.b64decode(value.get_secret_value(), validate=True)
+            except (binascii.Error, ValueError):
+                raw = b""
+            if len(raw) != 32:
+                raise ValueError("storage_key must be 32 random bytes, base64-encoded")
+        return value
+
+    @field_validator("max_upload_bytes")
+    @classmethod
+    def _upload_limit(cls, value: int) -> int:
+        if not 1024 <= value <= 200 * 1024 * 1024:
+            raise ValueError("max_upload_bytes must be 1 KB to 200 MB")
+        return value
+
+    @field_validator("clamd_address")
+    @classmethod
+    def _clamd(cls, value: str) -> str:
+        if not value.startswith(("unix:/", "tcp:")):
+            raise ValueError("clamd_address must be unix:/path or tcp:host:port")
+        return value
+
     @field_validator("smtp_timeout_seconds")
     @classmethod
     def _sane_timeout(cls, value: int) -> int:
@@ -145,6 +180,8 @@ class Settings(BaseSettings):
             insecure = [o for o in self.allowed_origins if not o.startswith("https://")]
             if insecure:
                 raise ValueError("production allowed_origins must all be https://")
+            if self.storage_key is None:
+                raise ValueError("production needs storage_key (kept apart from the database)")
             if not self.public_url.startswith("https://"):
                 raise ValueError("production public_url must be https://")
             local_relay = self.smtp_host in {"127.0.0.1", "localhost", "::1"}
