@@ -25,13 +25,15 @@ describe("App shell", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   });
 
-  it("the menu shows Team to an Administrator and not to Staff", async () => {
+  it("the menu shows Setup and Audit log to an Administrator and not to Staff", async () => {
     stubScreen(false);
     const first = renderApp("/", { user: staff, handlers: noHealth });
-    expect((await mainNav()).queryByRole("link", { name: "Team" })).not.toBeInTheDocument();
+    expect((await mainNav()).queryByRole("link", { name: "Setup" })).not.toBeInTheDocument();
     first.unmount();
     renderApp("/", { user: admin, handlers: noHealth });
-    expect((await mainNav()).getByRole("link", { name: "Team" })).toBeInTheDocument();
+    const nav = await mainNav();
+    // A phone's bottom bar holds at most five destinations.
+    expect(nav.getAllByRole("link").map((a) => a.textContent)).toEqual(["Home", "Work list", "Clients", "Setup", "Audit log"]);
   });
 
   it("marks the current destination", async () => {

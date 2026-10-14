@@ -151,7 +151,7 @@ Total: 151 tickets.
 
 **Done when:** Altering a row in a test copy fails the check and raises an alert.
 
-### C05 - Packages and filing calendars (R1)
+### C05 - Packages and filing calendars (R1) - DONE
 
 **Goal:** Administrator can define what a client receives, with versioning.  
 **Depends on:** C01, C03

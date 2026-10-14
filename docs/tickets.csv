@@ -25,10 +25,10 @@ LL-018,C04,R1,Audit verification and viewer,Chain verification service and on-de
 LL-019,C04,R1,Audit verification and viewer,Daily verification job; alert Administrator and Partners on failure,JOB,S,FR-AU-03,Done
 LL-020,C04,R1,Audit verification and viewer,Admin audit viewer with filters and export including chain result,WEB,M,FR-AU-04,Done
 LL-021,C04,R1,Audit verification and viewer,Tamper test on a database copy,TEST,S,FR-AU-03,Done
-LL-022,C05,R1,Packages and filing calendars,"Tables: filings, packages, package filings, checklist templates, calendars (versioned)",DB,M,"FR-PK-01, FR-PK-02, FR-PK-05",Todo
-LL-023,C05,R1,Packages and filing calendars,Package API with publish rules,API,M,FR-PK-01,Todo
-LL-024,C05,R1,Packages and filing calendars,"Calendar API: type, frequency, due-date rule, FY handling, lead time",API,M,FR-PK-02,Todo
-LL-025,C05,R1,Packages and filing calendars,Admin screens for packages and calendars,WEB,M,,Todo
+LL-022,C05,R1,Packages and filing calendars,"Tables: filings, packages, package filings, checklist templates, calendars (versioned)",DB,M,"FR-PK-01, FR-PK-02, FR-PK-05",Done
+LL-023,C05,R1,Packages and filing calendars,Package API with publish rules,API,M,FR-PK-01,Done
+LL-024,C05,R1,Packages and filing calendars,"Calendar API: type, frequency, due-date rule, FY handling, lead time",API,M,FR-PK-02,Done
+LL-025,C05,R1,Packages and filing calendars,Admin screens for packages and calendars,WEB,M,,Done
 LL-026,C06,R1,Due-date engine,Holiday table with Administrator editing,API,S,FR-PK-04,Todo
 LL-027,C06,R1,Due-date engine,"Due-date rule evaluator for monthly, quarterly, yearly and FY handling",API,M,"FR-PK-02, NFR-MN-01",Todo
 LL-028,C06,R1,Due-date engine,"Alert date: default 4 and 21 days, quarterly set by Admin, per-entry override, holiday rule",API,M,"FR-PK-03, FR-PK-04",Todo
