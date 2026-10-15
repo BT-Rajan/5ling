@@ -2,6 +2,7 @@
 # Long-running; systemd restarts it if it stops. Safe to run more than one (each email is
 # claimed by one worker only). Adjust paths and user to your install.
 [Unit]
+OnFailure=ledgerline-notify@%n.service
 Description=Ledgerline email send worker
 After=network-online.target mysql.service
 Wants=network-online.target

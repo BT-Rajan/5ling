@@ -68,6 +68,7 @@ from app.models.ledger import (
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.notification import Notification, NotificationKind
+from app.models.ops import ErrorMinute, OpsAlert, OpsAlertKind
 from app.models.portal import LinkOrigin, PortalLink
 from app.models.rules import RULE_LIMITS, BreakGlassGrant, RuleSettings
 from app.models.user import LoginAttempt, Role, User, UserSession
@@ -115,6 +116,7 @@ __all__ = [
     "EmailStatus",
     "EndReason",
     "EntryKind",
+    "ErrorMinute",
     "EventKind",
     "EventSource",
     "FeeAdjustment",
@@ -137,6 +139,8 @@ __all__ = [
     "LoginChallenge",
     "Notification",
     "NotificationKind",
+    "OpsAlert",
+    "OpsAlertKind",
     "OverduePolicyMode",
     "OverrideStatus",
     "Package",

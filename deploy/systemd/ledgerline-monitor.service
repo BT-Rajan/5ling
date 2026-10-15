@@ -1,0 +1,25 @@
+# Alerts the technical owner (LL_TECH_OWNER_EMAIL) about failed jobs, failed client emails and
+# error spikes (BRD NFR-OB-01). Started every minute by ledgerline-monitor.timer, so an alert goes
+# out within 5 minutes. Sends straight to the mail server, not through the outbox.
+[Unit]
+OnFailure=ledgerline-notify@%n.service
+Description=Ledgerline monitor: failed jobs, failed emails, error spikes
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline/api
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/api/.venv/bin/python -m app.cli monitor
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+

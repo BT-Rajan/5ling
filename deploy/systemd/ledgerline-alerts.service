@@ -3,6 +3,7 @@
 # time). Exits 1, with a CRITICAL log line, if any cycle failed; running it again is safe.
 # Adjust paths and user to your install.
 [Unit]
+OnFailure=ledgerline-notify@%n.service
 Description=Ledgerline client alerts and reminders
 After=network-online.target mysql.service
 

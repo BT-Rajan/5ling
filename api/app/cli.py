@@ -41,6 +41,9 @@ from app.models import (
     User,
 )
 from app.notify.service import documents_arrived
+from app.ops.monitor import run as run_monitor
+from app.ops.monitor import unit_failed
+from app.ops.restore import check as restore_check
 from app.security_check import review
 
 
@@ -235,6 +238,39 @@ def security_check() -> tuple[bool, str]:
     return all(c.ok for c in checks), "\n".join(lines)
 
 
+def monitor(unit: str | None = None) -> tuple[bool, str]:
+    """NFR-OB-01: alert the technical owner (every minute; or at once for a failed service)."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        factory = make_session_factory(engine)
+        provider = provider_from_settings(settings)
+        tally = (
+            unit_failed(factory, settings, provider, unit)
+            if unit
+            else run_monitor(factory, settings, provider)
+        )
+    finally:
+        engine.dispose()
+    summary = f"{tally.raised} new alerts, {tally.delivered} sent, {tally.failed} not sent."
+    return tally.failed == 0, summary
+
+
+def verify_restore(backup: str) -> tuple[bool, str]:
+    """NFR-AV-02: check a restored backup (run by scripts/restore-test on the scratch database)."""
+    settings = get_settings()
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        with make_session_factory(engine)() as db:
+            lines = restore_check(db, store_from_settings(settings), backup)
+    finally:
+        engine.dispose()
+    return all(line.ok for line in lines), "\n".join(
+        f"{'PASS' if line.ok else 'FAIL'}  {line.text}" for line in lines
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -256,10 +292,27 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("scan-documents", help="scan files held while the virus scanner was down")
     sub.add_parser("send-alerts", help="send due client alerts and reminders (every 15 min)")
     sub.add_parser("raise-invoices", help="raise invoices due on the billing schedule (daily)")
+    sub.add_parser("monitor", help="alert the technical owner about failures (every minute)")
+    failed = sub.add_parser("notify-failure", help="alert at once that a systemd service failed")
+    failed.add_argument("unit")
+    restore = sub.add_parser(
+        "verify-restore", help="check a restored backup (scripts/restore-test)"
+    )
+    restore.add_argument("--backup", required=True, help="the backup file's name")
     sub.add_parser(
         "security-check", help="check encryption at rest and key separation (exit 1 if not)"
     )
     args = parser.parse_args(argv)
+
+    if args.command in ("monitor", "notify-failure"):
+        ok, message = monitor(args.unit if args.command == "notify-failure" else None)
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
+
+    if args.command == "verify-restore":
+        ok, message = verify_restore(args.backup)
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "security-check":
         ok, message = security_check()

@@ -2,6 +2,7 @@
 # Adjust paths and user to your install. If any client fails, it exits 1, logs at CRITICAL and
 # shows on every Administrator's screen; running it again is always safe.
 [Unit]
+OnFailure=ledgerline-notify@%n.service
 Description=Ledgerline daily cycle generator
 After=network-online.target mysql.service
 

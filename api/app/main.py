@@ -16,6 +16,7 @@ from app.db import make_engine, make_session_factory
 from app.files.scan import ClamdScanner
 from app.files.store import store_from_settings
 from app.logging_conf import setup_logging
+from app.ops.errors import error_counter
 from app.routers import (
     admin_audit,
     admin_emails,
@@ -173,7 +174,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         sink=make_session_factory(audit_engine),
         cookie=cookie_name(settings),
     )
-    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(RequestContextMiddleware, on_server_error=error_counter(audit_engine))
     app.add_middleware(
         SecurityHeadersMiddleware, production=settings.is_production, docs_paths=DOCS_PATHS
     )

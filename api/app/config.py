@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 20 * 1024 * 1024
     clamd_address: str = "unix:/var/run/clamav/clamd.ctl"  # or tcp:127.0.0.1:3310
 
+    # Monitoring (BRD NFR-OB-01): who hears about failed jobs, failed emails and error spikes
+    # (required in production), and how many server errors in 5 minutes count as a spike.
+    tech_owner_email: str | None = None
+    error_spike_threshold: int = 10
+
     # Fees (BRD FR-FE-02, FR-FE-09). Invoice numbers read PREFIX/YY-YY/00001 (at most 16
     # characters, as GST requires). The firm's GST state code (the first two digits of its GSTIN)
     # decides CGST and SGST (same state) or IGST (a client registered in another state).
@@ -117,6 +122,23 @@ class Settings(BaseSettings):
             return validate_email(value, check_deliverability=False).normalized
         except EmailNotValidError as exc:
             raise ValueError(f"email_from_address is not a valid address: {exc}") from None
+
+    @field_validator("tech_owner_email")
+    @classmethod
+    def _owner_address(cls, value: str | None) -> str | None:
+        if value in (None, ""):
+            return None
+        try:
+            return validate_email(value, check_deliverability=False).normalized
+        except EmailNotValidError as exc:
+            raise ValueError(f"tech_owner_email is not a valid address: {exc}") from None
+
+    @field_validator("error_spike_threshold")
+    @classmethod
+    def _spike(cls, value: int) -> int:
+        if not 1 <= value <= 10_000:
+            raise ValueError("error_spike_threshold must be 1 to 10000")
+        return value
 
     @field_validator("invoice_prefix")
     @classmethod
@@ -217,6 +239,8 @@ class Settings(BaseSettings):
         if self.env == "production":
             if not self.allowed_hosts or "localhost" in self.allowed_hosts:
                 raise ValueError("production needs explicit public allowed_hosts")
+            if self.tech_owner_email is None:
+                raise ValueError("production needs tech_owner_email for monitoring alerts")
             insecure = [o for o in self.allowed_origins if not o.startswith("https://")]
             if insecure:
                 raise ValueError("production allowed_origins must all be https://")

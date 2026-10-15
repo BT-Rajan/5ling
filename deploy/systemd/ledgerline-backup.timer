@@ -1,0 +1,10 @@
+# Daily at 02:15 India time (recovery point within 24 hours, BRD NFR-AV-02).
+[Unit]
+Description=Ledgerline daily backup
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 Asia/Kolkata
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+# Every quarter, on the 5th of January, April, July and October at 03:00 India time.
+[Unit]
+Description=Ledgerline quarterly restore test
+
+[Timer]
+OnCalendar=*-01,04,07,10-05 03:00:00 Asia/Kolkata
+Persistent=true
+
+[Install]
+WantedBy=timers.target

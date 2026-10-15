@@ -2,6 +2,7 @@
 # ledgerline-invoices.timer. Exits 1, with a CRITICAL log line, if any client failed; running it
 # again is safe (one invoice per client per period). Adjust paths and user to your install.
 [Unit]
+OnFailure=ledgerline-notify@%n.service
 Description=Ledgerline invoices on the billing schedule
 After=network-online.target mysql.service
 
