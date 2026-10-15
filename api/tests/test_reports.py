@@ -177,11 +177,15 @@ def test_a_staff_export_holds_only_their_rows_and_is_logged(
     )
     assert as_pdf.content.startswith(b"%PDF")
     assert (
-        sita.get(
-            "/api/reports/fee-aging/export", params={"format": "xlsx", "owner_id": ravi_id}
+        sita.post(
+            "/api/reports/fee-aging/export",
+            json={"format": "xlsx", "owner_id": ravi_id},
+            headers=sita_s.headers,
         ).status_code
         == 403
     )
+    # Without the CSRF token, refused.
+    assert sita.post("/api/reports/fee-aging/export", json={"format": "xlsx"}).status_code == 403
 
     logged = [e for e in entries(migrated_db) if e.event == "report.exported"]
     assert [
