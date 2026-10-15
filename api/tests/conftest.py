@@ -44,6 +44,7 @@ def make_settings(**overrides: Any) -> Settings:
         values.setdefault("email_from_address", "no-reply@firm.example.in")
         values.setdefault("public_url", "https://app.example.test")
         values.setdefault("storage_key", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
+        values.setdefault("tech_owner_email", "it@firm.example.in")
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 

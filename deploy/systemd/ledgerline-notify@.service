@@ -1,0 +1,24 @@
+# Template run by OnFailure= in every Ledgerline service: tells the technical owner at once that
+# the service named after the @ failed (BRD NFR-OB-01). Install with the other units; nothing to
+# enable.
+[Unit]
+Description=Ledgerline: alert that %i failed
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline/api
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/api/.venv/bin/python -m app.cli notify-failure %i
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+CapabilityBoundingSet=
+

@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Daily backup to a separate location (BRD NFR-AV-02: recovery point within 24 hours).
+# Run by deploy/systemd/ledgerline-backup.timer, or by hand. Exit 1 on any failure (the service's
+# OnFailure then alerts the technical owner).
+#
+# What it writes, under LL_BACKUP_TARGET (a mounted disk on another machine, or user@host:/path):
+#   db/ledgerline-YYYYmmdd-HHMMSS.sql.gz.enc   the database (mysqldump, gzip, AES-256 with the
+#                                               passphrase in LL_BACKUP_KEY_FILE), and a .sha256
+#   storage/                                    the document store, copied as is: every file in it
+#                                               is already encrypted with LL_STORAGE_KEY
+# Neither LL_STORAGE_KEY nor LL_BACKUP_KEY_FILE goes into the backup: keep copies of both
+# somewhere safe and apart (a password manager, a sealed envelope), or the backup cannot be read.
+#
+# Settings (in the app's environment file):
+#   LL_MIGRATION_DATABASE_URL  the owner account (dumps triggers too)
+#   LL_STORAGE_DIR             the document store
+#   LL_BACKUP_DIR              local working folder (default /var/backups/ledgerline)
+#   LL_BACKUP_TARGET           where backups go (required; not on this server's disk)
+#   LL_BACKUP_KEY_FILE         file holding the backup passphrase (required, mode 0600)
+#   LL_BACKUP_KEEP_DAYS        days of database backups to keep locally (default 30)
+set -euo pipefail
+umask 077
+
+: "${LL_MIGRATION_DATABASE_URL:?set LL_MIGRATION_DATABASE_URL}"
+: "${LL_STORAGE_DIR:?set LL_STORAGE_DIR}"
+: "${LL_BACKUP_TARGET:?set LL_BACKUP_TARGET (somewhere other than this server)}"
+: "${LL_BACKUP_KEY_FILE:?set LL_BACKUP_KEY_FILE}"
+BACKUP_DIR="${LL_BACKUP_DIR:-/var/backups/ledgerline}"
+KEEP_DAYS="${LL_BACKUP_KEEP_DAYS:-30}"
+[ -r "$LL_BACKUP_KEY_FILE" ] || { echo "Cannot read $LL_BACKUP_KEY_FILE" >&2; exit 1; }
+
+mkdir -p "$BACKUP_DIR/db"
+stamp="$(date -u +%Y%m%d-%H%M%S)"
+out="$BACKUP_DIR/db/ledgerline-$stamp.sql.gz.enc"
+
+# The database password goes in a private options file, never on the command line.
+opts="$(mktemp)"
+trap 'rm -f "$opts" "$out.part"' EXIT
+db="$(python3 - "$LL_MIGRATION_DATABASE_URL" "$opts" <<'PY'
+import sys
+from urllib.parse import unquote, urlsplit
+url = urlsplit(sys.argv[1].replace("mysql+pymysql://", "mysql://", 1))
+with open(sys.argv[2], "w") as f:
+    f.write("[client]\n")
+    f.write(f"user={unquote(url.username or '')}\n")
+    f.write(f"password={unquote(url.password or '')}\n")
+    f.write(f"host={url.hostname or '127.0.0.1'}\nport={url.port or 3306}\n")
+print(url.path.lstrip("/"))
+PY
+)"
+
+mysqldump --defaults-extra-file="$opts" --single-transaction --routines --triggers --events \
+  --hex-blob --no-tablespaces --set-gtid-purged=OFF "$db" \
+  | gzip -9 \
+  | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$LL_BACKUP_KEY_FILE" \
+  > "$out.part"
+mv "$out.part" "$out"
+(cd "$BACKUP_DIR/db" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256")
+
+# Copy off this server. Documents are never overwritten, so existing copies are left alone.
+rsync -a "$BACKUP_DIR/db/" "$LL_BACKUP_TARGET/db/"
+rsync -a --ignore-existing "$LL_STORAGE_DIR/" "$LL_BACKUP_TARGET/storage/"
+
+find "$BACKUP_DIR/db" -name 'ledgerline-*.sql.gz.enc*' -mtime "+$KEEP_DAYS" -delete
+echo "Backup $(basename "$out") written to $LL_BACKUP_TARGET ($(du -h "$out" | cut -f1))."

@@ -1,0 +1,11 @@
+# Every minute: the monitor (BRD NFR-OB-01). Install like the audit check timer.
+[Unit]
+Description=Ledgerline monitor, every minute
+
+[Timer]
+OnCalendar=*:*:00
+AccuracySec=5s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

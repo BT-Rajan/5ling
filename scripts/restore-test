@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Restore test (BRD NFR-AV-02: restore tested every quarter; recovery time within 4 hours).
+# Restores the newest backup into a scratch database, checks it, and records the result in
+# $LL_BACKUP_DIR/restore-tests.log. Exit 1 if the restore or any check fails.
+#   scripts/restore-test            (uses the newest backup in $LL_BACKUP_TARGET/db)
+#   scripts/restore-test FILE       (a particular backup file)
+#
+# Needs, besides the backup settings (see scripts/backup):
+#   LL_RESTORE_DATABASE_URL  an EMPTY scratch database the owner account may write
+#                            (never the live one; the script refuses a URL equal to it)
+#   LL_STORAGE_KEY           to prove documents in the backup can be decrypted
+set -euo pipefail
+umask 077
+cd "$(dirname "$0")/.."
+
+: "${LL_RESTORE_DATABASE_URL:?set LL_RESTORE_DATABASE_URL (a scratch database)}"
+: "${LL_BACKUP_TARGET:?set LL_BACKUP_TARGET}"
+: "${LL_BACKUP_KEY_FILE:?set LL_BACKUP_KEY_FILE}"
+BACKUP_DIR="${LL_BACKUP_DIR:-/var/backups/ledgerline}"
+if [ "$LL_RESTORE_DATABASE_URL" = "${LL_DATABASE_URL:-}" ] || [ "$LL_RESTORE_DATABASE_URL" = "${LL_MIGRATION_DATABASE_URL:-}" ]; then
+  echo "LL_RESTORE_DATABASE_URL must not be the live database." >&2
+  exit 1
+fi
+
+file="${1:-$(ls -1 "$LL_BACKUP_TARGET"/db/ledgerline-*.sql.gz.enc | sort | tail -n 1)}"
+[ -f "$file" ] || { echo "No backup found." >&2; exit 1; }
+(cd "$(dirname "$file")" && sha256sum -c "$(basename "$file").sha256" >/dev/null)
+
+opts="$(mktemp)"
+trap 'rm -f "$opts"' EXIT
+db="$(python3 - "$LL_RESTORE_DATABASE_URL" "$opts" <<'PY'
+import sys
+from urllib.parse import unquote, urlsplit
+url = urlsplit(sys.argv[1].replace("mysql+pymysql://", "mysql://", 1))
+with open(sys.argv[2], "w") as f:
+    f.write("[client]\n")
+    f.write(f"user={unquote(url.username or '')}\npassword={unquote(url.password or '')}\n")
+    f.write(f"host={url.hostname or '127.0.0.1'}\nport={url.port or 3306}\n")
+print(url.path.lstrip("/"))
+PY
+)"
+
+started=$(date +%s)
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass "file:$LL_BACKUP_KEY_FILE" -in "$file" \
+  | gunzip \
+  | mysql --defaults-extra-file="$opts" "$db"
+restored=$(date +%s)
+
+status=0
+report="$(cd api && LL_DATABASE_URL="$LL_RESTORE_DATABASE_URL" \
+  LL_STORAGE_DIR="$LL_BACKUP_TARGET/storage" \
+  .venv/bin/python -m app.cli verify-restore --backup "$(basename "$file")" 2>&1)" || status=$?
+finished=$(date +%s)
+
+mkdir -p "$BACKUP_DIR"
+result=$([ "$status" -eq 0 ] && echo PASS || echo FAIL)
+{
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $result restore of $(basename "$file"):" \
+    "load $((restored - started))s, total $((finished - started))s"
+  echo "$report" | sed 's/^/    /'
+} | tee -a "$BACKUP_DIR/restore-tests.log"
+exit "$status"

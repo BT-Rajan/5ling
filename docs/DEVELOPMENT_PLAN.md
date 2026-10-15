@@ -517,7 +517,7 @@ Total: 151 tickets.
 
 **Done when:** Log review finds no PAN or bank detail; no unauthenticated file access.
 
-### C31 - Resilience and performance (R1)
+### C31 - Resilience and performance (R1) - DONE
 
 **Goal:** Backups, monitoring and speed targets proven.  
 **Depends on:** C28

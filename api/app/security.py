@@ -16,6 +16,8 @@ import uuid
 from collections.abc import Awaitable, Callable, MutableMapping
 from typing import Any
 
+import anyio
+
 from app.audit.context import deny_reason
 
 Scope = MutableMapping[str, Any]
@@ -96,8 +98,9 @@ class SecurityHeadersMiddleware:
 class RequestContextMiddleware:
     """Request id, one access-log line without the query string, and a generic 500."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, on_server_error: Callable[[], None] | None = None) -> None:
         self.app = app
+        self.on_server_error = on_server_error  # counts 5xx for the monitor (C31)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -130,6 +133,8 @@ class RequestContextMiddleware:
                     send_wrapper, 500, "internal_error", "Something went wrong.", request_id
                 )
         finally:
+            if status >= 500 and self.on_server_error is not None:
+                await anyio.to_thread.run_sync(self.on_server_error)
             route = scope.get("route")
             log.info(
                 "request",

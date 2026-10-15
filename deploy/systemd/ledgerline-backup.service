@@ -1,0 +1,19 @@
+# Daily backup of the database and the document store to a separate location (BRD NFR-AV-02).
+# See scripts/backup for the settings it needs. Started by ledgerline-backup.timer.
+[Unit]
+OnFailure=ledgerline-notify@%n.service
+Description=Ledgerline daily backup
+After=network-online.target mysql.service
+
+[Service]
+Type=oneshot
+User=ledgerline
+Group=ledgerline
+WorkingDirectory=/opt/ledgerline
+EnvironmentFile=/opt/ledgerline/.env
+ExecStart=/opt/ledgerline/scripts/backup
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/backups/ledgerline
+ProtectHome=yes
+PrivateTmp=yes
