@@ -34,6 +34,9 @@ CLIENT_READS: tuple[tuple[str, str], ...] = (
     # The daily work list and its count report (FR-IN-04), narrowed to their own for Staff.
     ("GET", "/api/worklist"),
     ("GET", "/api/reports/worklist-counts"),
+    # The dashboard and the list behind each figure (FR-RP-01, FR-RP-02).
+    ("GET", "/api/dashboard"),
+    ("GET", "/api/dashboard/list"),
     ("GET", "/api/stages"),
     ("GET", "/api/tickets/{ticket}"),
     ("GET", "/api/clients/{client_id}/tickets"),
