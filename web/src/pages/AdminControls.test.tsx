@@ -4,7 +4,7 @@ import { admin, errorResponse, jsonResponse, renderApp, stubScreen, type Call } 
 
 const quiet = { "GET /api/health/ready": () => new Promise<Response>(() => undefined), "GET /api/admin/audit/status": () => jsonResponse({ latest: null }) };
 
-const client = { client_id: 100001, kind: "individual", legal_name: "Ravi Kumar", pan: "ABCPE1234F", gstin: null, status: "active", owner: { id: 2, full_name: "Asha Rao" }, package: { id: 5, name: "GST Monthly", version: 1 }, contacts: [], created_at: "2026-10-14T06:00:00Z" };
+const client = { client_id: 100001, kind: "individual", legal_name: "Ravi Kumar", pan_masked: "AB•••••34F", gstin: null, status: "active", owner: { id: 2, full_name: "Asha Rao" }, package: { id: 5, name: "GST Monthly", version: 1 }, contacts: [], created_at: "2026-10-14T06:00:00Z" };
 const rules = {
   waiting_grace_days: 3, reminder_interval_days: 2, escalation_days_before: 2, portal_link_hours: 72, idle_timeout_minutes: 20, break_glass_minutes: 240,
   limits: { waiting_grace_days: { default: 3, min: 0, max: 30 }, reminder_interval_days: { default: 2, min: 1, max: 14 }, escalation_days_before: { default: 2, min: 0, max: 30 }, portal_link_hours: { default: 72, min: 1, max: 720 }, idle_timeout_minutes: { default: 20, min: 5, max: 240 }, break_glass_minutes: { default: 240, min: 15, max: 1440 } },

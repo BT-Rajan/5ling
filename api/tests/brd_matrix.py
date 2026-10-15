@@ -23,9 +23,16 @@ class Capability:
     client: str
     built_in: str
     routes: tuple[tuple[str, str], ...] = ()
+    # When roles do the same thing through different routes (Staff upload to a ticket, a
+    # consultant to their assignment): the roles each such route serves for this capability.
+    only: tuple[tuple[tuple[str, str], frozenset[str]], ...] = ()
 
     def allowed(self, who: str) -> bool:
         return bool(getattr(self, who) != "-")
+
+    def allowed_on(self, who: str, route: tuple[str, str]) -> bool:
+        narrowed = dict(self.only).get(route)
+        return self.allowed(who) and (narrowed is None or who in narrowed)
 
 
 # Reading a client's records: one route each, narrowed to their own clients for Staff.
@@ -182,7 +189,27 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/tickets/{ticket}/assignment/withdraw"),
         ),
     ),
-    Capability("Upload documents", "Y", "Own", "Task", "Own link", "C16"),
+    Capability(
+        "Upload documents",
+        "Y",
+        "Own",
+        "Task",
+        "Own link",
+        "C16",
+        # Each role through its own route; the client by their private link (the portal's
+        # upload route, which is public: see routewalk.PUBLIC).
+        routes=(
+            ("POST", "/api/uploads/tickets/{ticket}"),
+            ("POST", "/api/uploads/consultant/assignments/{assignment_id}"),
+        ),
+        only=(
+            (("POST", "/api/uploads/tickets/{ticket}"), frozenset({"admin", "staff"})),
+            (
+                ("POST", "/api/uploads/consultant/assignments/{assignment_id}"),
+                frozenset({"consultant"}),
+            ),
+        ),
+    ),
     Capability(
         "Download documents",
         "Y",
