@@ -8,8 +8,10 @@ balance under the invoice's lock, so approvals cannot together take it below zer
 note is numbered from its own gapless series (CN/26-27/00001) as it is approved.
 
 The overdue policy is set by an Administrator: reminders only; or also a warning on the
-client's filings; or also refusing Filed for a client over the limit (more than `limit` overdue),
-unless an Administrator has waived it, with a reason, for that one cycle.
+client's filings (the default: BRD Q3); or also refusing Filed for a client over the limit, unless
+an Administrator has waived it, with a reason, for that one cycle. A client is over the limit
+when more than its limit is overdue: its own, set by its owner or an Administrator, else the
+firm's.
 """
 
 from __future__ import annotations
@@ -154,6 +156,7 @@ def overdue_paise(db: Session, client_pk: int, today: date) -> int:
 class FilingCheck:
     mode: OverduePolicyMode
     overdue: int  # paise overdue now
+    limit: int  # the client's own limit, else the firm's
     over_limit: bool
     waiver: FilingWaiver | None
 
@@ -170,9 +173,17 @@ def filing_check(
     db: Session, client: Client, cycle: Cycle, today: date | None = None
 ) -> FilingCheck:
     rule = policy(db)
+    limit = limit_for(client, rule)
     overdue = overdue_paise(db, client.id, today or today_ist())
     waiver = db.scalar(select(FilingWaiver).where(FilingWaiver.cycle_id == cycle.id))
-    return FilingCheck(rule.mode, overdue, overdue > rule.limit_paise, waiver)
+    return FilingCheck(rule.mode, overdue, limit, overdue > limit, waiver)
+
+
+def limit_for(client: Client, rule: FeePolicy) -> int:
+    """BRD Q3: each client may have its own limit; otherwise the firm's."""
+    return (
+        client.overdue_limit_paise if client.overdue_limit_paise is not None else rule.limit_paise
+    )
 
 
 def grant_waiver(db: Session, cycle: Cycle, *, reason: str, user_id: int) -> FilingWaiver:

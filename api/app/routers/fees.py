@@ -23,7 +23,13 @@ from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import paise, rupees
 from app.errors import ApiHTTPException
-from app.fees.controls import decide_adjustment, policy, request_adjustment
+from app.fees.controls import (
+    decide_adjustment,
+    limit_for,
+    overdue_paise,
+    policy,
+    request_adjustment,
+)
 from app.fees.ledger import (
     STATUS_LABEL,
     FeeStatus,
@@ -43,6 +49,7 @@ from app.models import (
     AdjustmentKind,
     AdjustmentStatus,
     BillingFrequency,
+    ChangeField,
     Client,
     EntryKind,
     FeeAdjustment,
@@ -56,7 +63,7 @@ from app.models import (
     TaxRate,
     User,
 )
-from app.routers.clients import load_client
+from app.routers.clients import load_client, record_change
 from app.timeutil import today_ist, utcnow
 
 router = APIRouter(tags=["fees"])
@@ -166,6 +173,10 @@ class FeesOut(BaseModel):
     status: FeeStatus | None  # None: no invoices yet
     status_label: str | None
     balance: str  # still owed across all invoices
+    overdue: str  # owed past the due date
+    overdue_limit: str | None  # this client's own limit (FR-FE-06), or None for the firm's
+    firm_limit: str
+    over_limit: bool
     can_set_fee: bool  # an Administrator sets it at once; Staff ask
 
 
@@ -196,6 +207,11 @@ class ReverseIn(BaseModel):
 class AdjustmentIn(BaseModel):
     kind: AdjustmentKind
     amount: Money
+    reason: Reason
+
+
+class LimitIn(BaseModel):
+    limit: Annotated[Decimal, Field(ge=0, le=Decimal("99999999.99"), decimal_places=2)] | None
     reason: Reason
 
 
@@ -346,7 +362,13 @@ def _fees_out(db: Session, principal: Principal, client: Client) -> FeesOut:
         .limit(200)
     ).all()
     summary = fees_summary(db, [client.id], today)[client.id]
+    rule = policy(db)
+    overdue = overdue_paise(db, client.id, today)
     return FeesOut(
+        overdue=rupees(overdue) or "0.00",
+        overdue_limit=rupees(client.overdue_limit_paise),
+        firm_limit=rupees(rule.limit_paise) or "0.00",
+        over_limit=overdue > limit_for(client, rule),
         plan=PlanOut(
             package_name=plan.package.name,
             package_version=plan.version.version,
@@ -550,6 +572,33 @@ def ask_for_adjustment(
             "credit_note": adjustment.credit_note_no,
         },
     )
+    db.commit()
+    return _fees_out(db, principal, client)
+
+
+@router.put("/api/clients/{client_id}/overdue-limit")
+def set_overdue_limit(
+    client_id: ClientIdPath,
+    body: LimitIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> FeesOut:
+    """FR-FE-06, BRD Q3: this client's overdue limit, or none to use the firm's. Kept in the
+    client's history with the reason."""
+    client = load_client(db, principal, client_id, lock=True)
+    new = paise(body.limit) if body.limit is not None else None
+    if new == client.overdue_limit_paise:
+        raise ApiHTTPException(409, "That is already this client's limit.", code="no_change")
+    record_change(
+        db,
+        client,
+        ChangeField.OVERDUE_LIMIT,
+        rupees(client.overdue_limit_paise) or "default",
+        rupees(new) or "default",
+        body.reason,
+        principal,
+    )
+    client.overdue_limit_paise = new
     db.commit()
     return _fees_out(db, principal, client)
 

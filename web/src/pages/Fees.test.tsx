@@ -29,11 +29,15 @@ const fees = (over: Record<string, unknown> = {}) => ({
   status: "due",
   status_label: "Due",
   balance: "1770.00",
+  overdue: "0.00",
+  overdue_limit: null,
+  firm_limit: "0.00",
+  over_limit: false,
   can_set_fee: false,
   ...over,
 });
 
-const policy = { mode: "reminder", limit: "0.00", updated_by: null, updated_at: "2026-10-01T00:00:00Z" };
+const policy = { mode: "warn", limit: "0.00", updated_by: null, updated_at: "2026-10-01T00:00:00Z" };
 const adjustment = { id: 7, client_id: 100001, client_name: "Ravi Kumar", invoice_id: 1, invoice_no: "INV/26-27/00001", kind: "write_off", kind_label: "Write-off", amount: "200.00", reason: "Hardship", status: "pending", requested_by: "Asha Rao", requested_at: "2026-10-14T06:00:00Z", decided_by: null, decided_at: null, decision_note: null, credit_note_no: null };
 
 beforeEach(() => {
@@ -194,12 +198,38 @@ describe("Adjustments and the overdue policy", () => {
     const form = screen.getByRole("form", { name: "Overdue policy" });
     await userEvent.click(within(form).getByRole("combobox", { name: "When a client has overdue fees" }));
     await userEvent.click(await screen.findByRole("option", { name: /refuse/ }));
-    const limit = within(form).getByLabelText(/Only when more than this is overdue/);
+    const limit = within(form).getByLabelText(/Firm-wide limit/);
     await userEvent.clear(limit);
     await userEvent.type(limit, "500");
     await userEvent.click(within(form).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Saved.")).toBeInTheDocument();
     expect(posts.map((c) => c.body)).toEqual([{ approve: true }, { mode: "block", limit: "500" }]);
+  });
+});
+
+describe("A client's overdue limit", () => {
+  it("lets the owner set the client's own limit, with a reason", async () => {
+    const puts: Call[] = [];
+    renderApp("/clients/100001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/100001": () => jsonResponse(client),
+        "GET /api/clients/100001/fees": () => jsonResponse(fees({ overdue: "1180.00", over_limit: true })),
+        "PUT /api/clients/100001/overdue-limit": (c) => { puts.push(c); return jsonResponse(fees({ overdue: "1180.00", overdue_limit: "2000.00", over_limit: false })); },
+      },
+    });
+    const line = await screen.findByTestId("overdue-limit");
+    expect(line).toHaveTextContent("Overdue: ₹1,180 · limit ₹0 (the firm's limit) · over the limit");
+    await userEvent.click(within(line).getByRole("button", { name: "Change limit" }));
+    const form = screen.getByRole("form", { name: "Overdue limit" });
+    await userEvent.click(within(form).getByRole("combobox", { name: "Limit for this client" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Its own limit" }));
+    await userEvent.type(within(form).getByLabelText("Overdue limit (₹)"), "2000");
+    await userEvent.type(within(form).getByLabelText("Why the change?"), "Agreed credit");
+    await userEvent.click(within(form).getByRole("button", { name: "Save limit" }));
+    expect(await screen.findByText(/limit ₹2,000$/)).toBeInTheDocument();
+    expect(puts[0]?.body).toEqual({ limit: "2000", reason: "Agreed credit" });
   });
 });
 

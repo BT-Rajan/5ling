@@ -183,7 +183,7 @@ def set_policy(web: TestClient, admin: Signed, mode: str, limit: str = "0") -> A
     )
 
 
-def test_reminders_only_by_default_then_warn_then_block_with_a_one_time_override(
+def test_warn_by_default_then_block_with_a_one_time_override(
     web: TestClient,
     admin: Signed,
     checker: tuple[TestClient, Signed],
@@ -193,20 +193,20 @@ def test_reminders_only_by_default_then_warn_then_block_with_a_one_time_override
 ) -> None:
     code = overdue_client(web, admin, migrated_db, factory)
     ready_to_file(web, admin, checker, code)
-    assert _ok(web.get("/api/admin/fee-policy"))["mode"] == "reminder"
+    # BRD Q3: warn by default. Shown on the filing, not refused.
+    assert _ok(web.get("/api/admin/fee-policy"))["mode"] == "warn"
     fees = _ok(web.get(f"/api/tickets/{code}"))["cycle"]["fees"]
-    assert (fees["mode"], fees["overdue"], fees["warning"], fees["blocked"]) == (
-        "reminder",
+    assert (fees["mode"], fees["overdue"], fees["limit"], fees["blocked"]) == (
+        "warn",
         "1180.00",
-        None,
+        "0.00",
         False,
     )
-
-    # Warn: shown on the filing, not refused.
-    assert _ok(set_policy(web, admin, "warn"))["mode"] == "warn"
-    fees = _ok(web.get(f"/api/tickets/{code}"))["cycle"]["fees"]
     assert fees["warning"] == "This client has ₹1180.00 in overdue fees."
-    assert fees["blocked"] is False
+
+    # Reminders only: no warning.
+    assert _ok(set_policy(web, admin, "reminder"))["mode"] == "reminder"
+    assert _ok(web.get(f"/api/tickets/{code}"))["cycle"]["fees"]["warning"] is None
 
     # Block, but the client is under the limit: not over it, so nothing.
     _ok(set_policy(web, admin, "block", "1180"))
@@ -243,6 +243,77 @@ def test_reminders_only_by_default_then_warn_then_block_with_a_one_time_override
     assert (twice.status_code, twice.json()["error"]["code"]) == (409, "already_waived")
     assert _ok(file_it(web, admin, code, "AA0705260012345"))["cycle"]["stage"] == "filed"
     assert "fee.filing_waived" in events(migrated_db)
+
+
+def test_each_client_can_have_its_own_limit(
+    web: TestClient,
+    admin: Signed,
+    migrated_db: str,
+    factory: sessionmaker[Session],
+) -> None:
+    """BRD Q3: the limit is set per client, by its owner or an Administrator, with a reason."""
+    code = overdue_client(web, admin, migrated_db, factory)
+    cid = _ok(web.get(f"/api/tickets/{code}"))["client"]["client_id"]
+    fees = _ok(web.get(f"/api/clients/{cid}/fees"))
+    assert (fees["overdue"], fees["overdue_limit"], fees["firm_limit"], fees["over_limit"]) == (
+        "1180.00",
+        None,
+        "0.00",
+        True,
+    )
+
+    def set_limit(browser: TestClient, signed: Signed, limit: str | None) -> Any:
+        return browser.put(
+            f"/api/clients/{cid}/overdue-limit",
+            json={"limit": limit, "reason": "Agreed credit with the partner"},
+            headers=signed.headers,
+        )
+
+    raised = _ok(set_limit(web, admin, "2000"))
+    assert (raised["overdue_limit"], raised["over_limit"]) == ("2000.00", False)
+    fees = _ok(web.get(f"/api/tickets/{code}"))["cycle"]["fees"]
+    assert (fees["limit"], fees["warning"]) == ("2000.00", None)
+    # Even with the block on, this client is within its own limit.
+    _ok(set_policy(web, admin, "block"))
+    assert _ok(web.get(f"/api/tickets/{code}"))["cycle"]["fees"]["blocked"] is False
+
+    same = set_limit(web, admin, "2000")
+    assert (same.status_code, same.json()["error"]["code"]) == (409, "no_change")
+    no_reason = web.put(
+        f"/api/clients/{cid}/overdue-limit", json={"limit": "5"}, headers=admin.headers
+    )
+    assert no_reason.status_code == 422
+    assert set_limit(web, admin, "-1").status_code == 422
+
+    # Back to the firm's limit: over it again.
+    back = _ok(set_limit(web, admin, None))
+    assert (back["overdue_limit"], back["over_limit"]) == (None, True)
+    history = _ok(web.get(f"/api/clients/{cid}/history"))
+    assert [(h["field"], h["old"], h["new"]) for h in history[:2]] == [
+        ("overdue_limit", "₹2000.00", "the firm's limit"),
+        ("overdue_limit", "the firm's limit", "₹2000.00"),
+    ]
+    assert "client.overdue_limit_changed" in events(migrated_db)
+
+
+def test_only_the_owner_or_an_administrator_sets_a_clients_limit(
+    web: TestClient, admin: Signed, migrated_db: str
+) -> None:
+    sid, sita, sita_s = staff(web, migrated_db, "sita@firm.in", "Sita Staff")
+    pid = publish_package(web, admin)
+    cid = new_client(web, admin, pid, 1, owner_id=sid)
+    body = {"limit": "500", "reason": "Long-standing client"}
+    assert (
+        _ok(sita.put(f"/api/clients/{cid}/overdue-limit", json=body, headers=sita_s.headers))[
+            "overdue_limit"
+        ]
+        == "500.00"
+    )
+    _, ravi, ravi_s = staff(web, migrated_db, "ravi@firm.in", "Ravi Staff")
+    assert (
+        ravi.put(f"/api/clients/{cid}/overdue-limit", json=body, headers=ravi_s.headers).status_code
+        == 403
+    )
 
 
 def test_paying_lifts_the_block(
