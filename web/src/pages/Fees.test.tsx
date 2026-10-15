@@ -18,12 +18,16 @@ const client = {
 };
 
 const override = (over: Record<string, unknown> = {}) => ({ id: 9, client_id: 100001, client_name: "Ravi Kumar", original: "1500.00", amount: "1200.00", reason: "Agreed rate", status: "pending", requested_by: "Asha Rao", requested_at: "2026-10-14T06:00:00Z", decided_by: null, decided_at: null, decision_note: null, ...over });
-const invoice = { id: 1, invoice_no: "INV/26-27/00001", period_label: "Oct 2026", issue_date: "2026-10-01", due_date: "2026-10-16", description: "GST Monthly: monthly fee, Oct 2026", amount: "1500.00", tax_rate: "18.00", cgst: "135.00", sgst: "135.00", igst: "0.00", tax: "270.00", total: "1770.00" };
+const invoice = { id: 1, invoice_no: "INV/26-27/00001", period_label: "Oct 2026", issue_date: "2026-10-01", due_date: "2026-10-16", description: "GST Monthly: monthly fee, Oct 2026", amount: "1500.00", tax_rate: "18.00", cgst: "135.00", sgst: "135.00", igst: "0.00", tax: "270.00", total: "1770.00", paid: "0.00", balance: "1770.00", status: "due", status_label: "Due" };
 const fees = (over: Record<string, unknown> = {}) => ({
   plan: { package_name: "GST Monthly", package_version: 1, frequency: "monthly", package_fee: "1500.00", fee: "1500.00", override: null },
   pending: null,
   overrides: [],
   invoices: [invoice],
+  ledger: [],
+  status: "due",
+  status_label: "Due",
+  balance: "1770.00",
   can_set_fee: false,
   ...over,
 });
@@ -75,6 +79,69 @@ describe("Client fees", () => {
     expect(plan).toHaveTextContent("package fee ₹1,500, this client's fee approved by The Boss");
     expect(screen.getByRole("button", { name: "Set a fee for this client" })).toBeInTheDocument();
     expect(screen.getByText(/No invoices yet/)).toBeInTheDocument();
+  });
+});
+
+describe("Payments", () => {
+  it("records a part payment and shows the status at once", async () => {
+    const posts: Call[] = [];
+    const entry = { id: 3, invoice_id: 1, invoice_no: "INV/26-27/00001", kind: "payment", amount: "770.00", entry_date: "2026-10-14", mode: "upi", reference: "UTR123", note: null, reverses_id: null, reversed: false, by: "Asha Rao", at: "2026-10-14T06:00:00Z" };
+    renderApp("/clients/100001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/100001": () => jsonResponse(client),
+        "GET /api/clients/100001/fees": () => jsonResponse(fees()),
+        "POST /api/invoices/1/payments": (c) => {
+          posts.push(c);
+          return jsonResponse(fees({ status: "part_paid", status_label: "Part paid", balance: "1000.00", invoices: [{ ...invoice, paid: "770.00", balance: "1000.00", status: "part_paid", status_label: "Part paid" }], ledger: [entry] }), 201);
+        },
+      },
+    });
+    expect(await screen.findByText("Fees: Due")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Record a payment for INV/26-27/00001" }));
+    const form = screen.getByRole("form", { name: "Payment for INV/26-27/00001" });
+    const amount = within(form).getByLabelText("Amount (₹)");
+    expect(amount).toHaveValue("1770.00");
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "770");
+    await userEvent.click(within(form).getByRole("combobox", { name: "Mode" }));
+    await userEvent.click(await screen.findByRole("option", { name: "UPI" }));
+    await userEvent.type(within(form).getByLabelText("Reference (optional)"), "UTR123");
+    await userEvent.click(within(form).getByRole("button", { name: "Record payment" }));
+    expect(await screen.findByText("Fees: Part paid")).toBeInTheDocument();
+    expect(screen.getByTestId("fee-balance")).toHaveTextContent("₹1,000 owed");
+    expect(screen.getByRole("list", { name: "Payments" })).toHaveTextContent("₹770 paid");
+    expect(posts[0]?.body).toMatchObject({ amount: "770", mode: "upi", reference: "UTR123" });
+  });
+
+  it("reverses a payment with a reason, keeping the original", async () => {
+    const posts: Call[] = [];
+    const payment = { id: 3, invoice_id: 1, invoice_no: "INV/26-27/00001", kind: "payment", amount: "1770.00", entry_date: "2026-10-14", mode: "cheque", reference: "CHQ 12", note: null, reverses_id: null, reversed: false, by: "Asha Rao", at: "2026-10-14T06:00:00Z" };
+    renderApp("/clients/100001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/100001": () => jsonResponse(client),
+        "GET /api/clients/100001/fees": () => jsonResponse(fees({ status: "paid", status_label: "Paid", balance: "0.00", invoices: [{ ...invoice, paid: "1770.00", balance: "0.00", status: "paid", status_label: "Paid" }], ledger: [payment] })),
+        "POST /api/ledger/3/reverse": (c) => {
+          posts.push(c);
+          return jsonResponse(fees({ ledger: [{ ...payment, id: 4, kind: "reversal", mode: null, reference: null, note: "Cheque bounced", reverses_id: 3 }, { ...payment, reversed: true }] }), 201);
+        },
+      },
+    });
+    expect(await screen.findByText("Fees: Paid")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Record a payment/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reverse" }));
+    const go = screen.getByRole("button", { name: "Reverse payment" });
+    expect(go).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Why is it reversed?"), "Cheque bounced");
+    await userEvent.click(go);
+    const list = await screen.findByRole("list", { name: "Payments" });
+    expect(list).toHaveTextContent("Reversal of ₹1,770 · INV/26-27/00001: “Cheque bounced”");
+    expect(list).toHaveTextContent("· reversed");
+    expect(screen.getByText("Fees: Due")).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ reason: "Cheque bounced" });
   });
 });
 

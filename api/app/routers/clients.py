@@ -26,6 +26,7 @@ from app.catalog import rupees
 from app.cycles.generator import run_quietly
 from app.cycles.service import emit_state_event
 from app.errors import ApiHTTPException
+from app.fees.ledger import FeeStatus, fees_summary
 from app.identifiers import PAN_HOLDERS, gstin_problem, pan_in_gstin, pan_problem, tidy
 from app.mail.updates import draft_updates
 from app.models import (
@@ -566,6 +567,7 @@ class ClientRow(BaseModel):
     status: ClientStatus
     owner: PersonRef
     package: PackageRef
+    fee_status: FeeStatus | None  # FR-FE-04; None: no invoices yet
 
 
 class ClientPage(BaseModel):
@@ -651,6 +653,7 @@ def search_clients(
     rows = db.execute(
         stmt.order_by(Client.legal_name, Client.client_id).offset(offset).limit(limit)
     ).all()
+    fees = fees_summary(db, [c.id for c, _, _, _ in rows])
     return ClientPage(
         items=[
             ClientRow(
@@ -662,6 +665,7 @@ def search_clients(
                 status=c.status,
                 owner=PersonRef(id=c.owner_id, full_name=owner_name),
                 package=PackageRef(id=c.package_id, name=package_name, version=version),
+                fee_status=fees[c.id].status,
             )
             for c, owner_name, package_name, version in rows
         ],

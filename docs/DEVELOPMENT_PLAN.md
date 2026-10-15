@@ -433,7 +433,7 @@ Total: 151 tickets.
 
 **Done when:** No invoice number is skipped or reused; invoice totals match the test set.
 
-### C25 - Fees: payments ledger (R1)
+### C25 - Fees: payments ledger (R1) - DONE
 
 **Goal:** Append-only ledger and live fee status.  
 **Depends on:** C24
