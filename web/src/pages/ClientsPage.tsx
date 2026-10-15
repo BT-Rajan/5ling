@@ -16,7 +16,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatDay, formatIST } from "../time";
-import { ClientFees } from "../components/Fees";
+import { ClientFees, FEE_STATUS_LABEL, type FeeStatus } from "../components/Fees";
 import { api, ApiError, messageFor } from "../api";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { useUser } from "../auth/AuthProvider";
@@ -94,6 +94,7 @@ interface ClientRow {
   status: Status;
   owner: { id: number; full_name: string };
   package: { id: number; name: string; version: number };
+  fee_status: FeeStatus | null;
 }
 
 interface ClientPageResult {
@@ -188,7 +189,7 @@ export function ClientsHome() {
               <ListItemButton key={c.client_id} component={RouterLink} to={`/clients/${String(c.client_id)}`} divider={i < rows.length - 1} sx={{ py: 1.25, opacity: c.status === "closed" ? 0.7 : 1 }}>
                 <ListItemText
                   primary={`${String(c.client_id)} · ${c.legal_name}`}
-                  secondary={[KIND_LABEL[c.kind], c.pan_masked ?? c.gstin, c.package.name, isAdmin ? c.owner.full_name : null, c.status === "active" ? null : STATUS_LABEL[c.status]].filter(Boolean).join(" · ")}
+                  secondary={[KIND_LABEL[c.kind], c.pan_masked ?? c.gstin, c.package.name, isAdmin ? c.owner.full_name : null, c.status === "active" ? null : STATUS_LABEL[c.status], c.fee_status ? `Fees: ${FEE_STATUS_LABEL[c.fee_status]}` : null].filter(Boolean).join(" · ")}
                   slotProps={{ primary: { sx: { fontWeight: 500 } } }}
                 />
               </ListItemButton>

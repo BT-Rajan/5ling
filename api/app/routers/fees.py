@@ -1,4 +1,4 @@
-"""Fee plans, overrides, tax rates and invoices (BRD FR-FE-01, FR-FE-02, FR-FE-05, FR-FE-09).
+"""Fee plans, overrides, tax rates, invoices and payments (BRD FR-FE-01 to FR-FE-05, FR-FE-09).
 
 Amounts are rupees with two decimals on the wire ("15000.00") and whole paise in the database.
 A client's fees are shown to its owner and to Administrators only (FR-FE-05). Staff ask for a
@@ -19,9 +19,21 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import audit
+from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import paise, rupees
 from app.errors import ApiHTTPException
+from app.fees.ledger import (
+    STATUS_LABEL,
+    FeeStatus,
+    LedgerRefused,
+    fees_summary,
+    invoice_status,
+    lock_invoice,
+    paid_by_invoice,
+    record_payment,
+    reverse,
+)
 from app.fees.plans import OverrideRefused, decide, pending_for, plan_of, request_override
 from app.fees.tax import GST
 from app.models import (
@@ -29,9 +41,12 @@ from app.models import (
     LAST_CLIENT_ID,
     BillingFrequency,
     Client,
+    EntryKind,
     FeeOverride,
     Invoice,
+    LedgerEntry,
     OverrideStatus,
+    PaymentMode,
     Role,
     TaxRate,
     User,
@@ -76,6 +91,8 @@ class PlanOut(BaseModel):
 
 class InvoiceOut(BaseModel):
     id: int
+    status: FeeStatus
+    status_label: str
     invoice_no: str
     period_label: str
     issue_date: date
@@ -88,6 +105,24 @@ class InvoiceOut(BaseModel):
     igst: str
     tax: str  # CGST + SGST + IGST
     total: str
+    paid: str
+    balance: str
+
+
+class LedgerOut(BaseModel):
+    id: int
+    invoice_id: int
+    invoice_no: str
+    kind: EntryKind
+    amount: str
+    entry_date: date
+    mode: PaymentMode | None
+    reference: str | None
+    note: str | None
+    reverses_id: int | None
+    reversed: bool  # a payment that a later reversal cancels
+    by: str | None
+    at: datetime
 
 
 class FeesOut(BaseModel):
@@ -95,6 +130,10 @@ class FeesOut(BaseModel):
     pending: OverrideOut | None
     overrides: list[OverrideOut]  # every request, newest first
     invoices: list[InvoiceOut]  # newest first
+    ledger: list[LedgerOut]  # payments and reversals, newest first; nothing is ever removed
+    status: FeeStatus | None  # None: no invoices yet
+    status_label: str | None
+    balance: str  # still owed across all invoices
     can_set_fee: bool  # an Administrator sets it at once; Staff ask
 
 
@@ -106,6 +145,20 @@ class OverrideIn(BaseModel):
 class DecisionIn(BaseModel):
     approve: bool
     note: Note | None = None
+
+
+class PaymentIn(BaseModel):
+    amount: Money
+    paid_on: date
+    mode: PaymentMode
+    reference: Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None = (
+        None
+    )
+    note: Note | None = None
+
+
+class ReverseIn(BaseModel):
+    reason: Reason
 
 
 class TaxRateIn(BaseModel):
@@ -156,9 +209,14 @@ def _percent(bp: int) -> str:
     return f"{bp // 100}.{bp % 100:02d}"
 
 
-def invoice_out(i: Invoice) -> InvoiceOut:
+def invoice_out(i: Invoice, paid: int, today: date) -> InvoiceOut:
+    status = invoice_status(i.total_paise, paid, i.due_date, today)
     return InvoiceOut(
         id=i.id,
+        status=status,
+        status_label=STATUS_LABEL[status],
+        paid=rupees(paid) or "0.00",
+        balance=rupees(max(i.total_paise - paid, 0)) or "0.00",
         invoice_no=i.invoice_no,
         period_label=i.period_label,
         issue_date=i.issue_date,
@@ -183,12 +241,26 @@ def _fees_out(db: Session, principal: Principal, client: Client) -> FeesOut:
         .order_by(FeeOverride.id.desc())
         .limit(50)
     )
-    invoices = db.scalars(
-        select(Invoice)
-        .where(Invoice.client_pk == client.id)
-        .order_by(Invoice.issue_date.desc(), Invoice.id.desc())
-        .limit(200)
+    invoices = list(
+        db.scalars(
+            select(Invoice)
+            .where(Invoice.client_pk == client.id)
+            .order_by(Invoice.issue_date.desc(), Invoice.id.desc())
+            .limit(200)
+        )
     )
+    today = today_ist()
+    paid = paid_by_invoice(db, (i.id for i in invoices))
+    entries = db.execute(
+        select(LedgerEntry, User.full_name, Invoice.invoice_no)
+        .join(Invoice, Invoice.id == LedgerEntry.invoice_id)
+        .outerjoin(User, User.id == LedgerEntry.created_by_id)
+        .where(LedgerEntry.client_pk == client.id)
+        .order_by(LedgerEntry.id.desc())
+        .limit(500)
+    ).all()
+    reversed_ids = {e.reverses_id for e, _, _ in entries if e.reverses_id is not None}
+    summary = fees_summary(db, [client.id], today)[client.id]
     return FeesOut(
         plan=PlanOut(
             package_name=plan.package.name,
@@ -200,7 +272,28 @@ def _fees_out(db: Session, principal: Principal, client: Client) -> FeesOut:
         ),
         pending=_override_out(db, pending, client) if pending else None,
         overrides=[_override_out(db, o, client) for o in overrides],
-        invoices=[invoice_out(i) for i in invoices],
+        invoices=[invoice_out(i, paid[i.id], today) for i in invoices],
+        ledger=[
+            LedgerOut(
+                id=e.id,
+                invoice_id=e.invoice_id,
+                invoice_no=number,
+                kind=e.kind,
+                amount=rupees(e.amount_paise) or "0.00",
+                entry_date=e.entry_date,
+                mode=e.mode,
+                reference=e.reference,
+                note=e.note,
+                reverses_id=e.reverses_id,
+                reversed=e.id in reversed_ids,
+                by=name,
+                at=e.created_at,
+            )
+            for e, name, number in entries
+        ],
+        status=summary.status,
+        status_label=STATUS_LABEL[summary.status] if summary.status else None,
+        balance=rupees(summary.balance) or "0.00",
         can_set_fee=principal.role is Role.ADMINISTRATOR,
     )
 
@@ -250,6 +343,85 @@ def ask_for_fee(
             "original": override.original_paise,
             "amount": override.amount_paise,
         },
+    )
+    db.commit()
+    return _fees_out(db, principal, client)
+
+
+def _invoice_for(db: Session, principal: Principal, invoice_id: int) -> tuple[Invoice, Client]:
+    """The invoice, locked, if this person may see its client's fees (FR-FE-05)."""
+    invoice = lock_invoice(db, invoice_id)
+    client = db.get(Client, invoice.client_pk) if invoice else None
+    if invoice is None or client is None:
+        authorize_record(principal, None, what="invoice")  # raises 404
+        raise ApiHTTPException(404, "Not found.", code="not_found")
+    authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="invoice")
+    return invoice, client
+
+
+@router.post("/api/invoices/{invoice_id}/payments", status_code=201)
+def pay(
+    invoice_id: Annotated[int, Path(ge=1)],
+    body: PaymentIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> FeesOut:
+    """FR-FE-03: record a payment or part payment against an invoice."""
+    invoice, client = _invoice_for(db, principal, invoice_id)
+    try:
+        entry = record_payment(
+            db,
+            invoice,
+            amount_paise=paise(body.amount),
+            paid_on=body.paid_on,
+            mode=body.mode,
+            reference=body.reference or None,
+            note=body.note or None,
+            user_id=principal.user_id,
+        )
+    except LedgerRefused as refused:
+        db.rollback()
+        raise ApiHTTPException(409, str(refused), code=refused.code) from None
+    audit(
+        db,
+        "payment.recorded",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("invoice", invoice.invoice_no),
+        details={"entry": entry.id, "amount": entry.amount_paise, "mode": body.mode.value},
+    )
+    db.commit()
+    return _fees_out(db, principal, client)
+
+
+@router.post("/api/ledger/{entry_id}/reverse", status_code=201)
+def reverse_entry(
+    entry_id: Annotated[int, Path(ge=1)],
+    body: ReverseIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> FeesOut:
+    """FR-FE-03: cancel a payment with a reversing entry; both stay in the ledger."""
+    invoice_id = db.scalar(select(LedgerEntry.invoice_id).where(LedgerEntry.id == entry_id))
+    if invoice_id is None:
+        authorize_record(principal, None, what="ledger entry")  # raises 404
+        raise ApiHTTPException(404, "Not found.", code="not_found")
+    invoice, client = _invoice_for(db, principal, invoice_id)
+    entry = db.get(LedgerEntry, entry_id)
+    if entry is None:  # entries are never deleted
+        raise RuntimeError("ledger entry vanished")
+    try:
+        reversal = reverse(db, entry, reason=body.reason, user_id=principal.user_id)
+    except LedgerRefused as refused:
+        db.rollback()
+        raise ApiHTTPException(409, str(refused), code=refused.code) from None
+    audit(
+        db,
+        "payment.reversed",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("invoice", invoice.invoice_no),
+        details={"entry": reversal.id, "reverses": entry.id, "amount": entry.amount_paise},
     )
     db.commit()
     return _fees_out(db, principal, client)

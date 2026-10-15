@@ -25,3 +25,8 @@ export function formatDay(isoDate: string): string {
   const get = (type: Intl.DateTimeFormatPartTypes) => found.find((p) => p.type === type)?.value ?? "";
   return `${get("weekday")} ${get("day")} ${get("month")} ${get("year")}`;
 }
+
+/** Today's date in India, as YYYY-MM-DD (the server's "today" for fees and due dates). */
+export function todayIST(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
