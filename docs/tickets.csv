@@ -102,11 +102,11 @@ LL-095,C22,R1,Review: maker-checker,Review screen with comments,WEB,M,FR-WF-04,D
 LL-096,C23,R1,Filing and closure,Filed requires uploaded acknowledgement and reference number,API,M,FR-WF-05,Done
 LL-097,C23,R1,Filing and closure,Close ticket: consultant access ends automatically; next cycle already scheduled,API,S,"FR-WF-02, BRD s6",Done
 LL-098,C23,R1,Filing and closure,"End-to-end lifecycle test: Scheduled to Closed, with a draft at every state change",TEST,M,"FR-CY-02, CR-03",Done
-LL-099,C24,R1,Fees: plans and invoices,Fee plan from package; client-specific override with Administrator approval,API,M,FR-FE-01,Todo
-LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction),API,M,FR-FE-02,Todo
-LL-101,C24,R1,Fees: plans and invoices,Configurable tax rates (GST),API,S,FR-FE-09,Todo
-LL-102,C24,R1,Fees: plans and invoices,"Invoice scheduler for monthly, quarterly, yearly, one-time",JOB,M,FR-FE-02,Todo
-LL-103,C24,R1,Fees: plans and invoices,Fee plan and invoice screens,WEB,M,,Todo
+LL-099,C24,R1,Fees: plans and invoices,Fee plan from package; client-specific override with Administrator approval,API,M,FR-FE-01,Done
+LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers (counter row locked with SELECT ... FOR UPDATE inside the invoice transaction),API,M,FR-FE-02,Done
+LL-101,C24,R1,Fees: plans and invoices,Configurable tax rates (GST),API,S,FR-FE-09,Done
+LL-102,C24,R1,Fees: plans and invoices,"Invoice scheduler for monthly, quarterly, yearly, one-time",JOB,M,FR-FE-02,Done
+LL-103,C24,R1,Fees: plans and invoices,Fee plan and invoice screens,WEB,M,,Done
 LL-104,C25,R1,Fees: payments ledger,Append-only ledger; payments including part payments,API,M,FR-FE-03,Todo
 LL-105,C25,R1,Fees: payments ledger,Reversing entries; originals stay visible,API,S,FR-FE-03,Todo
 LL-106,C25,R1,Fees: payments ledger,"Fee status Paid, Due, Overdue, Part paid on client list and ticket",API,M,FR-FE-04,Todo

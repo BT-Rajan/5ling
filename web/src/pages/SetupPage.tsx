@@ -13,6 +13,7 @@ const SECTIONS: readonly { to: string; title: string; text: string; Icon: Compon
   { to: "/setup/extensions", title: "Due-date extensions", text: "Move open cycles to a new due date when the government extends one.", Icon: CalendarIcon },
   { to: "/setup/email", title: "Email", text: "Every email sent and how it went; send a test email.", Icon: AuditIcon },
   { to: "/setup/packages", title: "Packages", text: "What a client is given: filings, document checklists and the fee.", Icon: ClientsIcon },
+  { to: "/setup/fees", title: "Fees and tax", text: "Approve client-specific fees; set the GST rate used on invoices.", Icon: AuditIcon },
 ];
 
 export function SetupPage() {
