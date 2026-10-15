@@ -53,6 +53,7 @@ from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSou
 from app.models.fee import FeeOverride, Invoice, InvoiceSeries, OverrideStatus, TaxRate
 from app.models.filing import CycleFiling
 from app.models.job import JobRun, JobStatus, JobTrigger
+from app.models.ledger import EntryKind, LedgerEntry, PaymentMode
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.notification import Notification, NotificationKind
@@ -96,6 +97,7 @@ __all__ = [
     "EmailKind",
     "EmailStatus",
     "EndReason",
+    "EntryKind",
     "EventKind",
     "EventSource",
     "FeeOverride",
@@ -109,6 +111,7 @@ __all__ = [
     "JobStatus",
     "JobTrigger",
     "LeadTimeDefaults",
+    "LedgerEntry",
     "LinkOrigin",
     "LoginAttempt",
     "LoginChallenge",
@@ -118,6 +121,7 @@ __all__ = [
     "Package",
     "PackageFiling",
     "PackageVersion",
+    "PaymentMode",
     "PeriodBasis",
     "PortalLink",
     "RecoveryCode",

@@ -16,6 +16,7 @@ import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { Documents } from "../components/Documents";
+import { FeeChip, type FeeStatus } from "../components/Fees";
 import { formatDay, formatIST } from "../time";
 
 export type StageKey =
@@ -88,6 +89,7 @@ interface Ticket {
   } | null;
   history: { from_stage: StageKey | null; to_stage: StageKey; action: string; note: string | null; changed_by: string | null; changed_at: string }[];
   can_edit: boolean;
+  fee_status?: FeeStatus | null; // the owner and Administrators only (FR-FE-05)
 }
 
 function TaskPanel({ ticket, onChanged }: { ticket: Ticket; onChanged: (t: Ticket) => void }) {
@@ -401,6 +403,7 @@ export function TicketPage() {
       <Typography variant="overline" color="text.secondary" component="p">{ticket.type === "filing" ? "Filing ticket" : "Task ticket"}</Typography>
       <Typography component="p" sx={{ fontSize: "1.75rem", fontWeight: 700, letterSpacing: "0.04em" }} data-testid="ticket-code">{ticket.code}</Typography>
       <Typography variant="h1" component="h1" sx={{ mb: 2, fontSize: { xs: "1.5rem", md: "2rem" } }}>{ticket.title}</Typography>
+      {ticket.fee_status && <Box sx={{ mb: 2 }}><FeeChip status={ticket.fee_status} /></Box>}
       {cycle && (
         <>
           <Box component="dl" sx={{ display: "grid", gridTemplateColumns: "max-content 1fr", columnGap: 3, rowGap: 0.75, mb: 3, "& dt": { color: "text.secondary" }, "& dd": { m: 0 } }}>

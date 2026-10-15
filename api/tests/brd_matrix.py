@@ -199,10 +199,22 @@ CAPABILITIES: tuple[Capability, ...] = (
         "-",
         "-",
         "C25",
-        # The fee plan and invoices (C24); payments and balances join them in C25.
+        # The fee plan, invoices, payments, balances and fee status (C24, C25).
         routes=(("GET", "/api/clients/{client_id}/fees"),),
     ),
-    Capability("Record payments", "Y", "Own", "-", "-", "C25"),
+    Capability(
+        "Record payments",
+        "Y",
+        "Own",
+        "-",
+        "-",
+        "C25",
+        # Payments and part payments, and reversing entries (FR-FE-03).
+        routes=(
+            ("POST", "/api/invoices/{invoice_id}/payments"),
+            ("POST", "/api/ledger/{entry_id}/reverse"),
+        ),
+    ),
     Capability("Approve credit, discount, write-off", "Y", "-", "-", "-", "C26"),
     Capability(
         "Manage people and access",

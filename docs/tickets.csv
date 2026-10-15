@@ -107,11 +107,11 @@ LL-100,C24,R1,Fees: plans and invoices,Invoice series with gapless numbers (coun
 LL-101,C24,R1,Fees: plans and invoices,Configurable tax rates (GST),API,S,FR-FE-09,Done
 LL-102,C24,R1,Fees: plans and invoices,"Invoice scheduler for monthly, quarterly, yearly, one-time",JOB,M,FR-FE-02,Done
 LL-103,C24,R1,Fees: plans and invoices,Fee plan and invoice screens,WEB,M,,Done
-LL-104,C25,R1,Fees: payments ledger,Append-only ledger; payments including part payments,API,M,FR-FE-03,Todo
-LL-105,C25,R1,Fees: payments ledger,Reversing entries; originals stay visible,API,S,FR-FE-03,Todo
-LL-106,C25,R1,Fees: payments ledger,"Fee status Paid, Due, Overdue, Part paid on client list and ticket",API,M,FR-FE-04,Todo
-LL-107,C25,R1,Fees: payments ledger,Fees visible only for own clients; Administrator sees all,API,S,FR-FE-05,Todo
-LL-108,C25,R1,Fees: payments ledger,Payment entry and ledger screens,WEB,M,FR-FE-03,Todo
+LL-104,C25,R1,Fees: payments ledger,Append-only ledger; payments including part payments,API,M,FR-FE-03,Done
+LL-105,C25,R1,Fees: payments ledger,Reversing entries; originals stay visible,API,S,FR-FE-03,Done
+LL-106,C25,R1,Fees: payments ledger,"Fee status Paid, Due, Overdue, Part paid on client list and ticket",API,M,FR-FE-04,Done
+LL-107,C25,R1,Fees: payments ledger,Fees visible only for own clients; Administrator sees all,API,S,FR-FE-05,Done
+LL-108,C25,R1,Fees: payments ledger,Payment entry and ledger screens,WEB,M,FR-FE-03,Done
 LL-109,C26,R1,Fees: approvals and overdue policy,"Credit note, discount, write-off stay pending until Administrator approves",API,M,FR-FE-08,Todo
 LL-110,C26,R1,Fees: approvals and overdue policy,"Overdue policy setting: reminder only, warn, or block Filed (default set after Q3)",API,M,FR-FE-06,Todo
 LL-111,C26,R1,Fees: approvals and overdue policy,One-time Administrator override with reason,API,S,FR-FE-06,Todo

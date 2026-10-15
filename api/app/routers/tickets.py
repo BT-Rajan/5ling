@@ -31,6 +31,7 @@ from app.cycles.service import (
 )
 from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
+from app.fees.ledger import FeeStatus, fees_summary
 from app.mail.problems import LABEL as PROBLEM_LABEL
 from app.mail.problems import is_problem, problems_for
 from app.mail.updates import draft_updates
@@ -173,6 +174,8 @@ class TicketOut(BaseModel):
     task: TaskOut | None
     history: list[HistoryOut]
     can_edit: bool  # the owner or the Administrator; an assignee only changes the task's status
+    # FR-FE-04: the client's fee status, for its owner and Administrators only (FR-FE-05).
+    fee_status: FeeStatus | None = None
 
 
 class TicketRow(BaseModel):
@@ -355,6 +358,9 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
         task=_task_out(db, task) if task else None,
         history=history,
         can_edit=can_edit(principal, client),
+        fee_status=fees_summary(db, [client.id])[client.id].status
+        if can_edit(principal, client)
+        else None,
     )
 
 
