@@ -462,7 +462,7 @@ Total: 151 tickets.
 
 **Done when:** With the block policy on, Filed is refused for an overdue client unless an override exists.
 
-### C27 - Dashboards (R1)
+### C27 - Dashboards (R1) - DONE
 
 **Goal:** See the whole portfolio and drill into the list behind every number.  
 **Depends on:** C20, C25

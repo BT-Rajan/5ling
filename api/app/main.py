@@ -31,6 +31,7 @@ from app.routers import (
     client_updates,
     clients,
     consultant,
+    dashboard,
     documents,
     email_events,
     fees,
@@ -135,6 +136,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(documents.router)
     app.include_router(filing.router)
     app.include_router(fees.router)
+    app.include_router(dashboard.router)
     app.include_router(portal_uploads.router)
     app.include_router(notifications.router)
     app.include_router(worklist.router)
