@@ -124,9 +124,9 @@ LL-117,C28,R1,Reports and exports,Fee aging; consultant turnaround; alert delive
 LL-118,C28,R1,Reports and exports,Export to spreadsheet and PDF under the same access rules,API,M,FR-RP-04,Done
 LL-119,C28,R1,Reports and exports,Every export written to the audit log,API,S,"FR-RP-04, FR-AU-01",Done
 LL-120,C28,R1,Reports and exports,Reports screens,WEB,M,FR-RP-03,Done
-LL-121,C29,R1,Admin controls,"Break-glass access with mandatory reason, flagged in audit",API,M,FR-AC-05,Todo
-LL-122,C29,R1,Admin controls,"Admin settings: grace period, reminder interval, escalation point, link expiry, idle timeout",API,M,"NFR-MN-01, FR-AL-02, FR-IN-03",Todo
-LL-123,C29,R1,Admin controls,Settings and break-glass screens,WEB,M,,Todo
+LL-121,C29,R1,Admin controls,"Break-glass access with mandatory reason, flagged in audit",API,M,FR-AC-05,Done
+LL-122,C29,R1,Admin controls,"Admin settings: grace period, reminder interval, escalation point, link expiry, idle timeout",API,M,"NFR-MN-01, FR-AL-02, FR-IN-03",Done
+LL-123,C29,R1,Admin controls,Settings and break-glass screens,WEB,M,,Done
 LL-124,C30,R1,Security hardening,Mask PAN and bank details on screen; log review,API,M,NFR-SE-06,Todo
 LL-125,C30,R1,Security hardening,Encryption at rest and key separation review,OPS,M,NFR-SE-04,Todo
 LL-126,C30,R1,Security hardening,Full authorization matrix against section 8 of the BRD,TEST,M,"FR-AC-01, NFR-SE-01",Todo

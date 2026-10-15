@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
+from app.auth.breakglass import require_open
 from app.auth.deps import Principal, get_db, require_roles
 from app.auth.events import security_event
 from app.catalog import rupees
@@ -296,6 +297,7 @@ def _load(
         db.execute(select(Task.id).where(Task.ticket_id == ticket.id).with_for_update())
     if not can_edit(principal, client) and not is_assignee(db, principal, ticket.id):
         authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="ticket")
+    require_open(db, principal, client)  # FR-AC-05
     return ticket, client
 
 

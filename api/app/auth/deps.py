@@ -17,6 +17,7 @@ from app.auth.sessions import cookie_name, load_session, revoke_session, touch
 from app.config import Settings
 from app.errors import ApiHTTPException
 from app.models import Role
+from app.rules import rules
 from app.timeutil import utcnow
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -59,7 +60,8 @@ def authenticate(
         db.commit()
         raise ApiHTTPException(
             401,
-            "You were signed out after 20 minutes of inactivity. Sign in again.",
+            f"You were signed out after {rules(db).idle_timeout_minutes} minutes of inactivity."
+            " Sign in again.",
             code="session_idle",
         )
 

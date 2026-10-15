@@ -5,7 +5,7 @@ cycle of an active client that is still collecting documents (Scheduled or Await
 and still missing a required document:
 
 - on or after its alert date, with no alert yet: the first alert;
-- then a reminder every `reminder_interval_days` (default 2), and daily once the due date has
+- then a reminder every `reminder_interval_days` (a rule; default 2), and daily once the due date has
   passed.
 
 Each alert carries a new private link (which replaces any earlier unopened one), the due date
@@ -49,6 +49,7 @@ from app.models import (
 )
 from app.notify.service import check_cycles
 from app.portal.links import issue, url_for
+from app.rules import rules
 from app.timeutil import IST, ensure_utc, format_ist, utcnow
 
 log = logging.getLogger("ledgerline.jobs")
@@ -106,7 +107,7 @@ def _alert_one(db: Session, settings: Settings, cycle_id: int, today: date) -> C
         due_date=cycle.due_date,
         last_sent=last,
         today=today,
-        interval_days=settings.reminder_interval_days,
+        interval_days=rules(db).reminder_interval_days,
     )
     if kind is None:
         return None
@@ -187,12 +188,10 @@ def run(
     today = now_ist.date()
     tally = Tally()
     # Internal alerts are not limited to the client sending hours (FR-IN-02, FR-IN-03).
-    internal = check_cycles(
-        factory,
-        today=today,
-        grace_days=settings.waiting_grace_days,
-        days_before=settings.escalation_days_before,
-    )
+    with factory() as db:
+        rule = rules(db)
+        grace, days_before = rule.waiting_grace_days, rule.escalation_days_before
+    internal = check_cycles(factory, today=today, grace_days=grace, days_before=days_before)
     tally.waiting, tally.escalated = internal.waiting, internal.escalated
     if not settings.alert_hours_start <= now_ist.hour < settings.alert_hours_end:
         tally.skipped_reason = "outside sending hours"
