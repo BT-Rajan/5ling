@@ -424,6 +424,9 @@ def test_no_route_hands_out_a_session_except_after_the_second_step() -> None:
         "auth.py:login",  # only for roles with needs_second_step() False
         "auth.py:mfa_verify",
         "auth.py:mfa_enrol_confirm",
+        # Consultants (C21): the emailed link plus the code shown where they asked is their
+        # whole sign-in; they never have a password (NFR-SE-02).
+        "auth_consultant.py:finish",
     }
 
 

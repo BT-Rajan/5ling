@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.helpers import Signed, db_session, give_filing_proof, make_user, sign_in_directly
 from tests.test_alerts import at
 from tests.test_checklist import CHECKLIST, publish_with_checklist
 from tests.test_clients import _ok, admin, client_body, create
@@ -138,6 +138,7 @@ def test_work_list_counts_equal_report_counts_for_each_owner_and_date(
             201,
         )
     with db_session(migrated_db) as db:
+        give_filing_proof(db, cycles[-1].id)
         db.execute(text("UPDATE cycles SET stage = 'filed' WHERE id = :i"), {"i": cycles[-1].id})
         db.commit()
 

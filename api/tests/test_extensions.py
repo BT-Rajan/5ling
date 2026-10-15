@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 
 from tests.audit_helpers import entries
-from tests.helpers import Signed, db_session
+from tests.helpers import Signed, db_session, give_filing_proof
 from tests.test_clients import _ok, admin, client_body, create, publish_package
 
 __all__ = ["admin"]  # the fixture, re-used from test_clients
@@ -64,6 +64,8 @@ def expected_alert(due: date, holidays: set[date] | None = None) -> date:
 
 def set_stage(url: str, cycle_id: int, stage: Stage) -> None:
     with db_session(url) as db:
+        if stage is Stage.FILED:
+            give_filing_proof(db, cycle_id)
         db.execute(
             text("UPDATE cycles SET stage = :s WHERE id = :i"), {"s": stage.value, "i": cycle_id}
         )
