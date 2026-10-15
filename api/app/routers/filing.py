@@ -38,6 +38,7 @@ from app.routers.tickets import (
     _ticket_out,
     can_edit,
 )
+from app.timeutil import today_ist
 
 router = APIRouter(tags=["filing"])
 
@@ -60,6 +61,7 @@ def record_filing(
     request: Request,
     x_file_name: Annotated[str, Header(max_length=600)],
     reference: Annotated[str, Query(max_length=60)],
+    late_reason: Annotated[str | None, Query(max_length=500)] = None,
     body: bytes = Depends(raw_body),
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
@@ -99,6 +101,15 @@ def record_filing(
             "Enter the reference number exactly as the portal gave it: 5 to 50 letters and"
             " digits (/ and - allowed inside).",
             code="bad_reference",
+        )
+    late = today_ist() > cycle.due_date
+    why = (late_reason or "").strip() or None
+    if late and (why is None or len(why) < 5):
+        # FR-RP-03: late filings are reported with their reasons.
+        raise ApiHTTPException(
+            422,
+            "This is being filed after its due date. Say why (at least 5 characters).",
+            code="late_reason_required",
         )
     store = request.app.state.store
     try:
@@ -143,6 +154,7 @@ def record_filing(
             reference=ref,
             acknowledgement_version_id=got.version.id,
             filed_by_id=principal.user_id,
+            late_reason=why if late else None,
         )
     )
     db.flush()  # the proof row first: the database refuses Filed without it
