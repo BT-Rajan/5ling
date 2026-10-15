@@ -490,7 +490,7 @@ Total: 151 tickets.
 
 **Done when:** A staff export contains only permitted rows and writes a log entry.
 
-### C29 - Admin controls (R1)
+### C29 - Admin controls (R1) - DONE
 
 **Goal:** Rules are editable data and emergency access is controlled.  
 **Depends on:** C08, C06

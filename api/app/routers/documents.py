@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
+from app.auth.breakglass import require_open
 from app.auth.deps import Principal, get_db, require_roles
 from app.config import Settings
 from app.errors import ApiHTTPException
@@ -323,6 +324,7 @@ def _version(db: Session, principal: Principal, version_id: int) -> tuple[Docume
     )
     if assignee is None or assignee != principal.user_id:
         authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="document")
+        require_open(db, principal, client)  # FR-AC-05
     return version, client
 
 

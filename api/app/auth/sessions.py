@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models import Role, User, UserSession
+from app.rules import rules
 from app.timeutil import utcnow
 
 SESSION_LIFETIME = timedelta(hours=12)
 # BRD NFR-SE-03: Staff and Administrator sessions end after 20 minutes without activity.
-IDLE_TIMEOUT = timedelta(minutes=20)
 IDLE_ROLES = frozenset({Role.ADMINISTRATOR, Role.STAFF})
 
 
@@ -60,7 +60,10 @@ def load_session(db: Session, token: str, now: datetime | None = None) -> Loaded
     user = db.get(User, row.user_id)
     if user is None or not user.is_active:
         return None
-    idle = user.role in IDLE_ROLES and now - row.last_seen_at > IDLE_TIMEOUT
+    idle_after = (
+        timedelta(minutes=rules(db).idle_timeout_minutes) if user.role in IDLE_ROLES else None
+    )
+    idle = idle_after is not None and now - row.last_seen_at > idle_after
     return Loaded(row, user, idle)
 
 

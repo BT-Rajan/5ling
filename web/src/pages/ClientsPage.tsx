@@ -16,6 +16,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatDay, formatIST } from "../time";
+import { BreakGlass, reasonRequiredFor } from "../components/BreakGlass";
 import { ClientFees, FEE_STATUS_LABEL, type FeeStatus } from "../components/Fees";
 import { api, ApiError, messageFor } from "../api";
 import { ClientUpdates } from "../components/ClientUpdates";
@@ -378,12 +379,17 @@ export function ClientPage() {
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [round, setRound] = useState(0);
   const [changed, setChanged] = useState<string | null>(null);
+  const [gate, setGate] = useState<number | null>(null);
 
   useEffect(() => {
     const id = encodeURIComponent(clientId ?? "");
     api<Client>(`/api/clients/${id}`)
-      .then(setClient)
-      .catch((e: unknown) => { setError(messageFor(e)); });
+      .then((c) => { setGate(null); setClient(c); })
+      .catch((e: unknown) => {
+        const asked = reasonRequiredFor(e);
+        if (asked === null) setError(messageFor(e));
+        else setGate(asked);
+      });
     api<HistoryEntry[]>(`/api/clients/${id}/history`).then(setHistory).catch(() => undefined);
   }, [clientId, round]);
 
@@ -398,6 +404,7 @@ export function ClientPage() {
     }
   }
 
+  if (gate !== null) return <BreakGlass clientId={gate} onOpened={() => { setRound((r) => r + 1); }} />;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!client) return <Typography color="text.secondary">Loading…</Typography>;
   return (

@@ -13,6 +13,7 @@ import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor, uploadFile } from "../api";
 import { useUser } from "../auth/AuthProvider";
 import { AssignmentPanel } from "../components/AssignmentPanel";
+import { BreakGlass, reasonRequiredFor } from "../components/BreakGlass";
 import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
@@ -430,14 +431,20 @@ export function TicketPage() {
   // A move or a task change prepares a new client update: list it at once.
   const changed = (next: Ticket) => { setTicket(next); setUpdatesRound((r) => r + 1); };
   const [error, setError] = useState<string | null>(null);
+  const [gate, setGate] = useState<number | null>(null);
 
   const load = useCallback(() => {
     api<Ticket>(`/api/tickets/${encodeURIComponent(ticketId ?? "")}`)
-      .then(setTicket)
-      .catch((e: unknown) => { setError(messageFor(e)); });
+      .then((t) => { setGate(null); setTicket(t); })
+      .catch((e: unknown) => {
+        const asked = reasonRequiredFor(e);
+        if (asked === null) setError(messageFor(e));
+        else setGate(asked);
+      });
   }, [ticketId]);
   useEffect(load, [load]);
 
+  if (gate !== null) return <BreakGlass clientId={gate} onOpened={load} />;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!ticket) return <Typography color="text.secondary">Loading…</Typography>;
   const cycle = ticket.cycle;

@@ -33,6 +33,7 @@ from app.models import (
     Stage,
     Ticket,
 )
+from app.rules import rules
 from app.timeutil import ensure_utc, format_ist, utcnow
 
 CLIENT_REQUESTS_PER_DAY = 3  # new links a client can ask for, per cycle
@@ -130,7 +131,7 @@ def issue(
         origin=origin,
         created_by_id=created_by_id,
         created_at=now,
-        expires_at=now + timedelta(hours=settings.portal_link_hours),
+        expires_at=now + timedelta(hours=rules(db).portal_link_hours),
         requested_from_id=requested_from_id,
     )
     db.add(link)

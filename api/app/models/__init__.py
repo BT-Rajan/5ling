@@ -69,6 +69,7 @@ from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.notification import Notification, NotificationKind
 from app.models.portal import LinkOrigin, PortalLink
+from app.models.rules import RULE_LIMITS, BreakGlassGrant, RuleSettings
 from app.models.user import LoginAttempt, Role, User, UserSession
 
 __all__ = [
@@ -76,6 +77,7 @@ __all__ = [
     "FIRST_CLIENT_ID",
     "GENESIS_HASH",
     "LAST_CLIENT_ID",
+    "RULE_LIMITS",
     "AdjustmentKind",
     "AdjustmentStatus",
     "AlertKind",
@@ -85,6 +87,7 @@ __all__ = [
     "AuditCheck",
     "AuditEntry",
     "BillingFrequency",
+    "BreakGlassGrant",
     "CalendarVersion",
     "ChallengePurpose",
     "ChangeField",
@@ -144,6 +147,7 @@ __all__ = [
     "PortalLink",
     "RecoveryCode",
     "Role",
+    "RuleSettings",
     "ScanStatus",
     "Stage",
     "StageChange",

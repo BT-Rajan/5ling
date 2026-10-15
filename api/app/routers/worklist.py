@@ -19,6 +19,7 @@ from app.cycles.stages import STAGE_LABEL
 from app.errors import ApiHTTPException
 from app.files.checklist import items_for
 from app.models import Client, Cycle, Filing, Role, Stage, Ticket, User
+from app.rules import rules
 from app.timeutil import today_ist
 from app.worklist.buckets import BUCKETS, Bucket, Scope, condition, counts, in_scope, week_of
 
@@ -89,7 +90,7 @@ def _scope(
     owner = db.get(User, owner_id) if owner_id is not None else None
     if owner_id is not None and owner is None:
         raise ApiHTTPException(404, "No such person.", code="not_found")
-    grace = request.app.state.settings.waiting_grace_days
+    grace = rules(db).waiting_grace_days
     return Scope(on=day, owner_id=owner_id, grace_days=grace), owner
 
 
