@@ -3,6 +3,7 @@ import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useUser } from "../auth/AuthProvider";
+import { Dashboard } from "../components/Dashboard";
 import { DailyWorkList } from "../components/DailyWorkList";
 import { MyWork } from "../consultant/MyWork";
 import { useHealth, type DatabaseState, type ServiceState } from "../hooks/useHealth";
@@ -67,7 +68,7 @@ export function HomePage() {
   const worker = user.role === "administrator" || user.role === "staff";
   return (
     <>
-      {worker ? <DailyWorkList /> : <Box sx={{ mb: 4 }}><MyWork /></Box>}
+      {worker ? <><Dashboard /><DailyWorkList /></> : <Box sx={{ mb: 4 }}><MyWork /></Box>}
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, maxWidth: 560 }}>
         <Typography variant="h2" component="h2">
           System status
