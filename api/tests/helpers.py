@@ -27,6 +27,48 @@ def db_session(url: str) -> Session:
     return make_session_factory(make_engine(url))()
 
 
+def give_filing_proof(db: Session, cycle_id: int) -> None:
+    """Record filing proof for a cycle, so a test may set its stage to Filed directly (C23: the
+    database refuses Filed without proof)."""
+    from app.models import Cycle, CycleFiling, Document, DocumentVersion, ScanStatus, UploadedVia
+    from sqlalchemy import select
+
+    cycle = db.get(Cycle, cycle_id)
+    user_id = db.scalar(select(User.id).order_by(User.id).limit(1))
+    if cycle is None or user_id is None:
+        raise RuntimeError("give_filing_proof needs the cycle and at least one user")
+    doc = Document(
+        client_pk=cycle.client_pk,
+        cycle_id=cycle.id,
+        title="Filing acknowledgement",
+        latest_version=1,
+    )
+    db.add(doc)
+    db.flush()
+    version = DocumentVersion(
+        document_id=doc.id,
+        version=1,
+        storage_key=f"test-proof-{cycle.id}",
+        filename="ack.pdf",
+        content_type="application/pdf",
+        size_bytes=1,
+        sha256="0" * 64,
+        uploaded_via=UploadedVia.STAFF,
+        scan_status=ScanStatus.CLEAN,
+    )
+    db.add(version)
+    db.flush()
+    db.add(
+        CycleFiling(
+            cycle_id=cycle.id,
+            reference="TEST12345",
+            acknowledgement_version_id=version.id,
+            filed_by_id=user_id,
+        )
+    )
+    db.flush()
+
+
 def make_user(
     url: str,
     email: str,
