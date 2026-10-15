@@ -616,7 +616,7 @@ Consultant fee tracking (FR-WF-07), single sign-on (INT-05) and accounting expor
 | Question | Gates |
 | --- | --- |
 | Q1 Retention periods | Design freeze, before C16 |
-| Q3 Block or only warn on overdue fees | C26 default |
+| Q3 Block or only warn on overdue fees | Answered: warn; the limit is set per client (C26) |
 | Q4 Filing types and due-date rules | C32 data load |
 | Q5 Migration volume and source | C32 |
 | Q6 India-only hosting | Design freeze, before C16 |

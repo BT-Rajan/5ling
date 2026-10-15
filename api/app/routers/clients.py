@@ -675,7 +675,7 @@ def search_clients(
     )
 
 
-def _record_change(
+def record_change(
     db: Session,
     client: Client,
     field: ChangeField,
@@ -726,7 +726,7 @@ def change_client(
             raise ApiHTTPException(
                 403, "Only the Administrator can reopen a closed client.", code="reopen_forbidden"
             )
-        _record_change(
+        record_change(
             db,
             client,
             ChangeField.STATUS,
@@ -750,7 +750,7 @@ def change_client(
     if body.package_id is not None:
         package, version = current_package_version(db, body.package_id)
         if version.id != client.package_version_id:
-            _record_change(
+            record_change(
                 db,
                 client,
                 ChangeField.PACKAGE,
@@ -769,7 +769,7 @@ def change_client(
             raise ApiHTTPException(
                 422, "The owner must be an active Staff member or Administrator.", code="bad_owner"
             )
-        _record_change(
+        record_change(
             db, client, ChangeField.OWNER, client.owner_id, owner.id, body.reason, principal
         )
         client.owner_id = owner.id
@@ -802,6 +802,8 @@ def _describe(db: Session, field: ChangeField, value: str) -> str:
             .where(PackageVersion.id == int(value))
         ).one_or_none()
         return f"{row[0]} (version {row[1]})" if row else f"Package version #{value}"
+    if field is ChangeField.OVERDUE_LIMIT:
+        return "the firm's limit" if value == "default" else f"₹{value}"
     return value
 
 

@@ -75,6 +75,9 @@ class Client(Base):
             f"client_id BETWEEN {FIRST_CLIENT_ID} AND {LAST_CLIENT_ID}", name="six_digits"
         ),
         Index("ix_clients_owner_id_status", "owner_id", "status"),
+        CheckConstraint(
+            "overdue_limit_paise IS NULL OR overdue_limit_paise >= 0", name="limit_not_negative"
+        ),
         _TABLE,
     )
 
@@ -91,6 +94,8 @@ class Client(Base):
     package_version_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("package_versions.id"), nullable=False
     )
+    # FR-FE-06: overdue fees above this put the client "over the limit" (None: the firm's limit).
+    overdue_limit_paise: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     status: Mapped[ClientStatus] = mapped_column(
         _enum(ClientStatus, "client_status"), nullable=False
     )
@@ -149,6 +154,7 @@ class ChangeField(enum.StrEnum):
     OWNER = "owner"
     PACKAGE = "package"
     STATUS = "status"
+    OVERDUE_LIMIT = "overdue_limit"  # C26 follow-up: rupees, or "default"
 
 
 class ClientChange(Base):

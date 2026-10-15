@@ -141,11 +141,11 @@ def migrated_db(db_url: str) -> str:
                     " yearly_days = 21, updated_by_id = NULL WHERE id = 1"
                 )
             )
-            # Seeded by migration 0024: reminders only.
+            # Seeded by migration 0024, set to warn by 0025 (BRD Q3).
             conn.execute(
                 text(
                     "INSERT INTO fee_policy (id, mode, limit_paise, updated_at)"
-                    " VALUES (1, 'reminder', 0, UTC_TIMESTAMP(6))"
+                    " VALUES (1, 'warn', 0, UTC_TIMESTAMP(6))"
                 )
             )
             # Seeded by migration 0022 (tax_rates is emptied above, like every data table).

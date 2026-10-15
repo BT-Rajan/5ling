@@ -470,7 +470,7 @@ export function ClientPage() {
 
 interface HistoryEntry {
   id: number;
-  field: "owner" | "package" | "status";
+  field: "owner" | "package" | "status" | "overdue_limit";
   old: string;
   new: string;
   reason: string;
@@ -478,7 +478,7 @@ interface HistoryEntry {
   changed_at: string;
 }
 
-const FIELD_LABEL: Record<HistoryEntry["field"], string> = { owner: "Owner", package: "Package", status: "Status" };
+const FIELD_LABEL: Record<HistoryEntry["field"], string> = { owner: "Owner", package: "Package", status: "Status", overdue_limit: "Overdue limit" };
 
 function ChangeForm({ client, onChanged }: { client: Client; onChanged: (text: string) => void }) {
   const me = useUser();

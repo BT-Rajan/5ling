@@ -128,6 +128,7 @@ class FilingFeesOut(BaseModel):
 
     mode: OverduePolicyMode
     overdue: str
+    limit: str  # the client's own, else the firm's
     warning: str | None  # shown when the policy warns or blocks and the client is over the limit
     blocked: bool  # Filed will be refused (no waiver)
     waiver: WaiverOut | None
@@ -261,6 +262,7 @@ def filing_fees_out(db: Session, client: Client, cycle: Cycle) -> FilingFeesOut:
     return FilingFeesOut(
         mode=check.mode,
         overdue=overdue,
+        limit=rupees(check.limit) or "0.00",
         warning=warning,
         blocked=check.blocked,
         waiver=WaiverOut(
