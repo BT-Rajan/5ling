@@ -119,11 +119,11 @@ LL-112,C26,R1,Fees: approvals and overdue policy,Approval and policy screens,WEB
 LL-113,C27,R1,Dashboards,Administrator dashboard API and screen,API,M,FR-RP-01,Done
 LL-114,C27,R1,Dashboards,Staff dashboard scoped to own clients,WEB,M,FR-RP-02,Done
 LL-115,C27,R1,Dashboards,Tests: figure equals list; no cross-owner counts,TEST,S,"FR-RP-01, FR-RP-02",Done
-LL-116,C28,R1,Reports and exports,Filing status by period; late filings with reasons,API,M,FR-RP-03,Todo
-LL-117,C28,R1,Reports and exports,Fee aging; consultant turnaround; alert delivery,API,M,FR-RP-03,Todo
-LL-118,C28,R1,Reports and exports,Export to spreadsheet and PDF under the same access rules,API,M,FR-RP-04,Todo
-LL-119,C28,R1,Reports and exports,Every export written to the audit log,API,S,"FR-RP-04, FR-AU-01",Todo
-LL-120,C28,R1,Reports and exports,Reports screens,WEB,M,FR-RP-03,Todo
+LL-116,C28,R1,Reports and exports,Filing status by period; late filings with reasons,API,M,FR-RP-03,Done
+LL-117,C28,R1,Reports and exports,Fee aging; consultant turnaround; alert delivery,API,M,FR-RP-03,Done
+LL-118,C28,R1,Reports and exports,Export to spreadsheet and PDF under the same access rules,API,M,FR-RP-04,Done
+LL-119,C28,R1,Reports and exports,Every export written to the audit log,API,S,"FR-RP-04, FR-AU-01",Done
+LL-120,C28,R1,Reports and exports,Reports screens,WEB,M,FR-RP-03,Done
 LL-121,C29,R1,Admin controls,"Break-glass access with mandatory reason, flagged in audit",API,M,FR-AC-05,Todo
 LL-122,C29,R1,Admin controls,"Admin settings: grace period, reminder interval, escalation point, link expiry, idle timeout",API,M,"NFR-MN-01, FR-AL-02, FR-IN-03",Todo
 LL-123,C29,R1,Admin controls,Settings and break-glass screens,WEB,M,,Todo

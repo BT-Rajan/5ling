@@ -37,3 +37,5 @@ class CycleFiling(Base):
     )
     filed_by_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), nullable=False)
     filed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+    # FR-RP-03: why it was filed after its due date (required then; migration 0026).
+    late_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)

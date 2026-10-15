@@ -18,7 +18,7 @@ import { ClientLinks } from "../components/ClientLinks";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { Documents } from "../components/Documents";
 import { FeeChip, type FeeStatus } from "../components/Fees";
-import { formatDay, formatIST } from "../time";
+import { formatDay, formatIST, todayIST } from "../time";
 
 export type StageKey =
   | "scheduled"
@@ -283,19 +283,22 @@ const REFERENCE = /^[A-Za-z0-9][A-Za-z0-9/-]{3,48}[A-Za-z0-9]$/;
 /** FR-WF-05: marking it filed takes the acknowledgement file and the reference number. */
 function Filing({ ticket, onFiled }: { ticket: Ticket; onFiled: (t: Ticket) => void }) {
   const [reference, setReference] = useState("");
+  const [lateReason, setLateReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const ref = reference.trim();
-  const valid = REFERENCE.test(ref);
+  const late = ticket.cycle !== null && todayIST() > ticket.cycle.due_date;
+  const valid = REFERENCE.test(ref) && (!late || lateReason.trim().length >= 5);
 
   async function submit() {
     if (!file || !valid) return;
     setBusy(true);
     setError(null);
     try {
-      onFiled(await uploadFile<Ticket>(`/api/uploads/tickets/${ticket.code}/filing?reference=${encodeURIComponent(ref)}`, file));
+      const why = late ? `&late_reason=${encodeURIComponent(lateReason.trim())}` : "";
+      onFiled(await uploadFile<Ticket>(`/api/uploads/tickets/${ticket.code}/filing?reference=${encodeURIComponent(ref)}${why}`, file));
     } catch (e) {
       setError(messageFor(e));
     } finally {
@@ -318,6 +321,9 @@ function Filing({ ticket, onFiled }: { ticket: Ticket; onFiled: (t: Ticket) => v
         disabled={busy}
         fullWidth
       />
+      {late && (
+        <TextField label="Why is it late?" value={lateReason} onChange={(e) => { setLateReason(e.target.value); }} slotProps={{ htmlInput: { maxLength: 500 } }} disabled={busy} fullWidth helperText="The due date has passed; the reason goes on the late filings report." sx={{ mt: 1 }} />
+      )}
       <Stack direction="row" sx={{ alignItems: "center", gap: 2, flexWrap: "wrap", mt: 1 }}>
         <input ref={input} type="file" hidden aria-label="Acknowledgement file" onChange={(e) => { setFile(e.target.files?.[0] ?? null); e.target.value = ""; }} />
         <Button variant="outlined" disabled={busy} onClick={() => input.current?.click()}>Choose the acknowledgement</Button>

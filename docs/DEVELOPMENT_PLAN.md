@@ -475,7 +475,7 @@ Total: 151 tickets.
 
 **Done when:** Each figure's list size equals the figure; staff never see counts that include other owners.
 
-### C28 - Reports and exports (R1)
+### C28 - Reports and exports (R1) - DONE
 
 **Goal:** Reports for partners and auditors, with access rules and logging.  
 **Depends on:** C27, C04

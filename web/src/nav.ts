@@ -24,6 +24,7 @@ export const destinations: readonly Destination[] = [
 const OTHER_TITLES: readonly (readonly [string, string])[] = [
   ["/account", "Account security"],
   ["/notifications", "Notifications"],
+  ["/reports", "Reports"],
   ["/assignments", "Your work"],
   ["/clients/new", "Add a client"],
   ["/tickets", "Ticket"],
@@ -33,6 +34,7 @@ const OTHER_TITLES: readonly (readonly [string, string])[] = [
   ["/setup/holidays", "Holidays and lead times"],
   ["/setup/extensions", "Due-date extensions"],
   ["/setup/email", "Email"],
+  ["/setup/fees", "Fees and tax"],
 ];
 
 export function pageTitle(pathname: string): string {

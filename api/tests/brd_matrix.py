@@ -37,6 +37,8 @@ CLIENT_READS: tuple[tuple[str, str], ...] = (
     # The dashboard and the list behind each figure (FR-RP-01, FR-RP-02).
     ("GET", "/api/dashboard"),
     ("GET", "/api/dashboard/list"),
+    # Reports, on screen (FR-RP-03); exporting them is "Export data".
+    ("GET", "/api/reports/{report}"),
     ("GET", "/api/stages"),
     ("GET", "/api/tickets/{ticket}"),
     ("GET", "/api/clients/{client_id}/tickets"),
@@ -275,7 +277,16 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/admin/emails/test"),
         ),
     ),
-    Capability("Export data", "Y", "Own, logged", "-", "-", "C28"),
+    Capability(
+        "Export data",
+        "Y",
+        "Own, logged",
+        "-",
+        "-",
+        "C28",
+        # Every report as a spreadsheet or PDF, narrowed to their own for Staff, and audited.
+        routes=(("POST", "/api/reports/{report}/export"),),
+    ),
 )
 
 # Routes everyone uses on their own account; they are not capabilities in the BRD matrix.
