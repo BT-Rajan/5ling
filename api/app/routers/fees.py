@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
+from app.auth.breakglass import require_open
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import paise, rupees
 from app.errors import ApiHTTPException
@@ -464,6 +465,7 @@ def _invoice_for(db: Session, principal: Principal, invoice_id: int) -> tuple[In
         authorize_record(principal, None, what="invoice")  # raises 404
         raise ApiHTTPException(404, "Not found.", code="not_found")
     authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="invoice")
+    require_open(db, principal, client)  # FR-AC-05
     return invoice, client
 
 

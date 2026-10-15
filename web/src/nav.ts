@@ -35,6 +35,7 @@ const OTHER_TITLES: readonly (readonly [string, string])[] = [
   ["/setup/extensions", "Due-date extensions"],
   ["/setup/email", "Email"],
   ["/setup/fees", "Fees and tax"],
+  ["/setup/rules", "Rules and access"],
 ];
 
 export function pageTitle(pathname: string): string {

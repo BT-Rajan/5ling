@@ -141,6 +141,15 @@ def migrated_db(db_url: str) -> str:
                     " yearly_days = 21, updated_by_id = NULL WHERE id = 1"
                 )
             )
+            # Seeded by migration 0027: the rules' defaults.
+            conn.execute(
+                text(
+                    "INSERT INTO rule_settings (id, waiting_grace_days, reminder_interval_days,"
+                    " escalation_days_before, portal_link_hours, idle_timeout_minutes,"
+                    " break_glass_minutes, updated_at)"
+                    " VALUES (1, 3, 2, 2, 72, 20, 240, UTC_TIMESTAMP(6))"
+                )
+            )
             # Seeded by migration 0024, set to warn by 0025 (BRD Q3).
             conn.execute(
                 text(

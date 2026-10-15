@@ -1,12 +1,12 @@
-"""BRD NFR-SE-03: Staff and Administrator sessions end after 20 minutes without activity."""
+"""BRD NFR-SE-03: Staff and Administrator sessions end after 20 minutes without activity (the
+default; an Administrator can change it, C29)."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
 import pytest
-from app.auth.sessions import IDLE_TIMEOUT
-from app.models import Role, UserSession
+from app.models import RULE_LIMITS, Role, UserSession
 from app.timeutil import utcnow
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
@@ -22,8 +22,8 @@ def idle_for(url: str, seconds: float) -> None:
         db.commit()
 
 
-def test_the_limit_is_twenty_minutes() -> None:
-    assert timedelta(minutes=20) == IDLE_TIMEOUT
+def test_the_limit_is_twenty_minutes_by_default() -> None:
+    assert RULE_LIMITS["idle_timeout_minutes"][0] == 20
 
 
 @pytest.mark.parametrize("role", [Role.STAFF, Role.ADMINISTRATOR])

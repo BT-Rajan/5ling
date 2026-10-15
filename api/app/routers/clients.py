@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session, aliased
 
 from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
+from app.auth.breakglass import require_open
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import rupees
 from app.cycles.generator import run_quietly
@@ -268,7 +269,14 @@ def can_open(principal: Principal, client: Client) -> bool:
     return principal.role is Role.ADMINISTRATOR or client.owner_id == principal.user_id
 
 
-def load_client(db: Session, principal: Principal, client_id: int, *, lock: bool = False) -> Client:
+def load_client(
+    db: Session,
+    principal: Principal,
+    client_id: int,
+    *,
+    lock: bool = False,
+    skip_reason: bool = False,
+) -> Client:
     """The client, if this person may open it (record-level check, NFR-SE-01)."""
     stmt = select(Client).where(Client.client_id == client_id)
     client = db.scalar(
@@ -278,6 +286,8 @@ def load_client(db: Session, principal: Principal, client_id: int, *, lock: bool
         authorize_record(principal, None, what="client")  # raises 404
         raise ApiHTTPException(404, "Not found.", code="not_found")
     authorize_record(principal, RecordAccess(owner_id=client.owner_id), what="client")
+    if not skip_reason:
+        require_open(db, principal, client)  # FR-AC-05
     return client
 
 

@@ -48,7 +48,20 @@ CLIENT_READS: tuple[tuple[str, str], ...] = (
 
 CAPABILITIES: tuple[Capability, ...] = (
     # One search route serves both: the server narrows Staff to their own clients.
-    Capability("See all clients", "Y", "-", "-", "-", "C08", routes=CLIENT_READS),
+    Capability(
+        "See all clients",
+        "Y",
+        "-",
+        "-",
+        "-",
+        "C08",
+        # Opening a client the Administrator does not own takes a reason (FR-AC-05, C29).
+        routes=(
+            *CLIENT_READS,
+            ("POST", "/api/clients/{client_id}/break-glass"),
+            ("GET", "/api/admin/break-glass"),
+        ),
+    ),
     Capability("See assigned clients only", "-", "Own", "-", "-", "C08", routes=CLIENT_READS),
     Capability(
         "See assigned task only",
@@ -130,6 +143,10 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/admin/packages/{package_id}/draft"),
             ("DELETE", "/api/admin/packages/{package_id}/draft"),
             ("POST", "/api/admin/packages/{package_id}/publish"),
+            # The editable rules: grace, reminders, escalation, link expiry, idle timeout
+            # (NFR-MN-01, C29).
+            ("GET", "/api/admin/rules"),
+            ("PUT", "/api/admin/rules"),
             # Fee terms: client-specific fees to approve, and tax rates (FR-FE-01, FR-FE-09).
             ("GET", "/api/admin/fee-overrides"),
             ("POST", "/api/admin/fee-overrides/{override_id}/decision"),

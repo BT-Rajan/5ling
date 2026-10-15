@@ -50,19 +50,14 @@ class Settings(BaseSettings):
     max_body_bytes: int = 1_048_576
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
-    # Client portal links (BRD FR-AL-02): where the web app is, and how long a link lasts.
+    # Client portal links (BRD FR-AL-02): where the web app is. How long a link lasts, the
+    # reminder spacing, grace period, escalation point and idle timeout are rules an
+    # Administrator edits (rule_settings, C29), not settings.
     public_url: str = "http://localhost:5173"
-    portal_link_hours: int = 72
 
-    # Client alerts (BRD FR-AL-01, FR-AL-03): reminder spacing, and the hours (India time) in
-    # which automatic emails go out.
-    reminder_interval_days: int = 2
+    # Client alerts (BRD FR-AL-01): the hours (India time) in which automatic emails go out.
     alert_hours_start: int = 9
     alert_hours_end: int = 19
-    # Internal alerts (FR-IN-02, FR-IN-03): days after the first alert before a cycle is
-    # "waiting on client", and days before the due date that empty cycles are escalated.
-    waiting_grace_days: int = 3
-    escalation_days_before: int = 2
 
     # Documents (BRD INT-03, INT-04, NFR-SE-04). Files are encrypted before they are written, with
     # a key kept apart from the database: 32 random bytes, base64 (openssl rand -base64 32).
@@ -164,13 +159,6 @@ class Settings(BaseSettings):
             raise ValueError("public_url must be a plain http(s) address, e.g. https://app.firm.in")
         return value
 
-    @field_validator("portal_link_hours")
-    @classmethod
-    def _link_hours(cls, value: int) -> int:
-        if not 1 <= value <= 720:
-            raise ValueError("portal_link_hours must be 1 to 720")
-        return value
-
     @field_validator("storage_key")
     @classmethod
     def _storage_key(cls, value: SecretStr | None) -> SecretStr | None:
@@ -181,20 +169,6 @@ class Settings(BaseSettings):
                 raw = b""
             if len(raw) != 32:
                 raise ValueError("storage_key must be 32 random bytes, base64-encoded")
-        return value
-
-    @field_validator("waiting_grace_days", "escalation_days_before")
-    @classmethod
-    def _days(cls, value: int) -> int:
-        if not 0 <= value <= 30:
-            raise ValueError("must be 0 to 30 days")
-        return value
-
-    @field_validator("reminder_interval_days")
-    @classmethod
-    def _interval(cls, value: int) -> int:
-        if not 1 <= value <= 14:
-            raise ValueError("reminder_interval_days must be 1 to 14")
         return value
 
     @field_validator("alert_hours_start", "alert_hours_end")
