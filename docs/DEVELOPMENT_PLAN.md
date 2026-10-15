@@ -418,7 +418,7 @@ Total: 151 tickets.
 
 **Done when:** Filed is blocked without proof and reference; full lifecycle test passes.
 
-### C24 - Fees: plans and invoices (R1)
+### C24 - Fees: plans and invoices (R1) - DONE
 
 **Goal:** Fee plans, gapless invoices and tax.  
 **Depends on:** C07, C05

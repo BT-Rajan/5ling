@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
@@ -70,6 +71,13 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 20 * 1024 * 1024
     clamd_address: str = "unix:/var/run/clamav/clamd.ctl"  # or tcp:127.0.0.1:3310
 
+    # Fees (BRD FR-FE-02, FR-FE-09). Invoice numbers read PREFIX/YY-YY/00001 (at most 16
+    # characters, as GST requires). The firm's GST state code (the first two digits of its GSTIN)
+    # decides CGST and SGST (same state) or IGST (a client registered in another state).
+    invoice_prefix: str = "INV"
+    invoice_terms_days: int = 15
+    firm_gst_state: str | None = None
+
     # Email (BRD INT-01). Development sends to Mailpit on 127.0.0.1:1025 (scripts/dev-up).
     firm_name: str = "Ledgerline"
     email_from_address: str = "no-reply@ledgerline.example.com"  # a reserved domain
@@ -114,6 +122,29 @@ class Settings(BaseSettings):
             return validate_email(value, check_deliverability=False).normalized
         except EmailNotValidError as exc:
             raise ValueError(f"email_from_address is not a valid address: {exc}") from None
+
+    @field_validator("invoice_prefix")
+    @classmethod
+    def _prefix(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Z]{1,4}", value):
+            raise ValueError("invoice_prefix must be 1 to 4 capital letters, e.g. INV")
+        return value
+
+    @field_validator("invoice_terms_days")
+    @classmethod
+    def _terms(cls, value: int) -> int:
+        if not 0 <= value <= 180:
+            raise ValueError("invoice_terms_days must be 0 to 180")
+        return value
+
+    @field_validator("firm_gst_state")
+    @classmethod
+    def _state(cls, value: str | None) -> str | None:
+        if value in (None, ""):
+            return None
+        if not re.fullmatch(r"\d{2}", value) or not (1 <= int(value) <= 38 or value == "97"):
+            raise ValueError("firm_gst_state must be a two-digit GST state code, e.g. 33")
+        return value
 
     @field_validator("firm_name", "email_from_name")
     @classmethod
