@@ -128,6 +128,8 @@ class Settings(BaseSettings):
     def _prefix(cls, value: str) -> str:
         if not re.fullmatch(r"[A-Z]{1,4}", value):
             raise ValueError("invoice_prefix must be 1 to 4 capital letters, e.g. INV")
+        if value == "CN":
+            raise ValueError("invoice_prefix CN is kept for credit notes")
         return value
 
     @field_validator("invoice_terms_days")

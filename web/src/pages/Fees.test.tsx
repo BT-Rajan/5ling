@@ -25,12 +25,16 @@ const fees = (over: Record<string, unknown> = {}) => ({
   overrides: [],
   invoices: [invoice],
   ledger: [],
+  adjustments: [],
   status: "due",
   status_label: "Due",
   balance: "1770.00",
   can_set_fee: false,
   ...over,
 });
+
+const policy = { mode: "reminder", limit: "0.00", updated_by: null, updated_at: "2026-10-01T00:00:00Z" };
+const adjustment = { id: 7, client_id: 100001, client_name: "Ravi Kumar", invoice_id: 1, invoice_no: "INV/26-27/00001", kind: "write_off", kind_label: "Write-off", amount: "200.00", reason: "Hardship", status: "pending", requested_by: "Asha Rao", requested_at: "2026-10-14T06:00:00Z", decided_by: null, decided_at: null, decision_note: null, credit_note_no: null };
 
 beforeEach(() => {
   stubScreen(true);
@@ -145,6 +149,60 @@ describe("Payments", () => {
   });
 });
 
+describe("Adjustments and the overdue policy", () => {
+  it("staff ask for a write-off, which waits for an Administrator", async () => {
+    const posts: Call[] = [];
+    renderApp("/clients/100001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/clients/100001": () => jsonResponse(client),
+        "GET /api/clients/100001/fees": () => jsonResponse(fees()),
+        "POST /api/invoices/1/adjustments": (c) => { posts.push(c); return jsonResponse(fees({ adjustments: [adjustment] }), 201); },
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Adjust INV/26-27/00001" }));
+    const form = screen.getByRole("form", { name: "Adjustment to INV/26-27/00001" });
+    expect(form).toHaveTextContent("Changes nothing until an Administrator approves it.");
+    await userEvent.click(within(form).getByRole("combobox", { name: "Kind" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Write-off" }));
+    await userEvent.type(within(form).getByLabelText("Adjustment (₹)"), "200");
+    await userEvent.type(within(form).getByLabelText("Why?"), "Hardship");
+    await userEvent.click(within(form).getByRole("button", { name: "Ask for approval" }));
+    expect(await screen.findByRole("list", { name: "Adjustments" })).toHaveTextContent("Write-off · ₹200 · INV/26-27/00001 · waiting for an Administrator");
+    expect(posts[0]?.body).toEqual({ kind: "write_off", amount: "200", reason: "Hardship" });
+  });
+
+  it("an Administrator approves an adjustment and sets the policy", async () => {
+    const posts: Call[] = [];
+    let waiting = [adjustment];
+    renderApp("/setup/fees", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/admin/fee-overrides": () => jsonResponse([]),
+        "GET /api/admin/fee-adjustments": () => jsonResponse(waiting),
+        "GET /api/admin/fee-policy": () => jsonResponse(policy),
+        "GET /api/admin/tax-rates": () => jsonResponse([]),
+        "POST /api/admin/fee-adjustments/7/decision": (c) => { posts.push(c); waiting = []; return jsonResponse({ ...adjustment, status: "approved" }); },
+        "PUT /api/admin/fee-policy": (c) => { posts.push(c); return jsonResponse({ ...policy, mode: "block", limit: "500.00", updated_by: "The Boss" }); },
+      },
+    });
+    expect(await screen.findByTestId("adjustment-request")).toHaveTextContent("Write-off of ₹200 on INV/26-27/00001");
+    await userEvent.click(screen.getByRole("button", { name: "Approve write-off" }));
+    expect(await screen.findAllByText("Nothing waiting.")).toHaveLength(2);
+    const form = screen.getByRole("form", { name: "Overdue policy" });
+    await userEvent.click(within(form).getByRole("combobox", { name: "When a client has overdue fees" }));
+    await userEvent.click(await screen.findByRole("option", { name: /refuse/ }));
+    const limit = within(form).getByLabelText(/Only when more than this is overdue/);
+    await userEvent.clear(limit);
+    await userEvent.type(limit, "500");
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved.")).toBeInTheDocument();
+    expect(posts.map((c) => c.body)).toEqual([{ approve: true }, { mode: "block", limit: "500" }]);
+  });
+});
+
 describe("Fees and tax setup", () => {
   it("approves a client fee and rejects another with a reason", async () => {
     const posts: Call[] = [];
@@ -154,6 +212,8 @@ describe("Fees and tax setup", () => {
       handlers: {
         ...quiet,
         "GET /api/admin/fee-overrides": () => jsonResponse(waiting),
+        "GET /api/admin/fee-adjustments": () => jsonResponse([]),
+        "GET /api/admin/fee-policy": () => jsonResponse(policy),
         "GET /api/admin/tax-rates": () => jsonResponse([{ id: 1, code: "GST", rate: "18.00", effective_from: "2017-07-01", note: null, added_by: null, added_at: "2026-10-01T00:00:00Z", in_force: true }]),
         "POST /api/admin/fee-overrides/9/decision": (c) => { posts.push(c); waiting = waiting.filter((o) => o.id !== 9); return jsonResponse(override({ status: "approved" })); },
         "POST /api/admin/fee-overrides/10/decision": (c) => { posts.push(c); waiting = []; return jsonResponse(override({ id: 10, status: "rejected" })); },
@@ -168,7 +228,7 @@ describe("Fees and tax setup", () => {
     expect(confirm).toBeDisabled();
     await userEvent.type(screen.getByLabelText("Why is it rejected?"), "Already discounted");
     await userEvent.click(confirm);
-    expect(await screen.findByText("Nothing waiting.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Nothing waiting.")).toHaveLength(2);
     expect(posts.map((c) => c.body)).toEqual([{ approve: true }, { approve: false, note: "Already discounted" }]);
     expect(screen.getByRole("list", { name: "GST rates" })).toHaveTextContent("18.00% from");
   });
@@ -181,6 +241,8 @@ describe("Fees and tax setup", () => {
       handlers: {
         ...quiet,
         "GET /api/admin/fee-overrides": () => jsonResponse([]),
+        "GET /api/admin/fee-adjustments": () => jsonResponse([]),
+        "GET /api/admin/fee-policy": () => jsonResponse(policy),
         "GET /api/admin/tax-rates": () => jsonResponse([current]),
         "POST /api/admin/tax-rates": (c) => { posts.push(c); return jsonResponse([{ ...current, id: 2, rate: "12.50", effective_from: "2027-04-01", note: "Budget", added_by: "The Boss", in_force: false }, current], 201); },
       },

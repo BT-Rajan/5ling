@@ -76,6 +76,12 @@ EXPECTED: dict[tuple[str, str], frozenset[Role]] = {
     ("GET", "/api/clients/{client_id}/fees"): ADMIN_AND_STAFF,
     ("POST", "/api/invoices/{invoice_id}/payments"): ADMIN_AND_STAFF,
     ("POST", "/api/ledger/{entry_id}/reverse"): ADMIN_AND_STAFF,
+    ("POST", "/api/invoices/{invoice_id}/adjustments"): ADMIN_AND_STAFF,
+    ("GET", "/api/admin/fee-adjustments"): ADMIN,
+    ("POST", "/api/admin/fee-adjustments/{adjustment_id}/decision"): ADMIN,
+    ("GET", "/api/admin/fee-policy"): ADMIN,
+    ("PUT", "/api/admin/fee-policy"): ADMIN,
+    ("POST", "/api/tickets/{ticket}/fee-waiver"): ADMIN,
     ("GET", "/api/clients"): ADMIN_AND_STAFF,
     ("PATCH", "/api/clients/{client_id}"): ADMIN_AND_STAFF,
     ("GET", "/api/clients/{client_id}/history"): ADMIN_AND_STAFF,
@@ -152,6 +158,7 @@ def url_for(path: str) -> str:
         .replace("{override_id}", "999999")
         .replace("{invoice_id}", "999999")
         .replace("{entry_id}", "999999")
+        .replace("{adjustment_id}", "999999")
         .replace("{ticket}", "TKT-999999")
         .replace("{email_id}", "999999")
         .replace("{link_id}", "999999")
@@ -365,6 +372,6 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
 
 def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
     pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 3  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C16", "C26", "C28"}
+    assert len(pending) == 2  # shrinks as chunks land; update with the chunk that adds routes
+    assert {c.built_in for c in pending} >= {"C16", "C28"}
     assert not {"C04", "C05", "C07", "C08"} & {c.built_in for c in pending}
