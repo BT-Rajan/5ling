@@ -117,6 +117,10 @@ interface Fees {
   status: FeeStatus | null;
   status_label: string | null;
   balance: string;
+  overdue: string;
+  overdue_limit: string | null;
+  firm_limit: string;
+  over_limit: boolean;
   can_set_fee: boolean;
 }
 
@@ -253,6 +257,7 @@ export function ClientFees({ clientId }: { clientId: number }) {
               </Table>
             </TableContainer>
           )}
+          <OverdueLimit clientId={clientId} fees={fees} onChanged={setFees} />
           {paying && <PaymentForm invoice={paying} onDone={(f) => { setFees(f); setPaying(null); }} onCancel={() => { setPaying(null); }} />}
           {adjusting && <AdjustmentForm invoice={adjusting} direct={fees.can_set_fee} onDone={(f) => { setFees(f); setAdjusting(null); }} onCancel={() => { setAdjusting(null); }} />}
           {fees.adjustments.length > 0 && (
@@ -420,5 +425,59 @@ function Ledger({ entries, onChanged }: { entries: LedgerEntry[]; onChanged: (f:
         ))}
       </List>
     </>
+  );
+}
+
+/** FR-FE-06, BRD Q3: overdue fees above the client's limit raise a warning on its filings. */
+function OverdueLimit({ clientId, fees, onChanged }: { clientId: number; fees: Fees; onChanged: (f: Fees) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [useFirm, setUseFirm] = useState(fees.overdue_limit === null);
+  const [limit, setLimit] = useState(fees.overdue_limit ?? "");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = (useFirm || /^\d{1,8}(\.\d{1,2})?$/.test(limit.trim())) && reason.trim().length >= 5;
+
+  async function save(event: SyntheticEvent) {
+    event.preventDefault();
+    if (!valid) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await api<Fees>(`/api/clients/${String(clientId)}/overdue-limit`, { method: "PUT", json: { limit: useFirm ? null : limit.trim(), reason: reason.trim() } }));
+      setEditing(false);
+      setReason("");
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const current = fees.overdue_limit === null ? `${money(fees.firm_limit)} (the firm's limit)` : money(fees.overdue_limit);
+  return (
+    <Box sx={{ mb: 2 }} data-testid="overdue-limit">
+      <Typography variant="body2" color={fees.over_limit ? "error" : "text.secondary"}>
+        Overdue: {money(fees.overdue)} · limit {current}{fees.over_limit ? " · over the limit" : ""}
+        {!editing && <Button size="small" sx={{ ml: 1 }} onClick={() => { setEditing(true); setUseFirm(fees.overdue_limit === null); setLimit(fees.overdue_limit ?? ""); }}>Change limit</Button>}
+      </Typography>
+      {editing && (
+        <Paper component="form" aria-label="Overdue limit" onSubmit={(e) => void save(e)} noValidate variant="outlined" sx={{ p: 2, borderRadius: 3, mt: 1 }}>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <Stack spacing={2}>
+            <TextField select label="Limit for this client" value={useFirm ? "firm" : "own"} onChange={(e) => { setUseFirm(e.target.value === "firm"); }} disabled={busy}>
+              <MenuItem value="firm">The firm's limit ({money(fees.firm_limit)})</MenuItem>
+              <MenuItem value="own">Its own limit</MenuItem>
+            </TextField>
+            {!useFirm && <TextField label="Overdue limit (₹)" value={limit} onChange={(e) => { setLimit(e.target.value); }} slotProps={{ htmlInput: { inputMode: "decimal", maxLength: 11 } }} disabled={busy} helperText="A warning shows on this client's filings when more than this is overdue." />}
+            <TextField label="Why the change?" value={reason} onChange={(e) => { setReason(e.target.value); }} slotProps={{ htmlInput: { maxLength: 500 } }} disabled={busy} />
+            <Stack direction="row" sx={{ gap: 1 }}>
+              <Button type="submit" variant="contained" disabled={busy || !valid}>Save limit</Button>
+              <Button disabled={busy} onClick={() => { setEditing(false); }}>Cancel</Button>
+            </Stack>
+          </Stack>
+        </Paper>
+      )}
+    </Box>
   );
 }

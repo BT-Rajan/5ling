@@ -203,7 +203,7 @@ function OverduePolicy() {
             <TextField select label="When a client has overdue fees" value={mode} onChange={(e) => { setMode(e.target.value as PolicyMode); }} disabled={busy}>
               {(Object.keys(POLICY) as PolicyMode[]).map((m) => <MenuItem key={m} value={m}>{POLICY[m]}</MenuItem>)}
             </TextField>
-            <TextField label="Only when more than this is overdue (₹)" value={limit} onChange={(e) => { setLimit(e.target.value); }} slotProps={{ htmlInput: { inputMode: "decimal", maxLength: 11 } }} disabled={busy} helperText="0 means any overdue amount." />
+            <TextField label="Firm-wide limit (₹)" value={limit} onChange={(e) => { setLimit(e.target.value); }} slotProps={{ htmlInput: { inputMode: "decimal", maxLength: 11 } }} disabled={busy} helperText="Used for clients without their own limit; 0 means any overdue amount. A client's owner can set its own limit on the client's page." />
             <Typography variant="body2" color="text.secondary">Last changed {current.updated_by ? `by ${current.updated_by}, ` : ""}{formatIST(current.updated_at)}</Typography>
             <Box><Button type="submit" variant="contained" disabled={busy || !valid}>Save</Button></Box>
           </Stack>

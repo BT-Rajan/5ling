@@ -78,6 +78,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
             # Asking for a client-specific fee (FR-FE-01); an Administrator decides.
             ("POST", "/api/clients/{client_id}/fee-overrides"),
+            # The client's own overdue limit (FR-FE-06, BRD Q3).
+            ("PUT", "/api/clients/{client_id}/overdue-limit"),
             ("PATCH", "/api/clients/{client_id}"),
             ("GET", "/api/clients/{client_id}/history"),
             # Moving a cycle on; approve is refused to the preparer (C22); filing needs proof (C23).
