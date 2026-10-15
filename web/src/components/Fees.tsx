@@ -66,6 +66,28 @@ export function FeeChip({ status }: { status: FeeStatus | null }) {
   return <Chip size="small" label={`Fees: ${FEE_STATUS_LABEL[status]}`} color={FEE_STATUS_COLOR[status]} variant={status === "due" ? "outlined" : "filled"} />;
 }
 
+export type AdjustmentKind = "credit_note" | "discount" | "write_off";
+const ADJUSTMENT_LABEL: Record<AdjustmentKind, string> = { credit_note: "Credit note", discount: "Discount", write_off: "Write-off" };
+
+export interface Adjustment {
+  id: number;
+  client_id: number;
+  client_name: string;
+  invoice_id: number;
+  invoice_no: string;
+  kind: AdjustmentKind;
+  kind_label: string;
+  amount: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  requested_by: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  credit_note_no: string | null;
+}
+
 type PaymentMode = "bank_transfer" | "upi" | "cheque" | "cash" | "card" | "other";
 const MODE_LABEL: Record<PaymentMode, string> = { bank_transfer: "Bank transfer", upi: "UPI", cheque: "Cheque", cash: "Cash", card: "Card", other: "Other" };
 
@@ -73,7 +95,7 @@ interface LedgerEntry {
   id: number;
   invoice_id: number;
   invoice_no: string;
-  kind: "payment" | "reversal";
+  kind: "payment" | "reversal" | AdjustmentKind;
   amount: string;
   entry_date: string;
   mode: PaymentMode | null;
@@ -91,6 +113,7 @@ interface Fees {
   overrides: FeeOverride[];
   invoices: Invoice[];
   ledger: LedgerEntry[];
+  adjustments: Adjustment[];
   status: FeeStatus | null;
   status_label: string | null;
   balance: string;
@@ -110,6 +133,7 @@ export function ClientFees({ clientId }: { clientId: number }) {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [paying, setPaying] = useState<Invoice | null>(null);
+  const [adjusting, setAdjusting] = useState<Invoice | null>(null);
 
   const load = useCallback(() => {
     api<Fees>(`/api/clients/${String(clientId)}/fees`).then(setFees).catch((e: unknown) => { setError(messageFor(e)); });
@@ -216,7 +240,10 @@ export function ClientFees({ clientId }: { clientId: number }) {
                         <TableCell>{i.status_label}</TableCell>
                         <TableCell>
                           {i.balance !== "0.00" && (
-                            <Button size="small" onClick={() => { setPaying(i); }} aria-label={`Record a payment for ${i.invoice_no}`}>Record payment</Button>
+                            <Stack direction="row" sx={{ gap: 0.5 }}>
+                              <Button size="small" onClick={() => { setAdjusting(null); setPaying(i); }} aria-label={`Record a payment for ${i.invoice_no}`}>Record payment</Button>
+                              <Button size="small" onClick={() => { setPaying(null); setAdjusting(i); }} aria-label={`Adjust ${i.invoice_no}`}>Adjust</Button>
+                            </Stack>
                           )}
                         </TableCell>
                       </TableRow>
@@ -227,10 +254,71 @@ export function ClientFees({ clientId }: { clientId: number }) {
             </TableContainer>
           )}
           {paying && <PaymentForm invoice={paying} onDone={(f) => { setFees(f); setPaying(null); }} onCancel={() => { setPaying(null); }} />}
+          {adjusting && <AdjustmentForm invoice={adjusting} direct={fees.can_set_fee} onDone={(f) => { setFees(f); setAdjusting(null); }} onCancel={() => { setAdjusting(null); }} />}
+          {fees.adjustments.length > 0 && (
+            <>
+              <Typography variant="h6" component="h3" sx={{ mt: 3, mb: 1 }}>Credit notes, discounts and write-offs</Typography>
+              <List aria-label="Adjustments" disablePadding sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+                {fees.adjustments.map((a, i) => (
+                  <ListItem key={a.id} divider={i < fees.adjustments.length - 1}>
+                    <ListItemText
+                      primary={`${a.kind_label}${a.credit_note_no ? ` ${a.credit_note_no}` : ""} · ${money(a.amount)} · ${a.invoice_no} · ${ADJUSTMENT_STATUS[a.status]}`}
+                      secondary={[`“${a.reason}”`, `asked by ${a.requested_by ?? "someone"}`, a.decided_by ? `${a.status === "approved" ? "approved" : "rejected"} by ${a.decided_by}` : null, a.decision_note ? `“${a.decision_note}”` : null].filter(Boolean).join(" · ")}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
+          )}
           <Ledger entries={fees.ledger} onChanged={setFees} />
         </>
       )}
     </Box>
+  );
+}
+
+const ADJUSTMENT_STATUS = { pending: "waiting for an Administrator", approved: "approved", rejected: "rejected" } as const;
+
+/** FR-FE-08: a credit note, discount or write-off; Staff ask, an Administrator approves. */
+function AdjustmentForm({ invoice, direct, onDone, onCancel }: { invoice: Invoice; direct: boolean; onDone: (f: Fees) => void; onCancel: () => void }) {
+  const [kind, setKind] = useState<AdjustmentKind>("discount");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const valid = MONEY.test(amount.trim()) && Number(amount) > 0 && reason.trim().length >= 5;
+
+  async function submit(event: SyntheticEvent) {
+    event.preventDefault();
+    if (!valid) return;
+    setBusy(true);
+    setError(null);
+    try {
+      onDone(await api<Fees>(`/api/invoices/${String(invoice.id)}/adjustments`, { method: "POST", json: { kind, amount: amount.trim(), reason: reason.trim() } }));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Paper component="form" aria-label={`Adjustment to ${invoice.invoice_no}`} onSubmit={(e) => void submit(e)} noValidate variant="outlined" sx={{ p: 2, borderRadius: 3, mt: 2 }}>
+      <Typography sx={{ fontWeight: 600 }}>Adjust {invoice.invoice_no} · {money(invoice.balance)} owed</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{direct ? "Takes effect at once." : "Changes nothing until an Administrator approves it."}</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
+        <TextField select label="Kind" value={kind} onChange={(e) => { setKind(e.target.value as AdjustmentKind); }} disabled={busy}>
+          {(Object.keys(ADJUSTMENT_LABEL) as AdjustmentKind[]).map((k) => <MenuItem key={k} value={k}>{ADJUSTMENT_LABEL[k]}</MenuItem>)}
+        </TextField>
+        <TextField label="Adjustment (₹)" value={amount} onChange={(e) => { setAmount(e.target.value); }} slotProps={{ htmlInput: { inputMode: "decimal", maxLength: 11 } }} disabled={busy} />
+        <TextField label="Why?" value={reason} onChange={(e) => { setReason(e.target.value); }} slotProps={{ htmlInput: { maxLength: 500 } }} disabled={busy} sx={{ gridColumn: { sm: "1 / -1" } }} />
+      </Box>
+      <Stack direction="row" sx={{ gap: 1, mt: 2 }}>
+        <Button type="submit" variant="contained" disabled={busy || !valid}>{direct ? "Apply" : "Ask for approval"}</Button>
+        <Button disabled={busy} onClick={onCancel}>Cancel</Button>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -310,7 +398,9 @@ function Ledger({ entries, onChanged }: { entries: LedgerEntry[]; onChanged: (f:
             <ListItemText
               primary={e.kind === "payment"
                 ? `${money(e.amount)} paid ${formatDay(e.entry_date)} · ${e.mode ? MODE_LABEL[e.mode] : ""}${e.reference ? ` ${e.reference}` : ""} · ${e.invoice_no}${e.reversed ? " · reversed" : ""}`
-                : `Reversal of ${money(e.amount)} · ${e.invoice_no}${e.note ? `: “${e.note}”` : ""}`}
+                : e.kind === "reversal"
+                  ? `Reversal of ${money(e.amount)} · ${e.invoice_no}${e.note ? `: “${e.note}”` : ""}`
+                  : `${ADJUSTMENT_LABEL[e.kind]} ${money(e.amount)} · ${e.invoice_no}${e.note ? `: “${e.note}”` : ""}`}
               secondary={`${e.by ?? "Someone"}, ${formatIST(e.at)}`}
               sx={e.reversed ? { "& .MuiListItemText-primary": { textDecoration: "line-through" } } : undefined}
             />

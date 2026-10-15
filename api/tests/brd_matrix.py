@@ -213,9 +213,26 @@ CAPABILITIES: tuple[Capability, ...] = (
         routes=(
             ("POST", "/api/invoices/{invoice_id}/payments"),
             ("POST", "/api/ledger/{entry_id}/reverse"),
+            # Asking for a credit note, discount or write-off (FR-FE-08).
+            ("POST", "/api/invoices/{invoice_id}/adjustments"),
         ),
     ),
-    Capability("Approve credit, discount, write-off", "Y", "-", "-", "-", "C26"),
+    Capability(
+        "Approve credit, discount, write-off",
+        "Y",
+        "-",
+        "-",
+        "-",
+        "C26",
+        routes=(
+            ("GET", "/api/admin/fee-adjustments"),
+            ("POST", "/api/admin/fee-adjustments/{adjustment_id}/decision"),
+            # The overdue policy and its one-time override (FR-FE-06).
+            ("GET", "/api/admin/fee-policy"),
+            ("PUT", "/api/admin/fee-policy"),
+            ("POST", "/api/tickets/{ticket}/fee-waiver"),
+        ),
+    ),
     Capability(
         "Manage people and access",
         "Y",

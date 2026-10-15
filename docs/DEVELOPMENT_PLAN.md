@@ -448,7 +448,7 @@ Total: 151 tickets.
 
 **Done when:** Balance after a reversal equals the expected figure; status updates the moment a payment is recorded.
 
-### C26 - Fees: approvals and overdue policy (R1)
+### C26 - Fees: approvals and overdue policy (R1) - DONE
 
 **Goal:** Control fee leakage and filings for non-payers.  
 **Depends on:** C25, C23

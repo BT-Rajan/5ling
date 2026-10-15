@@ -11,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { api, messageFor, uploadFile } from "../api";
+import { useUser } from "../auth/AuthProvider";
 import { AssignmentPanel } from "../components/AssignmentPanel";
 import { ClientEmails } from "../components/ClientEmails";
 import { ClientLinks } from "../components/ClientLinks";
@@ -76,6 +77,7 @@ interface Ticket {
     moves: Move[];
     approve_blocked?: string | null;
     can_file?: boolean;
+    fees?: { mode: "reminder" | "warn" | "block"; overdue: string; warning: string | null; blocked: boolean; waiver: { reason: string; granted_by: string | null; granted_at: string } | null } | null;
     proof?: { reference: string; version_id: number; filename: string; filed_by: string | null; filed_at: string } | null;
     extensions: { old_due_date: string; new_due_date: string; old_alert_date: string; new_alert_date: string; reason: string; applied_at: string; applied_by: string | null }[];
   } | null;
@@ -229,6 +231,49 @@ function Review({ ticket, busy, error, run }: { ticket: Ticket; busy: boolean; e
         </>
       )}
     </Paper>
+  );
+}
+
+/** FR-FE-06: overdue fees under the policy; an Administrator can override one filing. */
+function FeeWarning({ ticket, onChanged }: { ticket: Ticket; onChanged: (t: Ticket) => void }) {
+  const user = useUser();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fees = ticket.cycle?.fees;
+  if (!fees || (!fees.warning && !fees.waiver)) return null;
+
+  async function waive() {
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await api<Ticket>(`/api/tickets/${ticket.code}/fee-waiver`, { method: "POST", json: { reason: reason.trim() } }));
+      setOpen(false);
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      {fees.warning && <Alert severity={fees.blocked ? "error" : "warning"} sx={{ mb: 1 }}>{fees.warning}</Alert>}
+      {fees.waiver && <Alert severity="info" sx={{ mb: 1 }}>Overridden for this filing by {fees.waiver.granted_by ?? "an Administrator"}: “{fees.waiver.reason}”</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+      {fees.blocked && user.role === "administrator" && (open ? (
+        <Stack spacing={1}>
+          <TextField label="Why let this filing go ahead?" value={reason} onChange={(e) => { setReason(e.target.value); }} slotProps={{ htmlInput: { maxLength: 500 } }} disabled={busy} autoFocus />
+          <Stack direction="row" sx={{ gap: 1 }}>
+            <Button variant="contained" disabled={busy || reason.trim().length < 5} onClick={() => void waive()}>Override for this filing</Button>
+            <Button disabled={busy} onClick={() => { setOpen(false); }}>Cancel</Button>
+          </Stack>
+        </Stack>
+      ) : (
+        <Button size="small" sx={{ ml: -1 }} onClick={() => { setOpen(true); }}>Override for this filing</Button>
+      ))}
+    </Box>
   );
 }
 
@@ -422,6 +467,7 @@ export function TicketPage() {
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
           {cycle.proof && <Proof proof={cycle.proof} />}
+          {cycle.fees && <FeeWarning ticket={ticket} onChanged={changed} />}
           <Actions ticket={ticket} onMoved={changed} />
           {ticket.can_edit && <AssignmentPanel code={ticket.code} onChanged={load} />}
           <Documents code={ticket.code} />

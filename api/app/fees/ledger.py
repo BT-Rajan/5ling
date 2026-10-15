@@ -1,6 +1,7 @@
 """Payments, reversals and fee status (BRD FR-FE-03, FR-FE-04).
 
-An invoice's balance is its total, less payments, plus reversals of payments; it is worked out
+An invoice's balance is its total, less payments and approved credit notes, discounts and
+write-offs, plus reversals of payments; it is worked out
 from the ledger each time it is shown, so a status changes the moment a payment is recorded.
 Payments against one invoice are serialised by a row lock on the invoice, so two people
 recording at once cannot together pay more than the balance.
@@ -51,8 +52,9 @@ def _signed() -> object:
     return func.coalesce(
         func.sum(
             case(
-                (LedgerEntry.kind == EntryKind.PAYMENT, LedgerEntry.amount_paise),
-                else_=-LedgerEntry.amount_paise,
+                # Reversals give a payment back; payments and approved adjustments reduce it.
+                (LedgerEntry.kind == EntryKind.REVERSAL, -LedgerEntry.amount_paise),
+                else_=LedgerEntry.amount_paise,
             )
         ),
         0,

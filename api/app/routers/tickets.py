@@ -20,6 +20,7 @@ from app.audit import audit
 from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.auth.events import security_event
+from app.catalog import rupees
 from app.cycles.review import approval_refusal
 from app.cycles.service import (
     MoveRefused,
@@ -31,6 +32,7 @@ from app.cycles.service import (
 )
 from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
+from app.fees.controls import filing_check
 from app.fees.ledger import FeeStatus, fees_summary
 from app.mail.problems import LABEL as PROBLEM_LABEL
 from app.mail.problems import is_problem, problems_for
@@ -49,6 +51,7 @@ from app.models import (
     Email,
     EventKind,
     Filing,
+    OverduePolicyMode,
     Package,
     PackageVersion,
     Role,
@@ -114,6 +117,22 @@ class ProofOut(BaseModel):
     filed_at: datetime
 
 
+class WaiverOut(BaseModel):
+    reason: str
+    granted_by: str | None
+    granted_at: datetime
+
+
+class FilingFeesOut(BaseModel):
+    """FR-FE-06: the client's overdue fees under the policy, for this filing."""
+
+    mode: OverduePolicyMode
+    overdue: str
+    warning: str | None  # shown when the policy warns or blocks and the client is over the limit
+    blocked: bool  # Filed will be refused (no waiver)
+    waiver: WaiverOut | None
+
+
 class CycleOut(BaseModel):
     filing: NamedRef
     period_key: str
@@ -132,6 +151,7 @@ class CycleOut(BaseModel):
     approve_blocked: str | None = None  # in review: why this person may not approve (FR-WF-03)
     can_file: bool = False  # ready to file, and this person may record the filing (FR-WF-05)
     proof: ProofOut | None = None
+    fees: FilingFeesOut | None = None  # owner and Administrators only, until it is filed
     extensions: list[ExtensionOut]  # government extensions that moved its dates, newest first
 
 
@@ -223,6 +243,36 @@ def proof_of(db: Session, cycle_id: int) -> ProofOut | None:
     )
 
 
+BEFORE_FILED = frozenset(ORDER[: ORDER.index(Stage.FILED)])
+
+
+def filing_fees_out(db: Session, client: Client, cycle: Cycle) -> FilingFeesOut:
+    check = filing_check(db, client, cycle)
+    waiver = check.waiver
+    overdue = rupees(check.overdue) or "0.00"
+    warning = None
+    if check.warn:
+        warning = (
+            f"This client has ₹{overdue} in overdue fees. Filing is blocked until they are paid"
+            " or an Administrator overrides it."
+            if check.blocked
+            else f"This client has ₹{overdue} in overdue fees."
+        )
+    return FilingFeesOut(
+        mode=check.mode,
+        overdue=overdue,
+        warning=warning,
+        blocked=check.blocked,
+        waiver=WaiverOut(
+            reason=waiver.reason,
+            granted_by=(u.full_name if (u := db.get(User, waiver.granted_by_id)) else None),
+            granted_at=waiver.granted_at,
+        )
+        if waiver
+        else None,
+    )
+
+
 def can_edit(principal: Principal, client: Client) -> bool:
     return principal.role is Role.ADMINISTRATOR or client.owner_id == principal.user_id
 
@@ -311,6 +361,9 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             approve_blocked=blocked,
             can_file=cycle.stage is Stage.READY_TO_FILE and can_edit(principal, client),
             proof=proof_of(db, cycle.id),
+            fees=filing_fees_out(db, client, cycle)
+            if can_edit(principal, client) and cycle.stage in BEFORE_FILED
+            else None,
             extensions=[
                 ExtensionOut(
                     old_due_date=c.old_due_date,
