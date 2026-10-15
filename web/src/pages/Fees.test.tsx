@@ -8,7 +8,7 @@ const client = {
   client_id: 100001,
   kind: "individual",
   legal_name: "Ravi Kumar",
-  pan: "ABCPE1234F",
+  pan_masked: "AB•••••34F",
   gstin: null,
   status: "active",
   owner: { id: 2, full_name: "Asha Rao" },

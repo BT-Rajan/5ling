@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import re
 import secrets
+import zipfile
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 
 import pytest
 from app.main import create_app
@@ -364,13 +366,16 @@ def test_built_capabilities_use_exactly_the_roles_the_matrix_gives_them() -> Non
     for route, caps in claimants.items():
         roles = EXPECTED[route]
         names = [c.name for c in caps]
-        # Consultants are allowed only once their chunk is built.
-        assert (Role.CONSULTANT in roles) is any(c.consultant != "-" for c in caps), (names, route)
-        assert (Role.STAFF in roles) is any(c.allowed("staff") for c in caps), (names, route)
-        assert (Role.ADMINISTRATOR in roles) is any(c.allowed("admin") for c in caps), (
-            names,
-            route,
-        )
+        for who, role in (
+            ("consultant", Role.CONSULTANT),
+            ("staff", Role.STAFF),
+            ("admin", Role.ADMINISTRATOR),
+        ):
+            assert (role in roles) is any(c.allowed_on(who, route) for c in caps), (
+                names,
+                route,
+                who,
+            )
 
 
 def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> None:
@@ -380,8 +385,28 @@ def test_every_route_belongs_to_a_capability_or_is_self_service_or_public() -> N
     assert actual == claimed, ("unclaimed or missing:", actual ^ claimed)
 
 
-def test_capabilities_not_built_yet_have_no_routes_and_name_their_chunk() -> None:
-    pending = [c for c in CAPABILITIES if not c.routes]
-    assert len(pending) == 1  # shrinks as chunks land; update with the chunk that adds routes
-    assert {c.built_in for c in pending} >= {"C16"}
-    assert not {"C04", "C05", "C07", "C08"} & {c.built_in for c in pending}
+def test_every_capability_is_built() -> None:
+    """C30: all sixteen BRD capabilities have their routes (none left for a later chunk)."""
+    assert [c.name for c in CAPABILITIES if not c.routes] == []
+
+
+def test_the_matrix_is_the_brds_section_8_table() -> None:
+    """LL-126: the capabilities and every cell match section 8 of the BRD, read from the BRD."""
+    brd = Path(__file__).resolve().parents[2] / "docs" / "Ledgerline-BRD.docx"
+    xml = zipfile.ZipFile(brd).read("word/document.xml").decode()
+
+    def cells(row: str) -> list[str]:
+        return [
+            re.sub(r"<[^>]+>", "", c).replace("\u2013", "-").strip()
+            for c in re.findall(r"<w:tc>.*?</w:tc>", row, flags=re.S)
+        ]
+
+    table = next(
+        rows
+        for t in re.findall(r"<w:tbl>.*?</w:tbl>", xml, flags=re.S)
+        if (rows := [cells(r) for r in re.findall(r"<w:tr[ >].*?</w:tr>", t, flags=re.S)])
+        and rows[0][:1] == ["Capability"]
+    )
+    assert table[0] == ["Capability", "Admin", "Staff", "Consultant", "Client"]
+    ours = [[c.name, c.admin, c.staff, c.consultant, c.client] for c in CAPABILITIES]
+    assert ours == table[1:]

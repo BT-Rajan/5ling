@@ -162,3 +162,13 @@ def sign_in(
         body = resp.json()
     assert body["status"] == "signed_in", body
     return Signed(client, body["user"]["id"], body["csrf_token"])
+
+
+def break_glass(client: TestClient, signed: Signed, client_id: int) -> None:
+    """An Administrator gives a reason to open a client they do not own (FR-AC-05, C29)."""
+    resp = client.post(
+        f"/api/clients/{client_id}/break-glass",
+        json={"reason": "Covering for the owner (test)"},
+        headers=signed.headers,
+    )
+    assert resp.status_code == 201, resp.text

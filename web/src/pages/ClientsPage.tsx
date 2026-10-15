@@ -45,7 +45,7 @@ interface Client {
   client_id: number;
   kind: Kind;
   legal_name: string;
-  pan: string | null;
+  pan_masked: string | null; // NFR-SE-06: the full PAN comes only on request, and is logged
   gstin: string | null;
   status: Status;
   owner: { id: number; full_name: string };
@@ -69,10 +69,6 @@ interface Existing {
 const KIND_LABEL: Record<Kind, string> = { individual: "Individual", business: "Business" };
 
 /** PAN is masked on screen unless needed (BRD security requirements). */
-export function maskPan(pan: string): string {
-  return `${pan.slice(0, 2)}•••••${pan.slice(7)}`;
-}
-
 /** Plain sentences from a validation failure: "PAN: That is not a valid PAN." */
 function problemsFrom(error: unknown): string[] {
   if (!(error instanceof ApiError) || error.code !== "validation_error") return [messageFor(error)];
@@ -373,7 +369,7 @@ export function ClientPage() {
   const justCreated = (location.state as { created?: boolean } | null)?.created === true;
   const [client, setClient] = useState<Client | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showPan, setShowPan] = useState(false);
+  const [pan, setPan] = useState<string | null>(null);
   const [consentError, setConsentError] = useState<string | null>(null);
 
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
@@ -418,10 +414,21 @@ export function ClientPage() {
         <dt>Type</dt><dd>{KIND_LABEL[client.kind]}</dd>
         <dt>PAN</dt>
         <dd>
-          {client.pan ? (
+          {client.pan_masked ? (
             <>
-              <span data-testid="pan">{showPan ? client.pan : maskPan(client.pan)}</span>
-              <Button size="small" sx={{ ml: 1 }} onClick={() => { setShowPan((s) => !s); }}>{showPan ? "Hide" : "Show"}</Button>
+              <span data-testid="pan">{pan ?? client.pan_masked}</span>
+              <Button
+                size="small"
+                sx={{ ml: 1 }}
+                onClick={() => {
+                  if (pan) { setPan(null); return; }
+                  api<{ pan: string | null }>(`/api/clients/${String(client.client_id)}/pan`, { method: "POST" })
+                    .then((r) => { setPan(r.pan); })
+                    .catch((e: unknown) => { setConsentError(messageFor(e)); });
+                }}
+              >
+                {pan ? "Hide" : "Show"}
+              </Button>
             </>
           ) : "Not given"}
         </dd>

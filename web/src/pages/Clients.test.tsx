@@ -14,7 +14,7 @@ const saved = {
   client_id: 100001,
   kind: "individual",
   legal_name: "Ravi Kumar",
-  pan: "ABCPE1234F",
+  pan_masked: "AB•••••34F",
   gstin: null,
   status: "active",
   owner: { id: 2, full_name: "Asha Rao" },
@@ -130,6 +130,7 @@ describe("A client's page", () => {
       handlers: {
         ...quiet,
         "GET /api/clients/100001": () => jsonResponse(saved),
+        "POST /api/clients/100001/pan": () => jsonResponse({ pan: "ABCPE1234F" }),
         "PUT /api/clients/100001/contacts/11/consent": (c) => {
           puts.push(c);
           return jsonResponse({ ...saved.contacts[0], consent: { email: true, whatsapp: false, sms: true } });
@@ -138,7 +139,7 @@ describe("A client's page", () => {
     });
     expect(await screen.findByTestId("pan")).toHaveTextContent("AB•••••34F");
     await userEvent.click(screen.getByRole("button", { name: "Show" }));
-    expect(screen.getByTestId("pan")).toHaveTextContent("ABCPE1234F");
+    expect(await screen.findByText("ABCPE1234F")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: "SMS for Ravi Kumar" }));
     expect(await screen.findByRole("switch", { name: "SMS for Ravi Kumar" })).toBeChecked();
     expect(puts[0]?.body).toEqual({ channel: "sms", granted: true });
