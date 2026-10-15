@@ -40,6 +40,7 @@ from app.routers import (
     notifications,
     portal,
     portal_uploads,
+    reports,
     ticket_links,
     tickets,
     worklist,
@@ -146,6 +147,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_schedule.router)
     app.include_router(clients.router)
     app.include_router(tickets.router)
+    app.include_router(reports.router)
 
     # add_middleware puts the newest outermost; the first one added is closest to the app.
     app.add_middleware(

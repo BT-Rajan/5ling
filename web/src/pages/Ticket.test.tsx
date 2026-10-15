@@ -265,7 +265,7 @@ describe("Overdue fees on a filing", () => {
 describe("Filing", () => {
   it("marks it filed only with both the acknowledgement and the reference number", async () => {
     const uploads: Call[] = [];
-    const ready = { ...ticket("ready_to_file", []), cycle: { ...ticket("ready_to_file", []).cycle, can_file: true, proof: null } };
+    const ready = { ...ticket("ready_to_file", []), cycle: { ...ticket("ready_to_file", []).cycle, due_date: "2099-01-31", can_file: true, proof: null } };
     const filed = { ...ticket("filed", [move("acknowledge", "Mark acknowledged", "filed", "acknowledged")]), cycle: { ...ticket("filed", [move("acknowledge", "Mark acknowledged", "filed", "acknowledged")]).cycle, can_file: false, proof: { reference: "AA0705260012345", version_id: 77, filename: "ack.pdf", filed_by: "Asha Rao", filed_at: "2026-05-10T05:00:00Z" } } };
     renderApp("/tickets/TKT-000001", {
       user: staff,
@@ -289,6 +289,27 @@ describe("Filing", () => {
     expect(await screen.findByTestId("filing-proof")).toHaveTextContent("Filed · reference AA0705260012345");
     expect(screen.getByRole("button", { name: "Mark acknowledged" })).toBeInTheDocument();
     expect(uploads[0]?.headers.get("X-File-Name")).toBe("ack.pdf");
+  });
+
+  it("asks why when filing after the due date", async () => {
+    const uploads: Call[] = [];
+    const late = { ...ticket("ready_to_file", []), cycle: { ...ticket("ready_to_file", []).cycle, due_date: "2020-01-31", can_file: true, proof: null } };
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse(late),
+        "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
+        "POST /api/uploads/tickets/TKT-000001/filing?reference=AA0705260012345&late_reason=Client%20delayed": (c) => { uploads.push(c); return jsonResponse(late); },
+      },
+    });
+    const go = await screen.findByRole("button", { name: "Mark filed" });
+    await userEvent.type(screen.getByLabelText("Reference number"), "AA0705260012345");
+    await userEvent.upload(screen.getByLabelText("Acknowledgement file"), new File(["%PDF-1.7"], "ack.pdf", { type: "application/pdf" }));
+    expect(go).toBeDisabled(); // no reason yet
+    await userEvent.type(screen.getByLabelText("Why is it late?"), "Client delayed");
+    await userEvent.click(go);
+    await waitFor(() => { expect(uploads).toHaveLength(1); });
   });
 
   it("tells someone who may not file who can", async () => {

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 import ButtonBase from "@mui/material/ButtonBase";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -82,9 +84,12 @@ export function Dashboard() {
 
   return (
     <Box component="section" aria-labelledby="dashboard-heading" sx={{ mb: 4 }}>
-      <Typography id="dashboard-heading" variant="h5" component="h2" sx={{ mb: 1 }}>
-        {user.role === "administrator" ? "The whole practice" : "Your clients"}
-      </Typography>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1, gap: 1, flexWrap: "wrap" }}>
+        <Typography id="dashboard-heading" variant="h5" component="h2">
+          {user.role === "administrator" ? "The whole practice" : "Your clients"}
+        </Typography>
+        <Button component={RouterLink} to="/reports" size="small">Reports and downloads</Button>
+      </Stack>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {data && (
         <>
