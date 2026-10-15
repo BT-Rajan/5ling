@@ -16,6 +16,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { formatDay, formatIST } from "../time";
+import { ClientFees } from "../components/Fees";
 import { api, ApiError, messageFor } from "../api";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { useUser } from "../auth/AuthProvider";
@@ -438,6 +439,7 @@ export function ClientPage() {
       </Stack>
 
       <ClientTickets clientId={client.client_id} />
+      <ClientFees key={`fees-${String(round)}`} clientId={client.client_id} />
 
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Change owner, package or status</Typography>
       {changed && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setChanged(null); }}>{changed}</Alert>}

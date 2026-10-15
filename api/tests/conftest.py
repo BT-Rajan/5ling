@@ -141,6 +141,14 @@ def migrated_db(db_url: str) -> str:
                     " yearly_days = 21, updated_by_id = NULL WHERE id = 1"
                 )
             )
+            # Seeded by migration 0022 (tax_rates is emptied above, like every data table).
+            conn.execute(
+                text(
+                    "INSERT INTO tax_rates (code, rate_bp, effective_from, note, created_at)"
+                    " VALUES ('GST', 1800, '2017-07-01',"
+                    " 'GST on professional services (SAC 9982)', UTC_TIMESTAMP(6))"
+                )
+            )
     engine.dispose()
     return db_url
 

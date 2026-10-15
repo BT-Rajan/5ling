@@ -50,6 +50,7 @@ from app.models.document import (
     UploadedVia,
 )
 from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
+from app.models.fee import FeeOverride, Invoice, InvoiceSeries, OverrideStatus, TaxRate
 from app.models.filing import CycleFiling
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.meta import AppMeta
@@ -97,10 +98,13 @@ __all__ = [
     "EndReason",
     "EventKind",
     "EventSource",
+    "FeeOverride",
     "Filing",
     "Frequency",
     "Holiday",
     "HolidayRule",
+    "Invoice",
+    "InvoiceSeries",
     "JobRun",
     "JobStatus",
     "JobTrigger",
@@ -110,6 +114,7 @@ __all__ = [
     "LoginChallenge",
     "Notification",
     "NotificationKind",
+    "OverrideStatus",
     "Package",
     "PackageFiling",
     "PackageVersion",
@@ -123,6 +128,7 @@ __all__ = [
     "StateEvent",
     "Task",
     "TaskStatus",
+    "TaxRate",
     "Ticket",
     "TicketCounter",
     "TicketType",

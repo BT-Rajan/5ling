@@ -1,0 +1,11 @@
+# Daily at 06:10 India time: invoices for billing periods that have started (BRD FR-FE-02).
+# Install like the audit check timer.
+[Unit]
+Description=Ledgerline invoices on the billing schedule, daily
+
+[Timer]
+OnCalendar=*-*-* 06:10:00 Asia/Kolkata
+Persistent=true
+
+[Install]
+WantedBy=timers.target

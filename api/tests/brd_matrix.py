@@ -73,6 +73,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/clients"),
             ("GET", "/api/clients/{client_id}"),
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
+            # Asking for a client-specific fee (FR-FE-01); an Administrator decides.
+            ("POST", "/api/clients/{client_id}/fee-overrides"),
             ("PATCH", "/api/clients/{client_id}"),
             ("GET", "/api/clients/{client_id}/history"),
             # Moving a cycle on; approve is refused to the preparer (C22); filing needs proof (C23).
@@ -121,6 +123,11 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("PUT", "/api/admin/packages/{package_id}/draft"),
             ("DELETE", "/api/admin/packages/{package_id}/draft"),
             ("POST", "/api/admin/packages/{package_id}/publish"),
+            # Fee terms: client-specific fees to approve, and tax rates (FR-FE-01, FR-FE-09).
+            ("GET", "/api/admin/fee-overrides"),
+            ("POST", "/api/admin/fee-overrides/{override_id}/decision"),
+            ("GET", "/api/admin/tax-rates"),
+            ("POST", "/api/admin/tax-rates"),
             ("POST", "/api/admin/filings/preview"),
             ("GET", "/api/admin/holidays"),
             ("POST", "/api/admin/holidays"),
@@ -185,7 +192,16 @@ CAPABILITIES: tuple[Capability, ...] = (
         # With the acknowledgement and reference number, in one request (FR-WF-05).
         routes=(("POST", "/api/uploads/tickets/{ticket}/filing"),),
     ),
-    Capability("See fee ledger", "Y", "Own", "-", "-", "C25"),
+    Capability(
+        "See fee ledger",
+        "Y",
+        "Own",
+        "-",
+        "-",
+        "C25",
+        # The fee plan and invoices (C24); payments and balances join them in C25.
+        routes=(("GET", "/api/clients/{client_id}/fees"),),
+    ),
     Capability("Record payments", "Y", "Own", "-", "-", "C25"),
     Capability("Approve credit, discount, write-off", "Y", "-", "-", "-", "C26"),
     Capability(

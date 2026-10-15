@@ -23,6 +23,7 @@ from app.auth.sessions import revoke_all_for_user
 from app.config import get_settings
 from app.cycles.generator import run as run_generator
 from app.db import make_engine, make_session_factory
+from app.fees.job import run as run_invoices
 from app.files.documents import scan_pending
 from app.files.scan import ClamdScanner
 from app.files.store import store_from_settings
@@ -204,6 +205,23 @@ def send_alerts() -> tuple[bool, str]:
     return True, summary
 
 
+def raise_invoices() -> tuple[bool, str]:
+    """Invoices on each client's billing schedule (FR-FE-02). Run daily."""
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        tally = run_invoices(make_session_factory(engine), settings)
+    finally:
+        engine.dispose()
+    if tally.skipped_reason:
+        return False, f"Invoices skipped: {tally.skipped_reason}."
+    summary = f"{tally.raised} invoices raised for {tally.checked} clients, {tally.failed} failed."
+    if tally.failed:
+        return False, f"INVOICE RUN FAILED: {summary} {'; '.join(tally.failures)}"
+    return True, summary
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -224,7 +242,13 @@ def main(argv: list[str] | None = None) -> int:
     mailer.add_argument("--interval", type=float, default=15.0, help="seconds between rounds")
     sub.add_parser("scan-documents", help="scan files held while the virus scanner was down")
     sub.add_parser("send-alerts", help="send due client alerts and reminders (every 15 min)")
+    sub.add_parser("raise-invoices", help="raise invoices due on the billing schedule (daily)")
     args = parser.parse_args(argv)
+
+    if args.command == "raise-invoices":
+        ok, message = raise_invoices()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "send-alerts":
         ok, message = send_alerts()
