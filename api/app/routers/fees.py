@@ -23,6 +23,7 @@ from app.auth.access import RecordAccess, authorize_record
 from app.auth.deps import Principal, get_db, require_roles
 from app.catalog import paise, rupees
 from app.errors import ApiHTTPException
+from app.fees.controls import decide_adjustment, policy, request_adjustment
 from app.fees.ledger import (
     STATUS_LABEL,
     FeeStatus,
@@ -39,12 +40,16 @@ from app.fees.tax import GST
 from app.models import (
     FIRST_CLIENT_ID,
     LAST_CLIENT_ID,
+    AdjustmentKind,
+    AdjustmentStatus,
     BillingFrequency,
     Client,
     EntryKind,
+    FeeAdjustment,
     FeeOverride,
     Invoice,
     LedgerEntry,
+    OverduePolicyMode,
     OverrideStatus,
     PaymentMode,
     Role,
@@ -52,7 +57,7 @@ from app.models import (
     User,
 )
 from app.routers.clients import load_client
-from app.timeutil import today_ist
+from app.timeutil import today_ist, utcnow
 
 router = APIRouter(tags=["fees"])
 
@@ -78,6 +83,32 @@ class OverrideOut(BaseModel):
     decided_by: str | None
     decided_at: datetime | None
     decision_note: str | None
+
+
+class AdjustmentOut(BaseModel):
+    id: int
+    client_id: int
+    client_name: str
+    invoice_id: int
+    invoice_no: str
+    kind: AdjustmentKind
+    kind_label: str
+    amount: str
+    reason: str
+    status: AdjustmentStatus
+    requested_by: str | None
+    requested_at: datetime
+    decided_by: str | None
+    decided_at: datetime | None
+    decision_note: str | None
+    credit_note_no: str | None
+
+
+ADJUSTMENT_LABEL = {
+    AdjustmentKind.CREDIT_NOTE: "Credit note",
+    AdjustmentKind.DISCOUNT: "Discount",
+    AdjustmentKind.WRITE_OFF: "Write-off",
+}
 
 
 class PlanOut(BaseModel):
@@ -131,6 +162,7 @@ class FeesOut(BaseModel):
     overrides: list[OverrideOut]  # every request, newest first
     invoices: list[InvoiceOut]  # newest first
     ledger: list[LedgerOut]  # payments and reversals, newest first; nothing is ever removed
+    adjustments: list[AdjustmentOut]  # credit notes, discounts, write-offs; pending change nothing
     status: FeeStatus | None  # None: no invoices yet
     status_label: str | None
     balance: str  # still owed across all invoices
@@ -159,6 +191,24 @@ class PaymentIn(BaseModel):
 
 class ReverseIn(BaseModel):
     reason: Reason
+
+
+class AdjustmentIn(BaseModel):
+    kind: AdjustmentKind
+    amount: Money
+    reason: Reason
+
+
+class PolicyIn(BaseModel):
+    mode: OverduePolicyMode
+    limit: Annotated[Decimal, Field(ge=0, le=Decimal("99999999.99"), decimal_places=2)]
+
+
+class PolicyOut(BaseModel):
+    mode: OverduePolicyMode
+    limit: str
+    updated_by: str | None
+    updated_at: datetime
 
 
 class TaxRateIn(BaseModel):
@@ -202,6 +252,34 @@ def _override_out(db: Session, o: FeeOverride, client: Client | None = None) -> 
         decided_by=_name(db, o.decided_by_id),
         decided_at=o.decided_at,
         decision_note=o.decision_note,
+    )
+
+
+def adjustment_out(
+    db: Session, a: FeeAdjustment, client: Client | None = None, invoice_no: str | None = None
+) -> AdjustmentOut:
+    client = client or db.get(Client, a.client_pk)
+    if invoice_no is None:
+        invoice_no = db.scalar(select(Invoice.invoice_no).where(Invoice.id == a.invoice_id))
+    if client is None or invoice_no is None:  # foreign keys prevent it
+        raise RuntimeError("adjustment refers to missing rows")
+    return AdjustmentOut(
+        id=a.id,
+        client_id=client.client_id,
+        client_name=client.legal_name,
+        invoice_id=a.invoice_id,
+        invoice_no=invoice_no,
+        kind=a.kind,
+        kind_label=ADJUSTMENT_LABEL[a.kind],
+        amount=rupees(a.amount_paise) or "0.00",
+        reason=a.reason,
+        status=a.status,
+        requested_by=_name(db, a.requested_by_id),
+        requested_at=a.requested_at,
+        decided_by=_name(db, a.decided_by_id),
+        decided_at=a.decided_at,
+        decision_note=a.decision_note,
+        credit_note_no=a.credit_note_no,
     )
 
 
@@ -260,6 +338,13 @@ def _fees_out(db: Session, principal: Principal, client: Client) -> FeesOut:
         .limit(500)
     ).all()
     reversed_ids = {e.reverses_id for e, _, _ in entries if e.reverses_id is not None}
+    adjustments = db.execute(
+        select(FeeAdjustment, Invoice.invoice_no)
+        .join(Invoice, Invoice.id == FeeAdjustment.invoice_id)
+        .where(FeeAdjustment.client_pk == client.id)
+        .order_by(FeeAdjustment.id.desc())
+        .limit(200)
+    ).all()
     summary = fees_summary(db, [client.id], today)[client.id]
     return FeesOut(
         plan=PlanOut(
@@ -291,6 +376,7 @@ def _fees_out(db: Session, principal: Principal, client: Client) -> FeesOut:
             )
             for e, name, number in entries
         ],
+        adjustments=[adjustment_out(db, a, client, no) for a, no in adjustments],
         status=summary.status,
         status_label=STATUS_LABEL[summary.status] if summary.status else None,
         balance=rupees(summary.balance) or "0.00",
@@ -425,6 +511,153 @@ def reverse_entry(
     )
     db.commit()
     return _fees_out(db, principal, client)
+
+
+@router.post("/api/invoices/{invoice_id}/adjustments", status_code=201)
+def ask_for_adjustment(
+    invoice_id: Annotated[int, Path(ge=1)],
+    body: AdjustmentIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> FeesOut:
+    """FR-FE-08: a credit note, discount or write-off. Staff ask; an Administrator approves."""
+    invoice, client = _invoice_for(db, principal, invoice_id)
+    try:
+        adjustment = request_adjustment(
+            db,
+            invoice,
+            kind=body.kind,
+            amount_paise=paise(body.amount),
+            reason=body.reason,
+            user_id=principal.user_id,
+            role=principal.role,
+        )
+    except LedgerRefused as refused:
+        db.rollback()
+        raise ApiHTTPException(409, str(refused), code=refused.code) from None
+    audit(
+        db,
+        "fee.adjustment_approved"
+        if adjustment.status is AdjustmentStatus.APPROVED
+        else "fee.adjustment_requested",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("invoice", invoice.invoice_no),
+        details={
+            "adjustment": adjustment.id,
+            "kind": adjustment.kind.value,
+            "amount": adjustment.amount_paise,
+            "credit_note": adjustment.credit_note_no,
+        },
+    )
+    db.commit()
+    return _fees_out(db, principal, client)
+
+
+@router.get("/api/admin/fee-adjustments")
+def pending_adjustments(
+    principal: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[AdjustmentOut]:
+    """Credit notes, discounts and write-offs waiting for an Administrator, oldest first."""
+    rows = db.scalars(
+        select(FeeAdjustment)
+        .where(FeeAdjustment.status == AdjustmentStatus.PENDING)
+        .order_by(FeeAdjustment.requested_at, FeeAdjustment.id)
+        .limit(500)
+    )
+    return [adjustment_out(db, a) for a in rows]
+
+
+@router.post("/api/admin/fee-adjustments/{adjustment_id}/decision")
+def decide_on_adjustment(
+    adjustment_id: Annotated[int, Path(ge=1)],
+    body: DecisionIn,
+    principal: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> AdjustmentOut:
+    invoice_id = db.scalar(
+        select(FeeAdjustment.invoice_id).where(FeeAdjustment.id == adjustment_id)
+    )
+    invoice = lock_invoice(db, invoice_id) if invoice_id is not None else None
+    adjustment = db.scalar(
+        select(FeeAdjustment)
+        .where(FeeAdjustment.id == adjustment_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if invoice is None or adjustment is None:
+        raise ApiHTTPException(404, "Not found.", code="not_found")
+    try:
+        decide_adjustment(
+            db,
+            adjustment,
+            invoice,
+            approve=body.approve,
+            note=body.note,
+            user_id=principal.user_id,
+        )
+    except LedgerRefused as refused:
+        db.rollback()
+        raise ApiHTTPException(409, str(refused), code=refused.code) from None
+    audit(
+        db,
+        "fee.adjustment_approved" if body.approve else "fee.adjustment_rejected",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("invoice", invoice.invoice_no),
+        details={
+            "adjustment": adjustment.id,
+            "kind": adjustment.kind.value,
+            "amount": adjustment.amount_paise,
+            "credit_note": adjustment.credit_note_no,
+        },
+    )
+    db.commit()
+    return adjustment_out(db, adjustment, invoice_no=invoice.invoice_no)
+
+
+def _policy_out(db: Session) -> PolicyOut:
+    row = policy(db)
+    return PolicyOut(
+        mode=row.mode,
+        limit=rupees(row.limit_paise) or "0.00",
+        updated_by=_name(db, row.updated_by_id),
+        updated_at=row.updated_at,
+    )
+
+
+@router.get("/api/admin/fee-policy")
+def get_fee_policy(
+    principal: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PolicyOut:
+    return _policy_out(db)
+
+
+@router.put("/api/admin/fee-policy")
+def set_fee_policy(
+    body: PolicyIn,
+    principal: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PolicyOut:
+    """FR-FE-06: reminders only, also warn on filings, or also block Filed over the limit."""
+    row = policy(db, lock=True)
+    before = {"mode": row.mode.value, "limit": row.limit_paise}
+    row.mode = body.mode
+    row.limit_paise = paise(body.limit)
+    row.updated_by_id = principal.user_id
+    row.updated_at = utcnow()
+    audit(
+        db,
+        "fee.policy_changed",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("fee_policy", 1),
+        details={"before": before, "after": {"mode": body.mode.value, "limit": row.limit_paise}},
+    )
+    db.commit()
+    return _policy_out(db)
 
 
 @router.get("/api/admin/fee-overrides")

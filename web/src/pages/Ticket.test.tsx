@@ -225,6 +225,43 @@ describe("Updates to the client", () => {
   });
 });
 
+describe("Overdue fees on a filing", () => {
+  it("shows the block and lets an Administrator override this filing", async () => {
+    const posts: Call[] = [];
+    const fees = { mode: "block", overdue: "1180.00", warning: "This client has ₹1180.00 in overdue fees. Filing is blocked until they are paid or an Administrator overrides it.", blocked: true, waiver: null };
+    const base = ticket("ready_to_file", []);
+    renderApp("/tickets/TKT-000001", {
+      user: admin,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse({ ...base, cycle: { ...base.cycle, can_file: true, fees } }),
+        "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
+        "POST /api/tickets/TKT-000001/fee-waiver": (c) => { posts.push(c); return jsonResponse({ ...base, cycle: { ...base.cycle, can_file: true, fees: { ...fees, blocked: false, waiver: { reason: "Deadline today", granted_by: "The Boss", granted_at: "2026-10-14T06:00:00Z" } } } }, 201); },
+      },
+    });
+    expect(await screen.findByText(/Filing is blocked/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Override for this filing" }));
+    await userEvent.type(screen.getByLabelText("Why let this filing go ahead?"), "Deadline today");
+    await userEvent.click(screen.getByRole("button", { name: "Override for this filing" }));
+    expect(await screen.findByText("Overridden for this filing by The Boss: “Deadline today”")).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ reason: "Deadline today" });
+  });
+
+  it("does not offer staff the override", async () => {
+    const base = ticket("ready_to_file", []);
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse({ ...base, cycle: { ...base.cycle, can_file: true, fees: { mode: "warn", overdue: "50.00", warning: "This client has ₹50.00 in overdue fees.", blocked: false, waiver: null } } }),
+        "GET /api/tickets/TKT-000001/documents": () => jsonResponse([]),
+      },
+    });
+    expect(await screen.findByText("This client has ₹50.00 in overdue fees.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Override for this filing" })).not.toBeInTheDocument();
+  });
+});
+
 describe("Filing", () => {
   it("marks it filed only with both the acknowledgement and the reference number", async () => {
     const uploads: Call[] = [];

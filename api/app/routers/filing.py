@@ -14,6 +14,7 @@ from typing import Annotated
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, Query, Request
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,16 +23,32 @@ from app.auth.deps import Principal, get_db, require_roles
 from app.cycles.service import MoveRefused, ticket_code, transition
 from app.cycles.stages import STAGE_LABEL
 from app.errors import ApiHTTPException
+from app.fees.controls import filing_check, grant_waiver
+from app.fees.ledger import LedgerRefused
 from app.files.documents import Infected, accept, forget_file
 from app.files.types import FileRefused
 from app.mail.updates import draft_updates
 from app.models import Cycle, CycleFiling, Role, Stage, UploadedVia
 from app.routers.documents import raw_body
-from app.routers.tickets import TicketOut, TicketRef, _load, _ticket_out, can_edit
+from app.routers.tickets import (
+    BEFORE_FILED,
+    TicketOut,
+    TicketRef,
+    _load,
+    _ticket_out,
+    can_edit,
+)
 
 router = APIRouter(tags=["filing"])
 
 staff_or_admin = require_roles(Role.ADMINISTRATOR, Role.STAFF)
+admin_only = require_roles(Role.ADMINISTRATOR)
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=5, max_length=500)]
+
+
+class WaiverIn(BaseModel):
+    reason: Reason
+
 
 # Portal acknowledgement numbers and ARNs: letters, digits, and / or - inside.
 REFERENCE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9/-]{3,48})[A-Za-z0-9]")
@@ -66,6 +83,14 @@ def record_filing(
             409,
             f"This is in {STAGE_LABEL[cycle.stage]}; only work that is ready to file can be marked filed.",
             code="illegal_transition",
+        )
+    if filing_check(db, client, cycle).blocked:
+        # FR-FE-06: the block policy, unless an Administrator waived it for this cycle.
+        raise ApiHTTPException(
+            409,
+            "This client has overdue fees, so filing is blocked. Record the payment, or ask an"
+            " Administrator to override it for this filing.",
+            code="fees_overdue",
         )
     ref = reference.strip().upper()
     if not REFERENCE.fullmatch(ref):
@@ -149,4 +174,35 @@ def record_filing(
     except Exception:
         forget_file(store, got.version)
         raise
+    return _ticket_out(db, found, client, principal)
+
+
+@router.post("/api/tickets/{ticket}/fee-waiver", status_code=201)
+def waive_fee_block(
+    ticket: TicketRef,
+    body: WaiverIn,
+    principal: Principal = Depends(admin_only),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> TicketOut:
+    """FR-FE-06: an Administrator lets this one filing go ahead despite overdue fees."""
+    found, client = _load(db, principal, ticket, lock=True)
+    cycle = db.scalar(select(Cycle).where(Cycle.ticket_id == found.id))
+    if cycle is None:
+        raise ApiHTTPException(409, "This ticket has no filing stages.", code="not_a_cycle")
+    if cycle.stage not in BEFORE_FILED:
+        raise ApiHTTPException(409, "This has already been filed.", code="already_filed")
+    try:
+        waiver = grant_waiver(db, cycle, reason=body.reason, user_id=principal.user_id)
+    except LedgerRefused as refused:
+        db.rollback()
+        raise ApiHTTPException(409, str(refused), code=refused.code) from None
+    audit(
+        db,
+        "fee.filing_waived",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("ticket", ticket_code(found.number)),
+        details={"waiver": waiver.id, "client_id": client.client_id},
+    )
+    db.commit()
     return _ticket_out(db, found, client, principal)
