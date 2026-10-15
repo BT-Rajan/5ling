@@ -503,7 +503,7 @@ Total: 151 tickets.
 
 **Done when:** Opening a client you do not own asks for a reason and logs it; a due-date change needs no release.
 
-### C30 - Security hardening (R1)
+### C30 - Security hardening (R1) - DONE
 
 **Goal:** Close the gaps before the independent test.  
 **Depends on:** C28

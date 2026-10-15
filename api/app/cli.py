@@ -41,6 +41,7 @@ from app.models import (
     User,
 )
 from app.notify.service import documents_arrived
+from app.security_check import review
 
 
 def create_admin(email: str, name: str, password: str) -> str:
@@ -222,6 +223,18 @@ def raise_invoices() -> tuple[bool, str]:
     return True, summary
 
 
+def security_check() -> tuple[bool, str]:
+    """NFR-SE-04: encryption at rest, in transit, and key separation, on this installation."""
+    settings = get_settings()
+    engine = make_engine(settings.database_url.get_secret_value())
+    try:
+        checks = review(settings, engine)
+    finally:
+        engine.dispose()
+    lines = [f"{'PASS' if c.ok else 'FAIL'}  {c.name}: {c.detail}" for c in checks]
+    return all(c.ok for c in checks), "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -243,7 +256,15 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("scan-documents", help="scan files held while the virus scanner was down")
     sub.add_parser("send-alerts", help="send due client alerts and reminders (every 15 min)")
     sub.add_parser("raise-invoices", help="raise invoices due on the billing schedule (daily)")
+    sub.add_parser(
+        "security-check", help="check encryption at rest and key separation (exit 1 if not)"
+    )
     args = parser.parse_args(argv)
+
+    if args.command == "security-check":
+        ok, message = security_check()
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command == "raise-invoices":
         ok, message = raise_invoices()

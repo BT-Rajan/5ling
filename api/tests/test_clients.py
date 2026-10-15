@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from tests.audit_helpers import entries
-from tests.helpers import Signed, make_user, sign_in, sign_in_directly
+from tests.helpers import Signed, break_glass, make_user, sign_in, sign_in_directly
 
 PAN = "ABCPE1234F"  # an individual's PAN (4th letter P)
 FIRM_GSTIN = "27AAPFU0939F1ZV"  # a published example; its PAN is AAPFU0939F (a firm)
@@ -143,7 +143,15 @@ def test_every_client_gets_a_six_digit_id_and_duplicates_point_to_it(
     pid = publish_package(web, admin)
     first = _ok(create(web, admin, client_body(pid, owner_id=admin.user_id)), 201)
     assert first["client_id"] == 100001
-    assert (first["legal_name"], first["pan"], first["status"]) == ("Asha Rao", PAN, "active")
+    assert (first["legal_name"], first["pan_masked"], first["status"]) == (
+        "Asha Rao",
+        "AB•••••34F",
+        "active",
+    )
+    assert "pan" not in first  # NFR-SE-06: masked unless asked for
+    shown = _ok(web.post("/api/clients/100001/pan", headers=admin.headers))
+    assert shown == {"pan": PAN}
+    assert "client.pan_revealed" in [e.event for e in entries(migrated_db)]
 
     again = create(
         web,
@@ -177,7 +185,8 @@ def test_every_client_gets_a_six_digit_id_and_duplicates_point_to_it(
         201,
     )
     assert firm["client_id"] == 100002
-    assert firm["pan"] == "AAPFU0939F"  # taken from the GSTIN, so the PAN is checked too
+    # The PAN is taken from the GSTIN, so it is checked too.
+    assert _ok(web.post("/api/clients/100002/pan", headers=admin.headers))["pan"] == "AAPFU0939F"
     by_gstin = create(
         web,
         admin,
@@ -263,7 +272,10 @@ def test_only_the_owner_and_the_administrator_can_open_a_client(
     other_id = make_user(migrated_db, "other@firm.in", Role.STAFF)
     made = _ok(create(web, admin, client_body(pid, owner_id=owner_id)), 201)
     url = f"/api/clients/{made['client_id']}"
-    assert web.get(url).status_code == 200  # administrator
+    # The Administrator, after giving a reason (FR-AC-05).
+    assert web.get(url).json()["error"]["code"] == "reason_required"
+    break_glass(web, admin, made["client_id"])
+    assert web.get(url).status_code == 200
     sign_in_directly(migrated_db, web, other_id)
     assert web.get(url).status_code == 403
     sign_in_directly(migrated_db, web, owner_id)

@@ -191,7 +191,7 @@ class ClientOut(BaseModel):
     client_id: int
     kind: ClientKind
     legal_name: str
-    pan: str | None
+    pan_masked: str | None  # NFR-SE-06: shown in full only on request (POST .../pan, audited)
     gstin: str | None
     status: ClientStatus
     owner: PersonRef
@@ -245,7 +245,7 @@ def _client_out(db: Session, client: Client) -> ClientOut:
         client_id=client.client_id,
         kind=client.kind,
         legal_name=client.legal_name,
-        pan=client.pan,
+        pan_masked=mask_pan(client.pan),
         gstin=client.gstin,
         status=client.status,
         owner=PersonRef(id=owner.id, full_name=owner.full_name),
@@ -507,6 +507,31 @@ def get_client(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> ClientOut:
     return _client_out(db, load_client(db, principal, client_id))
+
+
+class PanOut(BaseModel):
+    pan: str | None
+
+
+@router.post("/{client_id}/pan")
+def reveal_pan(
+    client_id: ClientIdPath,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> PanOut:
+    """NFR-SE-06: the full PAN, when someone needs it. Each reveal is in the audit log (the PAN
+    itself is not)."""
+    client = load_client(db, principal, client_id)
+    audit(
+        db,
+        "client.pan_revealed",
+        actor_user_id=principal.user_id,
+        actor_role=principal.role.value,
+        target=("client", client.client_id),
+        details={},
+    )
+    db.commit()
+    return PanOut(pan=client.pan)
 
 
 @router.put("/{client_id}/contacts/{contact_id}/consent")

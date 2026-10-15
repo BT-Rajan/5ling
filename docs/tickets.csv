@@ -127,10 +127,10 @@ LL-120,C28,R1,Reports and exports,Reports screens,WEB,M,FR-RP-03,Done
 LL-121,C29,R1,Admin controls,"Break-glass access with mandatory reason, flagged in audit",API,M,FR-AC-05,Done
 LL-122,C29,R1,Admin controls,"Admin settings: grace period, reminder interval, escalation point, link expiry, idle timeout",API,M,"NFR-MN-01, FR-AL-02, FR-IN-03",Done
 LL-123,C29,R1,Admin controls,Settings and break-glass screens,WEB,M,,Done
-LL-124,C30,R1,Security hardening,Mask PAN and bank details on screen; log review,API,M,NFR-SE-06,Todo
-LL-125,C30,R1,Security hardening,Encryption at rest and key separation review,OPS,M,NFR-SE-04,Todo
-LL-126,C30,R1,Security hardening,Full authorization matrix against section 8 of the BRD,TEST,M,"FR-AC-01, NFR-SE-01",Todo
-LL-127,C30,R1,Security hardening,Independent security test; fix critical and high findings,OPS,M,NFR-SE-07,Todo
+LL-124,C30,R1,Security hardening,Mask PAN and bank details on screen; log review,API,M,NFR-SE-06,Done
+LL-125,C30,R1,Security hardening,Encryption at rest and key separation review,OPS,M,NFR-SE-04,Done
+LL-126,C30,R1,Security hardening,Full authorization matrix against section 8 of the BRD,TEST,M,"FR-AC-01, NFR-SE-01",Done
+LL-127,C30,R1,Security hardening,Independent security test; fix critical and high findings,OPS,M,NFR-SE-07,Done
 LL-128,C31,R1,Resilience and performance,Daily backups to a separate location; restore test script,OPS,M,NFR-AV-02,Todo
 LL-129,C31,R1,Resilience and performance,"Monitoring and alerts for failed jobs, failed emails, error spikes",OPS,M,NFR-OB-01,Todo
 LL-130,C31,R1,Resilience and performance,"Load test: 5,000 clients, 50,000 cycles",TEST,M,"NFR-PF-01, NFR-SC-01",Todo
