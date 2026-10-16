@@ -46,6 +46,8 @@ from app.ops.monitor import unit_failed
 from app.ops.restore import check as restore_check
 from app.security_check import review
 
+# Go-live tools (C32) are imported where used: they build the whole app in process.
+
 
 def create_admin(email: str, name: str, password: str) -> str:
     try:
@@ -271,6 +273,53 @@ def verify_restore(backup: str) -> tuple[bool, str]:
     )
 
 
+def migrate_clients(
+    path: str, admin_email: str, *, commit: bool, only_verify: bool, out: str | None
+) -> tuple[bool, str]:
+    """C32, LL-132: check, save and verify the source system's clients (see app/golive/migrate)."""
+    from pathlib import Path
+
+    from app.golive import migrate
+    from app.golive.inproc import Api
+
+    source = Path(path)
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    with Api(settings, admin_email) as api, api.factory() as db:
+        report = migrate.check(db, api, migrate.read(source))
+        if commit:
+            migrate.commit(db, api, report)
+            target = Path(out) if out else source.with_suffix(".map.csv")
+            migrate.write_map(report, target)
+        if commit or only_verify:
+            migrate.verify(db, report)
+    text = report.text()
+    if not commit and not only_verify and not report.bad:
+        text += "\nAll rows are ready. Run again with --commit to save them."
+    return report.ok, text
+
+
+def load_catalog(path: str, admin_email: str, *, commit: bool) -> tuple[bool, str]:
+    """C32, LL-133: load filing types, due-date rules and packages (see app/golive/catalog)."""
+    from pathlib import Path
+
+    from app.golive import catalog
+    from app.golive.inproc import Api
+
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    parsed, result = catalog.read(Path(path))
+    if parsed is None:
+        return False, result.text()
+    with Api(settings, admin_email) as api:
+        catalog.check(api, parsed, result)
+        if commit:
+            catalog.commit(api, parsed, result)
+        elif result.ok:
+            result.done.append("All entries are ready. Run again with --commit to load them.")
+    return result.ok, result.text()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -302,7 +351,30 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "security-check", help="check encryption at rest and key separation (exit 1 if not)"
     )
+    mig = sub.add_parser("migrate-clients", help="check, then save, the source system's clients")
+    mig.add_argument("file", help="the clients CSV (see docs/GOLIVE.md)")
+    mig.add_argument("--as", dest="admin", required=True, help="an Administrator's email")
+    mode = mig.add_mutually_exclusive_group()
+    mode.add_argument("--commit", action="store_true", help="save the rows (after a clean check)")
+    mode.add_argument("--verify", action="store_true", help="only the count and sample checks")
+    mig.add_argument("--out", help="where to write the source-to-client id map")
+    cat = sub.add_parser("load-catalog", help="load filing types, due dates and packages (JSON)")
+    cat.add_argument("file")
+    cat.add_argument("--as", dest="admin", required=True, help="an Administrator's email")
+    cat.add_argument("--commit", action="store_true", help="load them (after a clean check)")
     args = parser.parse_args(argv)
+
+    if args.command == "migrate-clients":
+        ok, message = migrate_clients(
+            args.file, args.admin, commit=args.commit, only_verify=args.verify, out=args.out
+        )
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
+
+    if args.command == "load-catalog":
+        ok, message = load_catalog(args.file, args.admin, commit=args.commit)
+        print(message, file=sys.stdout if ok else sys.stderr)
+        return 0 if ok else 1
 
     if args.command in ("monitor", "notify-failure"):
         ok, message = monitor(args.unit if args.command == "notify-failure" else None)

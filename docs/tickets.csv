@@ -135,10 +135,10 @@ LL-128,C31,R1,Resilience and performance,Daily backups to a separate location; r
 LL-129,C31,R1,Resilience and performance,"Monitoring and alerts for failed jobs, failed emails, error spikes",OPS,M,NFR-OB-01,Done
 LL-130,C31,R1,Resilience and performance,"Load test: 5,000 clients, 50,000 cycles",TEST,M,"NFR-PF-01, NFR-SC-01",Done
 LL-131,C31,R1,Resilience and performance,Accessibility (WCAG 2.1 AA) and cross-browser pass,TEST,M,NFR-US-01,Done
-LL-132,C32,R1,"Migration, pilot and go-live",Migration scripts per Q5 with count and 5% sample check,OPS,M,"BRD s15, Q5",Todo
-LL-133,C32,R1,"Migration, pilot and go-live",Load Q4 filing types and due-date rules,OPS,S,Q4,Todo
-LL-134,C32,R1,"Migration, pilot and go-live",Pilot with 20 clients; defect triage,OPS,M,BRD s14,Todo
-LL-135,C32,R1,"Migration, pilot and go-live",Sign-off pack with test evidence,OPS,S,BRD s15,Todo
+LL-132,C32,R1,"Migration, pilot and go-live",Migration scripts per Q5 with count and 5% sample check,OPS,M,"BRD s15, Q5",Done
+LL-133,C32,R1,"Migration, pilot and go-live",Load Q4 filing types and due-date rules,OPS,S,Q4,Done
+LL-134,C32,R1,"Migration, pilot and go-live",Pilot with 20 clients; defect triage,OPS,M,BRD s14,Done
+LL-135,C32,R1,"Migration, pilot and go-live",Sign-off pack with test evidence,OPS,S,BRD s15,Done
 LL-136,C33,R2,Client import,Spreadsheet upload and validation report,API,M,FR-CL-05,Todo
 LL-137,C33,R2,Client import,Confirm-and-save step; import screen,WEB,M,FR-CL-05,Todo
 LL-138,C34,R2,Nil filings and phone follow-up,Client confirms no activity; cycle skips to review,API,M,FR-CY-03,Todo

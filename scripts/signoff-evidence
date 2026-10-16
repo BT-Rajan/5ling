@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Sign-off evidence (C32, LL-135; BRD section 15). Collects, in one dated folder, the checks the
+# sign-off pack needs from this installation. Run on the production server, as the service user,
+# with the environment file loaded, after go-live preparation and again at the end of the pilot:
+#   scripts/signoff-evidence [FOLDER]      (default /var/backups/ledgerline/signoff-YYYYMMDD-HHMM)
+# Exit 1 if any check fails; the folder still holds every output, so the failure is on record.
+# Holds no personal data: only check results, versions and counts.
+set -uo pipefail
+umask 077
+cd "$(dirname "$0")/.."
+root="$(pwd)"
+out="${1:-${LL_BACKUP_DIR:-/var/backups/ledgerline}/signoff-$(date +%Y%m%d-%H%M)}"
+mkdir -p "$out"
+status=0
+
+run() {  # run NAME COMMAND...: keep its output, note PASS or FAIL
+  local name="$1"; shift
+  if "$@" >"$out/$name.txt" 2>&1; then
+    echo "PASS  $name" | tee -a "$out/summary.txt"
+  else
+    echo "FAIL  $name" | tee -a "$out/summary.txt"
+    status=1
+  fi
+}
+
+{
+  echo "Ledgerline sign-off evidence, $(date -Iseconds) on $(hostname)"
+  echo "Code: $(git -C "$root" rev-parse HEAD 2>/dev/null || echo 'not a git checkout')"
+} >"$out/summary.txt"
+
+cd "$root/api"
+run schema-at-latest-migration sh -c '.venv/bin/alembic current | grep -q "(head)" && .venv/bin/alembic current'
+run audit-chain .venv/bin/python -m app.cli verify-audit
+run security-check .venv/bin/python -m app.cli security-check
+if [ -f "${LL_BACKUP_DIR:-/var/backups/ledgerline}/restore-tests.log" ]; then
+  run restore-tests sh -c 'tail -n 20 "$0"; grep -v "^ " "$0" | tail -n 1 | grep -q " PASS restore"' \
+    "${LL_BACKUP_DIR:-/var/backups/ledgerline}/restore-tests.log"
+else
+  echo "no restore test recorded yet" >"$out/restore-tests.txt"
+  echo "FAIL  restore-tests (none recorded; run scripts/restore-test)" | tee -a "$out/summary.txt"
+  status=1
+fi
+run timers sh -c 'systemctl list-timers "ledgerline-*" --all --no-pager'
+run failed-units sh -c '! systemctl --failed --no-legend "ledgerline-*" | grep -q .'
+
+echo "Evidence in $out. Add the independent security test report, the pilot defect log and the" \
+  "signed acceptance sheet (docs/GOLIVE.md section 4)." | tee -a "$out/summary.txt"
+exit $status

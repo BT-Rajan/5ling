@@ -1,0 +1,134 @@
+{
+  "filings": [
+    {
+      "code": "GSTR-1",
+      "name": "GSTR-1 outward supplies (monthly)",
+      "description": "Statement of outward supplies for monthly filers.",
+      "default_checklist": [
+        {"label": "Sales register", "required": true},
+        {"label": "Credit and debit notes", "required": false},
+        {"label": "E-invoice and e-way bill summary", "required": false}
+      ],
+      "calendar": {"frequency": "monthly", "due": {"months_after": 1, "day": 11},
+                   "notes": "Statutory due date as generally notified. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "GSTR-3B",
+      "name": "GSTR-3B summary return (monthly)",
+      "description": "Summary return and tax payment for monthly filers.",
+      "default_checklist": [
+        {"label": "Sales register", "required": true},
+        {"label": "Purchase register", "required": true},
+        {"label": "GSTR-2B reconciliation notes", "required": false}
+      ],
+      "calendar": {"frequency": "monthly", "due": {"months_after": 1, "day": 20},
+                   "notes": "20th for monthly filers. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "GSTR-1-QRMP",
+      "name": "GSTR-1 outward supplies (quarterly, QRMP)",
+      "default_checklist": [
+        {"label": "Sales register for the quarter", "required": true}
+      ],
+      "calendar": {"frequency": "quarterly", "due": {"months_after": 1, "day": 13},
+                   "notes": "QRMP scheme. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "GSTR-3B-QRMP",
+      "name": "GSTR-3B summary return (quarterly, QRMP)",
+      "default_checklist": [
+        {"label": "Sales register for the quarter", "required": true},
+        {"label": "Purchase register for the quarter", "required": true}
+      ],
+      "calendar": {"frequency": "quarterly", "due": {"months_after": 1, "day": 22},
+                   "notes": "22nd or 24th depending on the client's state. Set 24 for those states. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "CMP-08",
+      "name": "CMP-08 composition statement (quarterly)",
+      "default_checklist": [
+        {"label": "Turnover for the quarter", "required": true}
+      ],
+      "calendar": {"frequency": "quarterly", "due": {"months_after": 1, "day": 18},
+                   "notes": "To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "GSTR-9",
+      "name": "GSTR-9 annual return",
+      "default_checklist": [
+        {"label": "Books of account for the year", "required": true},
+        {"label": "GSTR-1 and GSTR-3B reconciliation", "required": true}
+      ],
+      "calendar": {"frequency": "yearly", "due": {"months_after": 9, "day": 31},
+                   "notes": "31 December after the financial year. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "TDS-24Q",
+      "name": "TDS return on salaries (24Q)",
+      "default_checklist": [
+        {"label": "Salary register", "required": true},
+        {"label": "Challan details", "required": true}
+      ],
+      "calendar": {"frequency": "quarterly",
+                   "due": {"months_after": 1, "day": 31, "overrides": {"Q4": {"months_after": 2, "day": 31}}},
+                   "notes": "31 July, 31 October, 31 January and 31 May. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "TDS-26Q",
+      "name": "TDS return on other payments (26Q)",
+      "default_checklist": [
+        {"label": "Payments subject to TDS", "required": true},
+        {"label": "Challan details", "required": true}
+      ],
+      "calendar": {"frequency": "quarterly",
+                   "due": {"months_after": 1, "day": 31, "overrides": {"Q4": {"months_after": 2, "day": 31}}},
+                   "notes": "31 July, 31 October, 31 January and 31 May. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "ITR-NONAUDIT",
+      "name": "Income tax return (no audit)",
+      "default_checklist": [
+        {"label": "Form 16 or income details", "required": true},
+        {"label": "Bank statements", "required": true},
+        {"label": "Investment proofs", "required": false},
+        {"label": "Capital gains statements", "required": false}
+      ],
+      "calendar": {"frequency": "yearly", "due": {"months_after": 4, "day": 31},
+                   "notes": "31 July after the financial year. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "ITR-AUDIT",
+      "name": "Income tax return (tax audit cases)",
+      "default_checklist": [
+        {"label": "Audited financial statements", "required": true},
+        {"label": "Tax audit report", "required": true}
+      ],
+      "calendar": {"frequency": "yearly", "due": {"months_after": 7, "day": 31},
+                   "notes": "31 October after the financial year. To confirm with Partners (Q4)."}
+    },
+    {
+      "code": "TAX-AUDIT",
+      "name": "Tax audit report (Form 3CA/3CB-3CD)",
+      "default_checklist": [
+        {"label": "Books of account for the year", "required": true},
+        {"label": "Fixed asset register", "required": false}
+      ],
+      "calendar": {"frequency": "yearly", "due": {"months_after": 6, "day": 30},
+                   "notes": "30 September after the financial year. To confirm with Partners (Q4)."}
+    }
+  ],
+  "packages": [
+    {"name": "GST Monthly", "description": "Monthly GSTR-1 and GSTR-3B, and the annual return.",
+     "fee": "1500", "billing_frequency": "monthly", "filings": ["GSTR-1", "GSTR-3B", "GSTR-9"]},
+    {"name": "GST Quarterly (QRMP)", "description": "Quarterly GSTR-1 and GSTR-3B, and the annual return.",
+     "fee": "3000", "billing_frequency": "quarterly", "filings": ["GSTR-1-QRMP", "GSTR-3B-QRMP", "GSTR-9"]},
+    {"name": "GST Composition", "description": "Quarterly CMP-08.",
+     "fee": "2000", "billing_frequency": "quarterly", "filings": ["CMP-08"]},
+    {"name": "TDS Quarterly", "description": "24Q and 26Q every quarter.",
+     "fee": "2500", "billing_frequency": "quarterly", "filings": ["TDS-24Q", "TDS-26Q"]},
+    {"name": "Income Tax - Individual", "description": "Yearly income tax return.",
+     "fee": "3000", "billing_frequency": "yearly", "filings": ["ITR-NONAUDIT"]},
+    {"name": "Income Tax - Audit", "description": "Tax audit and the income tax return.",
+     "fee": "25000", "billing_frequency": "yearly", "filings": ["TAX-AUDIT", "ITR-AUDIT"]}
+  ]
+}

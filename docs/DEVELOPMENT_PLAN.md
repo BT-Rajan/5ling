@@ -531,7 +531,7 @@ Total: 151 tickets.
 
 **Done when:** Restore test recorded; load test meets targets; failed job alerts within 5 minutes.
 
-### C32 - Migration, pilot and go-live (R1)
+### C32 - Migration, pilot and go-live (R1) - DONE
 
 **Goal:** Real data in, 20-client pilot, sign-off.  
 **Depends on:** C30, C31
