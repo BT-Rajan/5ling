@@ -71,9 +71,13 @@ MOVES: tuple[Move, ...] = (
     Move("file", "Mark filed", Stage.READY_TO_FILE, Stage.FILED),
     Move("acknowledge", "Mark acknowledged", Stage.FILED, Stage.ACKNOWLEDGED),
     Move("close", "Close", Stage.ACKNOWLEDGED, Stage.CLOSED),
+    # FR-PK-07: the filing was removed for this client (approved); its unstarted cycles close.
+    Move("withdraw", "Filing removed for this client", Stage.SCHEDULED, Stage.CLOSED),
 )
 
 BY_ACTION: dict[str, Move] = {m.action: m for m in MOVES}
+# Made only by the system, on a stored record (FR-CY-03, FR-PK-07): never offered to a person.
+SYSTEM_MOVES = frozenset({"no_activity", "withdraw"})
 
 
 def moves_from(stage: Stage) -> list[Move]:
@@ -83,7 +87,9 @@ def moves_from(stage: Stage) -> list[Move]:
 def _check_table() -> None:
     """Forward moves go exactly one stage on; backward moves are only the listed exceptions."""
     backward = {"withdraw_assignment", "return"}
-    skips = {"no_activity"}  # system-only, gated on the stored confirmation (FR-CY-03)
+    # System-only, each gated on a stored record: the client's nil confirmation (FR-CY-03) and an
+    # approved removal of the filing for this client (FR-PK-07).
+    skips = SYSTEM_MOVES
     for move in MOVES:
         step = ORDER.index(move.target) - ORDER.index(move.source)
         if move.action in skips:

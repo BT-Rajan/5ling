@@ -18,6 +18,7 @@ from app.files.store import store_from_settings
 from app.logging_conf import setup_logging
 from app.ops.errors import error_counter
 from app.routers import (
+    access_review,
     admin_audit,
     admin_emails,
     admin_extensions,
@@ -30,6 +31,7 @@ from app.routers import (
     assignments,
     auth,
     auth_consultant,
+    client_filings,
     client_import,
     client_updates,
     clients,
@@ -149,6 +151,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.include_router(admin_packages.router)
     app.include_router(admin_schedule.router)
     app.include_router(client_import.router)  # before clients: /api/clients/import/...
+    app.include_router(client_filings.router)
+    app.include_router(access_review.router)
     app.include_router(clients.router)
     app.include_router(tickets.router)
     app.include_router(reports.router)

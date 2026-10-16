@@ -36,7 +36,8 @@ def test_the_stage_table_never_skips_a_stage() -> None:
     skips = [m.action for m in forward if ORDER.index(m.target) - ORDER.index(m.source) != 1]
     # The one exception: a nil filing the client confirmed goes straight to review (FR-CY-03,
     # C34). Only the system makes it, and only with the stored confirmation.
-    assert skips == ["no_activity"]
+    # And a filing removed for one client (FR-PK-07, C37): its unstarted cycles close.
+    assert skips == ["no_activity", "withdraw"]
     # Every stage but the last can be left by moving forward.
     assert {m.source for m in forward} == set(ORDER[:-1])
 

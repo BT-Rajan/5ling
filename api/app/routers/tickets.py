@@ -31,7 +31,7 @@ from app.cycles.service import (
     ticket_code,
     transition,
 )
-from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
+from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, SYSTEM_MOVES, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
 from app.fees.controls import filing_check
 from app.fees.ledger import FeeStatus, fees_summary
@@ -260,7 +260,7 @@ ASSIGNMENT_MOVES = frozenset({"assign", "withdraw_assignment"})
 # Moves made elsewhere, so not offered as plain buttons: assigning (the assignment panel) and
 # filing (with its proof, POST /api/uploads/tickets/{ticket}/filing). "No activity" is the
 # client's to make, from the portal (FR-CY-03).
-SEPARATE_MOVES = ASSIGNMENT_MOVES | {"file", "no_activity"}
+SEPARATE_MOVES = ASSIGNMENT_MOVES | {"file"} | SYSTEM_MOVES
 
 
 class TransitionIn(BaseModel):

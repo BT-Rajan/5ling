@@ -10,6 +10,7 @@ import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { AuditPage } from "./pages/AuditPage";
 import { AssignmentPage } from "./consultant/MyWork";
 import { ClientPage, ClientsHome, NewClientPage } from "./pages/ClientsPage";
+import { AccessReviewPage } from "./pages/AccessReviewPage";
 import { ImportClientsPage } from "./pages/ImportClientsPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { EmptyPage } from "./pages/EmptyPage";
@@ -90,6 +91,7 @@ export function App() {
         <Route path="setup/email" element={<OnlyFor roles={["administrator"]}><EmailPage /></OnlyFor>} />
         <Route path="setup/extensions" element={<OnlyFor roles={["administrator"]}><ExtensionsPage /></OnlyFor>} />
         <Route path="setup/rules" element={<OnlyFor roles={["administrator"]}><RulesPage /></OnlyFor>} />
+        <Route path="setup/access-review" element={<OnlyFor roles={["administrator"]}><AccessReviewPage /></OnlyFor>} />
         <Route path="setup/fees" element={<OnlyFor roles={["administrator"]}><FeesSetupPage /></OnlyFor>} />
         <Route path="setup/packages" element={<OnlyFor roles={["administrator"]}><PackagesPage /></OnlyFor>} />
         <Route path="setup/packages/:packageId" element={<OnlyFor roles={["administrator"]}><PackagePage /></OnlyFor>} />

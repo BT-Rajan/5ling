@@ -28,6 +28,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.audit import audit
+from app.cycles.exceptions import effective_filings
 from app.cycles.extensions import AlertDates, extensions_for
 from app.cycles.service import create_cycle
 from app.models import (
@@ -40,7 +41,6 @@ from app.models import (
     JobRun,
     JobStatus,
     JobTrigger,
-    PackageFiling,
     PeriodBasis,
 )
 from app.schedule.engine import Scheduled, add_months, day_in_month
@@ -94,13 +94,8 @@ def generate_for_client(db: Session, client: Client, today: date) -> int:
     """Make the missing cycles for one client, in `db`'s transaction. Returns how many."""
     if client.status is ClientStatus.CLOSED:
         return 0  # FR-CL-04: closed clients get no new cycles
-    filing_ids = list(
-        db.scalars(
-            select(PackageFiling.filing_id).where(
-                PackageFiling.package_version_id == client.package_version_id
-            )
-        )
-    )
+    # The package's filings with this client's own additions and removals (FR-PK-07).
+    filing_ids = effective_filings(db, client)
     if not filing_ids:
         return 0
     calendars = _current_calendars(db, filing_ids)

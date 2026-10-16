@@ -594,7 +594,7 @@ Total: 151 tickets.
 
 **Done when:** An opted-out channel is never used; failure falls back to email.
 
-### C37 - Package exceptions and access review (R2)
+### C37 - Package exceptions and access review (R2) - DONE
 
 **Goal:** Per-client filing changes with approval; quarterly certification.  
 **Depends on:** C08, C29

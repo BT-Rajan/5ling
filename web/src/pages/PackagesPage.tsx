@@ -33,6 +33,7 @@ import {
 } from "../catalog";
 import { ChecklistEditor, cleanChecklist } from "../components/ChecklistEditor";
 import { formatIST } from "../time";
+import { FilingChangesQueue } from "../components/ClientFilings";
 
 type Notice = { severity: "success" | "error"; text: string };
 
@@ -104,6 +105,7 @@ export function PackagesPage() {
         <Typography variant="h1" component="h1" sx={{ display: { xs: "none", md: "block" } }}>Packages</Typography>
         <Button variant="contained" onClick={() => { setAdding(true); }} sx={{ ml: "auto" }}>Add package</Button>
       </Stack>
+      <FilingChangesQueue />
       {error && <Alert severity="error">{error}</Alert>}
       {packages === null && !error && <Typography color="text.secondary">Loading…</Typography>}
       {packages?.length === 0 && <Typography color="text.secondary">No packages yet. Set up filing calendars first, then add a package.</Typography>}

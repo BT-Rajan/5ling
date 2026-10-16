@@ -19,6 +19,7 @@ import { formatDay, formatIST } from "../time";
 import { BreakGlass, reasonRequiredFor } from "../components/BreakGlass";
 import { ClientFees, FEE_STATUS_LABEL, type FeeStatus } from "../components/Fees";
 import { api, ApiError, messageFor } from "../api";
+import { ClientFilings } from "../components/ClientFilings";
 import { ClientUpdates } from "../components/ClientUpdates";
 import { useUser } from "../auth/AuthProvider";
 import { BILLING_LABEL, money, type BillingFrequency } from "../catalog";
@@ -376,6 +377,7 @@ export function ClientPage() {
   const [consentError, setConsentError] = useState<string | null>(null);
 
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const me = useUser();
   const [round, setRound] = useState(0);
   const [changed, setChanged] = useState<string | null>(null);
   const [gate, setGate] = useState<number | null>(null);
@@ -458,6 +460,7 @@ export function ClientPage() {
 
       <ClientTickets clientId={client.client_id} />
       <ClientFees key={`fees-${String(round)}`} clientId={client.client_id} />
+      <ClientFilings key={`filings-${String(round)}`} clientId={client.client_id} isAdmin={me.role === "administrator"} />
 
       <Typography variant="h5" component="h2" sx={{ mt: 4, mb: 1 }}>Change owner, package or status</Typography>
       {changed && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setChanged(null); }}>{changed}</Alert>}

@@ -9,18 +9,21 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.audit import audit
-from app.cycles.stages import BY_ACTION, STAGE_LABEL, Move, moves_from
+from app.cycles.stages import BY_ACTION, STAGE_LABEL, SYSTEM_MOVES, Move, moves_from
 from app.models import (
     Assignment,
     CalendarVersion,
     ChecklistItem,
     Client,
+    ClientFilingChange,
     Cycle,
     CycleChecklistItem,
     CycleFiling,
     EndReason,
     EventKind,
     Filing,
+    FilingChangeKind,
+    FilingChangeStatus,
     NilConfirmation,
     PackageFiling,
     Stage,
@@ -141,16 +144,32 @@ def create_cycle(
     )
     db.add(cycle)
     db.flush()
-    # FR-AL-04, FR-PK-05: the cycle's own copy of the documents to ask for.
-    for position, label, required in db.execute(
-        select(ChecklistItem.position, ChecklistItem.label, ChecklistItem.required)
-        .join(PackageFiling, PackageFiling.id == ChecklistItem.package_filing_id)
-        .where(
+    # FR-AL-04, FR-PK-05: the cycle's own copy of the documents to ask for. A filing added for
+    # this client alone (FR-PK-07) is not in the package, so it takes the filing's own default.
+    items: list[tuple[int, str, bool]] = [
+        (int(p), str(lab), bool(req))
+        for p, lab, req in db.execute(
+            select(ChecklistItem.position, ChecklistItem.label, ChecklistItem.required)
+            .join(PackageFiling, PackageFiling.id == ChecklistItem.package_filing_id)
+            .where(
+                PackageFiling.package_version_id == package_version_id,
+                PackageFiling.filing_id == filing.id,
+            )
+            .order_by(ChecklistItem.position)
+        )
+    ]
+    in_package = db.scalar(
+        select(PackageFiling.id).where(
             PackageFiling.package_version_id == package_version_id,
             PackageFiling.filing_id == filing.id,
         )
-        .order_by(ChecklistItem.position)
-    ):
+    )
+    if in_package is None:
+        items = [
+            (n, str(e["label"]), bool(e.get("required", True)))
+            for n, e in enumerate(filing.default_checklist or [])
+        ]
+    for position, label, required in items:
         db.add(
             CycleChecklistItem(cycle_id=cycle.id, position=position, label=label, required=required)
         )
@@ -186,7 +205,7 @@ def transition(
     note: str | None = None,
 ) -> Move:
     """Move the cycle by `action`, or refuse. The caller has locked the cycle row."""
-    allowed = moves_from(cycle.stage)
+    allowed = [m for m in moves_from(cycle.stage) if m.action not in SYSTEM_MOVES]  # to show
     move = BY_ACTION.get(action)
     if expected_stage is not None and expected_stage is not cycle.stage:
         # Someone else moved it, or this is a second click: do nothing rather than move twice.
@@ -209,6 +228,18 @@ def transition(
             "proof_required",
             "Upload the acknowledgement and enter the reference number to mark this filed.",
             allowed,
+        )
+    if move.action == "withdraw" and not db.scalar(
+        select(ClientFilingChange.id).where(
+            ClientFilingChange.client_pk == cycle.client_pk,
+            ClientFilingChange.filing_id == cycle.filing_id,
+            ClientFilingChange.kind == FilingChangeKind.REMOVE,
+            ClientFilingChange.status == FilingChangeStatus.APPROVED,
+        )
+    ):
+        # FR-PK-07: only an approved removal closes a cycle that never started.
+        raise MoveRefused(
+            "removal_not_approved", "Only an approved removal of the filing does this.", allowed
         )
     if move.action == "no_activity" and not db.scalar(
         select(NilConfirmation.id).where(NilConfirmation.cycle_id == cycle.id)

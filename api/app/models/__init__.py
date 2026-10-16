@@ -50,6 +50,7 @@ from app.models.document import (
     UploadedVia,
 )
 from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
+from app.models.exceptions import ClientFilingChange, FilingChangeKind, FilingChangeStatus
 from app.models.fee import (
     FeeOverride,
     FeeReminder,
@@ -107,6 +108,7 @@ __all__ = [
     "ChecklistItem",
     "Client",
     "ClientChange",
+    "ClientFilingChange",
     "ClientIdCounter",
     "ClientKind",
     "ClientMessage",
@@ -135,6 +137,8 @@ __all__ = [
     "FeePolicy",
     "FeeReminder",
     "Filing",
+    "FilingChangeKind",
+    "FilingChangeStatus",
     "FilingWaiver",
     "Frequency",
     "Holiday",

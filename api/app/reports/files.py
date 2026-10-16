@@ -47,7 +47,14 @@ def _column(index: int) -> str:
     return name
 
 
-def xlsx(title: str, columns: Sequence[str], rows: Sequence[Sequence[Cell]]) -> bytes:
+def xlsx(
+    title: str,
+    columns: Sequence[str],
+    rows: Sequence[Sequence[Cell]],
+    note: str | None = None,
+) -> bytes:
+    """A one-sheet workbook. `note`, if given, is a line above the header (e.g. when generated)."""
+
     def cell(ref: str, value: Cell, style: int = 0) -> str:
         s = f' s="{style}"' if style else ""
         if isinstance(value, bool) or value is None:
@@ -58,8 +65,10 @@ def xlsx(title: str, columns: Sequence[str], rows: Sequence[Sequence[Cell]]) -> 
         return f'<c r="{ref}"{s} t="inlineStr"><is><t xml:space="preserve">{text}</t></is></c>'
 
     lines = []
-    for r, row in enumerate([list(columns), *rows], start=1):
-        style = 1 if r == 1 else 0
+    head = 2 if note else 1  # the header's row number
+    table: list[Sequence[Cell]] = [[note], list(columns), *rows] if note else [list(columns), *rows]
+    for r, row in enumerate(table, start=1):
+        style = 1 if r <= head else 0
         cells = "".join(cell(f"{_column(c)}{r}", v, style) for c, v in enumerate(row))
         lines.append(f'<row r="{r}">{cells}</row>')
     widths = "".join(
@@ -69,7 +78,8 @@ def xlsx(title: str, columns: Sequence[str], rows: Sequence[Sequence[Cell]]) -> 
     sheet = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" '
+        '<sheetViews><sheetView workbookViewId="0">'
+        f'<pane ySplit="{head}" topLeftCell="A{head + 1}" '
         'activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
         f"<cols>{widths}</cols><sheetData>{''.join(lines)}</sheetData></worksheet>"
     )

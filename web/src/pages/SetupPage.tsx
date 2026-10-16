@@ -14,6 +14,7 @@ const SECTIONS: readonly { to: string; title: string; text: string; Icon: Compon
   { to: "/setup/email", title: "Email", text: "Every email sent and how it went; send a test email.", Icon: AuditIcon },
   { to: "/setup/packages", title: "Packages", text: "What a client is given: filings, document checklists and the fee.", Icon: ClientsIcon },
   { to: "/setup/rules", title: "Rules and access", text: "Reminder and escalation timings, link expiry, idle sign-out; who opened clients by break-glass.", Icon: AuditIcon },
+  { to: "/setup/access-review", title: "Access review", text: "Everyone with access to each client, to export and certify each quarter.", Icon: TeamIcon },
   { to: "/setup/fees", title: "Fees and tax", text: "Approve client-specific fees; set the GST rate used on invoices.", Icon: AuditIcon },
 ];
 

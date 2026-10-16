@@ -99,6 +99,9 @@ CAPABILITIES: tuple[Capability, ...] = (
             # Importing from a spreadsheet: check, then save after confirming (FR-CL-05, C33).
             ("POST", "/api/clients/import/check"),
             ("POST", "/api/clients/import/save"),
+            # Adding or removing a filing for one client; removals wait (FR-PK-07, C37).
+            ("GET", "/api/clients/{client_id}/filings"),
+            ("POST", "/api/clients/{client_id}/filings"),
             ("GET", "/api/clients/{client_id}"),
             # Showing the full PAN, recorded in the audit log (NFR-SE-06, C30).
             ("POST", "/api/clients/{client_id}/pan"),
@@ -143,6 +146,9 @@ CAPABILITIES: tuple[Capability, ...] = (
         "-",
         "C05",
         routes=(
+            # Deciding a Staff member's removal of a filing for one client (FR-PK-07, C37).
+            ("GET", "/api/admin/filing-changes"),
+            ("POST", "/api/admin/filing-changes/{change_id}/decision"),
             ("GET", "/api/admin/filings"),
             ("POST", "/api/admin/filings"),
             ("GET", "/api/admin/filings/{filing_id}"),
@@ -305,6 +311,9 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("POST", "/api/admin/users/{user_id}/enable"),
             ("POST", "/api/admin/users/{user_id}/reset-password"),
             ("POST", "/api/admin/users/{user_id}/reset-mfa"),
+            # The quarterly access review the Partners certify (FR-AC-04, C37).
+            ("GET", "/api/admin/access-review"),
+            ("POST", "/api/admin/access-review/export"),
         ),
     ),
     Capability(

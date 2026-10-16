@@ -101,3 +101,14 @@ It is **off** until the firm picks a provider (Q2). To switch it on:
 3. Set `LL_MESSAGING_PROVIDER` and `LL_MESSAGING_APPROVED_TEMPLATES=first_alert,reminder`. Only listed templates are ever sent.
 
 To try it before a provider is chosen, set `LL_MESSAGING_PROVIDER=log`. Each message is then recorded and logged, showing only the last four digits of the number, and nothing is sent.
+
+## 6. Quarterly access review (C37; BRD FR-AC-04)
+
+Each quarter, an Administrator opens **Settings → Access review** and exports it as a spreadsheet or PDF. The export lists everyone who can reach each client:
+
+- the owner;
+- anyone assigned one of its filings (that filing only, while the work is open);
+- Administrators with a break-glass grant, until it runs out;
+- every Administrator, once.
+
+Disabled accounts that still own clients are marked, so they can be reassigned. The file shows the date and time it was generated and who generated it, and each export is in the audit log. The Partners check it, sign it, and keep it with the quarter's records. Fix anything wrong (an owner who has left, an assignment that should have ended) and export again.
