@@ -7,7 +7,7 @@ from app.models import Role
 from fastapi.testclient import TestClient
 
 from tests.audit_helpers import entries
-from tests.helpers import Signed, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass_ticket, make_user, sign_in_directly
 from tests.test_assignments import assign, consultant, setup, to_documents_received
 from tests.test_clients import _ok, admin
 from tests.test_documents import PDF, scanner
@@ -140,6 +140,7 @@ def test_the_preparer_cannot_approve_their_own_work(
 
     # Someone else can.
     other, other_s = checker
+    break_glass_ticket(other, other_s, code)  # not the checker's own client (C29)
     cycle = _ok(other.get(f"/api/tickets/{code}"))["cycle"]
     assert "approve" in [m["action"] for m in cycle["moves"]]
     assert cycle["approve_blocked"] is None
@@ -158,6 +159,7 @@ def test_being_returned_does_not_let_the_preparer_approve_the_second_round(
     _, code, _ = setup(web, admin, migrated_db)
     to_documents_received(web, admin, code)
     other, other_s = checker
+    break_glass_ticket(other, other_s, code)  # not the checker's own client (C29)
     _ok(move(web, admin, code, "assign", "documents_received"))
     _ok(move(web, admin, code, "start_preparing", "assigned"))
     _ok(move(web, admin, code, "submit_for_review", "preparing"))

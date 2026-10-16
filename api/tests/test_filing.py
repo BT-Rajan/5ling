@@ -52,7 +52,8 @@ def ready_to_file(
 def file_it(web: TestClient, signed: Signed, code: str, reference: str, data: bytes = PDF) -> Any:
     return web.post(
         f"/api/uploads/tickets/{code}/filing",
-        params={"reference": reference},
+        # Ignored unless the cycle is past its due date, which depends on the day the tests run.
+        params={"reference": reference, "late_reason": "Papers came in late"},
         content=data,
         headers={**signed.headers, "X-File-Name": "ack.pdf"},
     )

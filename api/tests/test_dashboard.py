@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from tests.conftest import make_settings
-from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass, db_session, make_user, sign_in_directly
 from tests.test_assignments import assign, consultant
 from tests.test_clients import _ok, admin, publish_package
 from tests.test_fees import at, factory, new_client
@@ -66,6 +66,8 @@ def portfolio(
     pid = publish_package(web, admin)
     sita_client = new_client(web, admin, pid, 1, owner_id=sita_id)
     ravi_client = new_client(web, admin, pid, 2, owner_id=ravi_id)
+    for cid in (sita_client, ravi_client):  # the Administrator works on Staff clients (C29)
+        break_glass(web, admin, cid)
     sita_code, ravi_code = first_code(web, sita_client), first_code(web, ravi_client)
     today = today_ist()
     with db_session(migrated_db) as db:

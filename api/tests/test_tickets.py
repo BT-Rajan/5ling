@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select, text
 
 from tests.audit_helpers import events
-from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass_ticket, db_session, make_user, sign_in_directly
 from tests.test_clients import _ok, admin, client_body, create, publish_package
 
 __all__ = ["admin"]  # the fixture, re-used from test_clients
@@ -124,10 +124,12 @@ def move(
     if action == "file" and expected == "ready_to_file":  # filed with its proof (C23)
         return web.post(
             f"/api/uploads/tickets/{code}/filing",
-            params={"reference": note or "AA0705260012345"},
+            params={"reference": note or "AA0705260012345", "late_reason": "Papers came in late"},
             content=ACKNOWLEDGEMENT,
             headers={**signed.headers, "X-File-Name": "acknowledgement.pdf"},
         )
+    if action == "approve":  # the checker is often an Administrator who does not own the client
+        break_glass_ticket(web, signed, code)
     body: dict[str, Any] = {"action": action, "expected_stage": expected}
     if note is not None:
         body["note"] = note

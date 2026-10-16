@@ -172,3 +172,10 @@ def break_glass(client: TestClient, signed: Signed, client_id: int) -> None:
         headers=signed.headers,
     )
     assert resp.status_code == 201, resp.text
+
+
+def break_glass_ticket(client: TestClient, signed: Signed, code: str) -> None:
+    """Break glass for the client a ticket belongs to, if this Administrator needs to (C29)."""
+    got = client.get(f"/api/tickets/{code}")
+    if got.status_code == 403 and got.json()["error"]["code"] == "reason_required":
+        break_glass(client, signed, got.json()["error"]["client_id"])
