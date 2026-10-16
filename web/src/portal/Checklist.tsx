@@ -2,9 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api, messageFor, uploadFile } from "../api";
 import { formatIST } from "../time";
@@ -23,6 +26,8 @@ export interface ChecklistData {
   still_needed: number;
   allowed: string;
   max_mb: number;
+  can_confirm_no_activity?: boolean;
+  no_activity_confirmed_at?: string | null;
 }
 
 const COLOR = { pending: "warning", checking: "info", received: "success" } as const;
@@ -62,6 +67,49 @@ function ItemCard({ item, busy, onFile, problem }: { item: Item; busy: boolean; 
   );
 }
 
+/** FR-CY-03: "nothing this period", said once, after the client ticks that it is true. */
+function NoActivity({ csrf, onDone }: { csrf: string; onDone: (data: ChecklistData) => void }) {
+  const [open, setOpen] = useState(false);
+  const [sure, setSure] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      onDone(await api<ChecklistData>("/api/portal/no-activity", { method: "POST", json: { note: note.trim() || null }, headers: { "X-CSRF-Token": csrf } }));
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button variant="text" sx={{ mt: 2 }} onClick={() => { setOpen(true); }}>
+        No activity this period? Tell us instead
+      </Button>
+    );
+  }
+  return (
+    <Paper component="section" variant="outlined" aria-label="No activity this period" sx={{ p: 2, mt: 2, borderRadius: 3 }}>
+      <Typography sx={{ mb: 1 }}>
+        If there were no sales, purchases or other transactions in this period, tell us here and you need not upload anything. We will prepare a nil filing.
+      </Typography>
+      <TextField label="Anything we should know (optional)" value={note} onChange={(e) => { setNote(e.target.value); }} fullWidth multiline minRows={2} slotProps={{ htmlInput: { maxLength: 500 } }} sx={{ mb: 1 }} />
+      <FormControlLabel control={<Checkbox checked={sure} onChange={(e) => { setSure(e.target.checked); }} />} label="I confirm there was no activity in this period" />
+      {error && <Alert severity="error" role="alert" sx={{ my: 1 }}>{error}</Alert>}
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button variant="contained" disabled={!sure || busy} onClick={() => { void confirm(); }}>Confirm no activity</Button>
+        <Button disabled={busy} onClick={() => { setOpen(false); }}>Cancel</Button>
+      </Stack>
+    </Paper>
+  );
+}
+
 /** FR-AL-04: what is still needed, one upload button per item, and why a file was refused. */
 export function Checklist({ csrf }: { csrf: string }) {
   const [data, setData] = useState<ChecklistData | null>(null);
@@ -93,6 +141,13 @@ export function Checklist({ csrf }: { csrf: string }) {
 
   if (error) return <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>;
   if (!data) return null;
+  if (data.no_activity_confirmed_at) {
+    return (
+      <Alert severity="success" sx={{ mb: 3 }}>
+        You told us there was no activity in this period ({formatIST(data.no_activity_confirmed_at)}). Thank you; nothing more is needed from you.
+      </Alert>
+    );
+  }
   if (data.items.length === 0) return <Typography color="text.secondary" sx={{ mb: 3 }}>We do not need any documents from you for this filing.</Typography>;
   return (
     <Box component="section" aria-labelledby="checklist-heading" sx={{ mb: 3 }}>
@@ -107,6 +162,7 @@ export function Checklist({ csrf }: { csrf: string }) {
           <ItemCard key={item.id} item={item} busy={busyItem !== null} problem={problems[item.id] ?? null} onFile={(f) => void send(item, f)} />
         ))}
       </Stack>
+      {data.can_confirm_no_activity && <NoActivity csrf={csrf} onDone={setData} />}
     </Box>
   );
 }

@@ -111,3 +111,42 @@ describe("Client portal", () => {
     expect(await within(purchase).findByRole("alert")).toHaveTextContent("This file is not really a PDF file.");
   });
 });
+
+describe("No activity this period (FR-CY-03)", () => {
+  it("lets the client confirm no activity once they tick that it is true", async () => {
+    const posts: Call[] = [];
+    mockApi({
+      handlers: {
+        "POST /api/portal/open": () => jsonResponse(portal),
+        "GET /api/portal/checklist": () => jsonResponse({ ...checklist([item(1, "Sales register")], 1), can_confirm_no_activity: true }),
+        "POST /api/portal/no-activity": (c) => {
+          posts.push(c);
+          return jsonResponse({ ...checklist([item(1, "Sales register")], 1), can_confirm_no_activity: false, no_activity_confirmed_at: "2026-10-14T05:00:00Z" });
+        },
+      },
+    });
+    show("#t=abc");
+    await userEvent.click(await screen.findByRole("button", { name: "No activity this period? Tell us instead" }));
+    const box = screen.getByRole("region", { name: "No activity this period" });
+    const confirm = within(box).getByRole("button", { name: "Confirm no activity" });
+    expect(confirm).toBeDisabled();
+    await userEvent.type(within(box).getByLabelText("Anything we should know (optional)"), "Shop closed in September");
+    await userEvent.click(within(box).getByRole("checkbox", { name: "I confirm there was no activity in this period" }));
+    await userEvent.click(confirm);
+    expect(await screen.findByText(/You told us there was no activity in this period/)).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ note: "Shop closed in September" });
+    expect(posts[0]?.headers.get("X-CSRF-Token")).toBe("portal-csrf");
+  });
+
+  it("does not offer it once documents have been sent", async () => {
+    mockApi({
+      handlers: {
+        "POST /api/portal/open": () => jsonResponse(portal),
+        "GET /api/portal/checklist": () => jsonResponse({ ...checklist([item(1, "Sales register")], 1), can_confirm_no_activity: false }),
+      },
+    });
+    show("#t=abc");
+    expect(await screen.findByText("1 still needed.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /No activity this period/ })).not.toBeInTheDocument();
+  });
+});

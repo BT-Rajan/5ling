@@ -14,7 +14,8 @@ from typing import Annotated
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, Header, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import audit
@@ -24,8 +25,9 @@ from app.errors import ApiHTTPException
 from app.files.checklist import ItemView, items_for, upload_for_item
 from app.files.documents import Infected, forget_file
 from app.files.types import ALLOWED_TEXT, FileRefused
-from app.models import Client, Cycle, PortalLink, ScanStatus, UploadedVia
-from app.notify.service import documents_arrived
+from app.followup import FollowUpRefused, confirm_no_activity
+from app.models import Client, Cycle, NilConfirmation, PortalLink, ScanStatus, UploadedVia
+from app.notify.service import COLLECTING, documents_arrived
 from app.portal.links import LinkProblem, cookie_name, csrf_for, load_session
 from app.timeutil import utcnow
 
@@ -53,6 +55,13 @@ class ChecklistOut(BaseModel):
     still_needed: int  # required items not yet received
     allowed: str  # the kinds of file accepted, in words
     max_mb: int
+    # FR-CY-03: the client may say the period had no activity, while documents are still awaited.
+    can_confirm_no_activity: bool = False
+    no_activity_confirmed_at: datetime | None = None
+
+
+class NoActivityIn(BaseModel):
+    note: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
 
 
 def _settings(request: Request) -> Settings:
@@ -71,8 +80,21 @@ def _session(request: Request, db: Session) -> tuple[PortalLink, Client, Cycle, 
     return link, client, cycle, token or ""
 
 
-def checklist_out(settings: Settings, views: list[ItemView]) -> ChecklistOut:
+def checklist_out(
+    settings: Settings, views: list[ItemView], cycle: Cycle | None = None, db: Session | None = None
+) -> ChecklistOut:
+    confirmed = (
+        db.scalar(select(NilConfirmation.confirmed_at).where(NilConfirmation.cycle_id == cycle.id))
+        if cycle is not None and db is not None
+        else None
+    )
+    received = any(v.status != "pending" for v in views)
     return ChecklistOut(
+        can_confirm_no_activity=cycle is not None
+        and confirmed is None
+        and cycle.stage in COLLECTING
+        and not received,
+        no_activity_confirmed_at=confirmed,
         items=[
             ItemOut(
                 id=v.item.id,
@@ -106,7 +128,36 @@ def portal_checklist(request: Request, db: Session = Depends(get_db)) -> Checkli
     link, _, cycle, _ = _session(request, db)
     link.last_seen_at = utcnow()
     db.commit()
-    return checklist_out(_settings(request), items_for(db, cycle.id))
+    return checklist_out(_settings(request), items_for(db, cycle.id), cycle, db)
+
+
+@router.post("/api/portal/no-activity")
+def portal_no_activity(
+    body: NoActivityIn,
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ChecklistOut:
+    """FR-CY-03: the client confirms nothing happened this period; the cycle goes to review."""
+    settings = _settings(request)
+    link, _, cycle, token = _session(request, db)
+    sent = request.headers.get("x-csrf-token", "")
+    if not hmac.compare_digest(sent.encode(), csrf_for(settings, token).encode()):
+        raise ApiHTTPException(403, "This request could not be verified.", code="csrf_rejected")
+    if any(v.status != "pending" for v in items_for(db, cycle.id)):
+        raise ApiHTTPException(
+            409,
+            "You have already sent documents for this period, so we will work from those.",
+            code="documents_sent",
+        )
+    try:
+        confirm_no_activity(db, link, cycle.id, body.note, firm_name=settings.firm_name)
+    except FollowUpRefused as exc:
+        db.rollback()
+        raise ApiHTTPException(409, exc.message, code=exc.code) from None
+    link.last_seen_at = utcnow()
+    db.commit()
+    db.refresh(cycle)
+    return checklist_out(settings, items_for(db, cycle.id), cycle, db)
 
 
 async def raw_body(request: Request) -> bytes:
@@ -190,4 +241,4 @@ def portal_upload(
     except Exception:
         forget_file(store, got.version)
         raise
-    return checklist_out(settings, items_for(db, cycle.id))
+    return checklist_out(settings, items_for(db, cycle.id), cycle, db)

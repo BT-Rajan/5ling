@@ -21,6 +21,7 @@ from app.models import (
     EndReason,
     EventKind,
     Filing,
+    NilConfirmation,
     PackageFiling,
     Stage,
     StageChange,
@@ -207,6 +208,15 @@ def transition(
         raise MoveRefused(
             "proof_required",
             "Upload the acknowledgement and enter the reference number to mark this filed.",
+            allowed,
+        )
+    if move.action == "no_activity" and not db.scalar(
+        select(NilConfirmation.id).where(NilConfirmation.cycle_id == cycle.id)
+    ):
+        # FR-CY-03: only the client's stored confirmation lets a cycle skip to review.
+        raise MoveRefused(
+            "confirmation_required",
+            "Only the client can confirm no activity, on their link.",
             allowed,
         )
     note = (note or "").strip() or None

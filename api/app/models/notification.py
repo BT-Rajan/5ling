@@ -31,6 +31,8 @@ class NotificationKind(enum.StrEnum):
     WAITING_ON_CLIENT = "waiting_on_client"  # FR-IN-02
     ESCALATION = "escalation"  # FR-IN-03: needs a note to dismiss
     ASSIGNED = "assigned"  # FR-WF-01: a cycle has been given to this person
+    NO_ACTIVITY = "no_activity"  # FR-CY-03: the client confirmed a nil period; ready to review
+    PHONE_PROMISE = "phone_promise"  # FR-IN-05: a client's promised date has come
 
 
 class Notification(Base):

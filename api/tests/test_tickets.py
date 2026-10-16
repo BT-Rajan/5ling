@@ -33,7 +33,10 @@ def test_the_stage_table_never_skips_a_stage() -> None:
     assert [s.value for s in ORDER][:3] == ["scheduled", "awaiting_documents", "documents_received"]
     assert len(ORDER) == 10
     forward = [m for m in MOVES if ORDER.index(m.target) > ORDER.index(m.source)]
-    assert all(ORDER.index(m.target) - ORDER.index(m.source) == 1 for m in forward)
+    skips = [m.action for m in forward if ORDER.index(m.target) - ORDER.index(m.source) != 1]
+    # The one exception: a nil filing the client confirmed goes straight to review (FR-CY-03,
+    # C34). Only the system makes it, and only with the stored confirmation.
+    assert skips == ["no_activity"]
     # Every stage but the last can be left by moving forward.
     assert {m.source for m in forward} == set(ORDER[:-1])
 

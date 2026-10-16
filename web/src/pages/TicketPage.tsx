@@ -81,6 +81,7 @@ interface Ticket {
     fees?: { mode: "reminder" | "warn" | "block"; overdue: string; warning: string | null; blocked: boolean; waiver: { reason: string; granted_by: string | null; granted_at: string } | null } | null;
     proof?: { reference: string; version_id: number; filename: string; filed_by: string | null; filed_at: string } | null;
     extensions: { old_due_date: string; new_due_date: string; old_alert_date: string; new_alert_date: string; reason: string; applied_at: string; applied_by: string | null }[];
+    nil_confirmation?: { confirmed_at: string; note: string | null } | null;
   } | null;
   task: {
     description: string | null;
@@ -93,6 +94,76 @@ interface Ticket {
   history: { from_stage: StageKey | null; to_stage: StageKey; action: string; note: string | null; changed_by: string | null; changed_at: string }[];
   can_edit: boolean;
   fee_status?: FeeStatus | null; // the owner and Administrators only (FR-FE-05)
+  phone_contacts?: PhoneContact[];
+}
+
+interface PhoneContact {
+  id: number;
+  by: string;
+  note: string;
+  promised_on: string | null;
+  created_at: string;
+  reminder: "reminded" | "not needed" | null;
+}
+
+/** FR-IN-05: note a call to the client and the date they promised; a reminder comes that day. */
+function PhoneCalls({ code, initial }: { code: string; initial: PhoneContact[] }) {
+  const [calls, setCalls] = useState(initial);
+  const [note, setNote] = useState("");
+  const [promised, setPromised] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const text = note.trim();
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      setCalls(await api<PhoneContact[]>(`/api/tickets/${code}/phone-contacts`, { method: "POST", json: { note: text, promised_on: promised || null } }));
+      setNote("");
+      setPromised("");
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Paper component="section" aria-labelledby="calls-heading" variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+      <Typography id="calls-heading" variant="h6" component="h2" sx={{ mb: 1 }}>Phone calls</Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <TextField label="What was said" value={note} onChange={(e) => { setNote(e.target.value); }} fullWidth multiline minRows={2} slotProps={{ htmlInput: { maxLength: 1000 } }} disabled={busy} sx={{ mb: 1 }} />
+      <Stack direction={{ xs: "column", sm: "row" }} sx={{ gap: 1, alignItems: { sm: "center" } }}>
+        <TextField
+          label="Client promised by (optional)"
+          type="date"
+          value={promised}
+          onChange={(e) => { setPromised(e.target.value); }}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: todayIST() } }}
+          helperText="You will be reminded that day if it is still waiting."
+          disabled={busy}
+        />
+        <Button variant="contained" disabled={busy || text.length < 3} onClick={() => void save()}>Save call</Button>
+      </Stack>
+      {calls.length > 0 && (
+        <List aria-label="Calls so far" disablePadding sx={{ mt: 2 }}>
+          {calls.map((c) => (
+            <ListItemText
+              key={c.id}
+              sx={{ py: 1 }}
+              primary={c.note}
+              secondary={[
+                `${c.by}, ${formatIST(c.created_at)}`,
+                c.promised_on ? `promised ${formatDay(c.promised_on)}` : null,
+                c.reminder === "reminded" ? "reminder sent" : c.reminder === "not needed" ? "had arrived by then" : null,
+              ].filter(Boolean).join(" · ")}
+            />
+          ))}
+        </List>
+      )}
+    </Paper>
+  );
 }
 
 function TaskPanel({ ticket, onChanged }: { ticket: Ticket; onChanged: (t: Ticket) => void }) {
@@ -479,6 +550,12 @@ export function TicketPage() {
           </Box>
           <Typography variant="h5" component="h2" sx={{ mb: 1 }}>Stage: {cycle.stage_label}</Typography>
           <Timeline current={cycle.stage} />
+          {cycle.nil_confirmation && (
+            <Alert severity="info" sx={{ mb: 3 }} data-testid="nil-confirmation">
+              The client confirmed no activity in this period ({formatIST(cycle.nil_confirmation.confirmed_at)})
+              {cycle.nil_confirmation.note ? <>: “{cycle.nil_confirmation.note}”</> : "."}
+            </Alert>
+          )}
           {cycle.proof && <Proof proof={cycle.proof} />}
           {cycle.fees && <FeeWarning ticket={ticket} onChanged={changed} />}
           <Actions ticket={ticket} onMoved={changed} />
@@ -489,6 +566,7 @@ export function TicketPage() {
       )}
       {ticket.can_edit && <ClientUpdates key={updatesRound} source={`/api/tickets/${ticket.code}/updates`} />}
       {ticket.can_edit && <ClientEmails code={ticket.code} refresh={updatesRound} />}
+      <PhoneCalls key={ticket.code} code={ticket.code} initial={ticket.phone_contacts ?? []} />
       {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={changed} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>
       <List aria-label="Ticket history" disablePadding>

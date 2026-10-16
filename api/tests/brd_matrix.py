@@ -111,6 +111,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/clients/{client_id}/history"),
             # Moving a cycle on; approve is refused to the preparer (C22); filing needs proof (C23).
             ("POST", "/api/tickets/{ticket}/transition"),
+            # A call to the client, with the date they promised (FR-IN-05, C34).
+            ("POST", "/api/tickets/{ticket}/phone-contacts"),
             # Ad hoc task tickets on a client (CR-02).
             ("POST", "/api/tickets"),
             ("PATCH", "/api/tickets/{ticket}"),

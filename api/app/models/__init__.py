@@ -52,6 +52,7 @@ from app.models.document import (
 from app.models.email import Email, EmailEvent, EmailKind, EmailStatus, EventSource
 from app.models.fee import FeeOverride, Invoice, InvoiceSeries, OverrideStatus, TaxRate
 from app.models.filing import CycleFiling
+from app.models.followup import NilConfirmation, PhoneContact
 from app.models.job import JobRun, JobStatus, JobTrigger
 from app.models.ledger import (
     ADJUSTMENT_KINDS,
@@ -137,6 +138,7 @@ __all__ = [
     "LinkOrigin",
     "LoginAttempt",
     "LoginChallenge",
+    "NilConfirmation",
     "Notification",
     "NotificationKind",
     "OpsAlert",
@@ -148,6 +150,7 @@ __all__ = [
     "PackageVersion",
     "PaymentMode",
     "PeriodBasis",
+    "PhoneContact",
     "PortalLink",
     "RecoveryCode",
     "Role",

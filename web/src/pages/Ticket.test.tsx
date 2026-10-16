@@ -463,3 +463,41 @@ describe("Work list", () => {
     expect(await screen.findByText("1 ticket")).toBeInTheDocument();
   });
 });
+
+describe("Nil filings and phone calls (C34)", () => {
+  it("shows the reviewer the client's own no-activity confirmation", async () => {
+    const t = ticket("in_review", [move("approve", "Approve", "in_review", "ready_to_file")]);
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: { ...quiet, "GET /api/tickets/TKT-000001": () => jsonResponse({ ...t, cycle: { ...t.cycle, nil_confirmation: { confirmed_at: "2026-05-02T05:00:00Z", note: "Shop closed" } } }) },
+    });
+    expect(await screen.findByTestId("nil-confirmation")).toHaveTextContent("The client confirmed no activity in this period");
+    expect(screen.getByTestId("nil-confirmation")).toHaveTextContent("“Shop closed”");
+  });
+
+  it("notes a call with the promised date and lists earlier calls", async () => {
+    const posts: Call[] = [];
+    const earlier = { id: 1, by: "Asha Rao", note: "Left a message", promised_on: "2026-05-05", created_at: "2026-05-01T05:00:00Z", reminder: "reminded" };
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse({ ...ticket("preparing", []), phone_contacts: [earlier] }),
+        "POST /api/tickets/TKT-000001/phone-contacts": (c) => {
+          posts.push(c);
+          return jsonResponse([{ id: 2, by: "Asha Rao", note: "Will send registers", promised_on: "2026-05-09", created_at: "2026-05-02T05:00:00Z", reminder: null }, earlier], 201);
+        },
+      },
+    });
+    const calls = await screen.findByRole("region", { name: "Phone calls" });
+    expect(within(calls).getByText("Left a message")).toBeInTheDocument();
+    expect(within(calls).getByText(/reminder sent/)).toBeInTheDocument();
+    const save = within(calls).getByRole("button", { name: "Save call" });
+    expect(save).toBeDisabled();
+    await userEvent.type(within(calls).getByLabelText("What was said"), "Will send registers");
+    await userEvent.type(within(calls).getByLabelText("Client promised by (optional)"), "2099-05-09");
+    await userEvent.click(save);
+    expect(await within(calls).findByText("Will send registers")).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ note: "Will send registers", promised_on: "2099-05-09" });
+  });
+});

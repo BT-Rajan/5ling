@@ -5,8 +5,9 @@ returning work from review to the preparer (FR-WF-04) and withdrawing an assignm
 Moves that later chunks guard further (maker-checker in C22, filing proof in C23) are listed here
 already; those chunks add their checks to `app.cycles.service.transition`.
 
-Nil filings (FR-CY-03, chunk C34) will add one more move, Awaiting documents to In review, gated
-on the client's stored confirmation.
+Nil filings (FR-CY-03, chunk C34) add the one forward skip, Awaiting documents to In review. It is
+made only by the system, when the client confirms no activity on the portal, and only with that
+confirmation stored (`app.cycles.service.transition` checks it).
 """
 
 from __future__ import annotations
@@ -53,6 +54,8 @@ MOVES: tuple[Move, ...] = (
         Stage.AWAITING_DOCUMENTS,
         Stage.DOCUMENTS_RECEIVED,
     ),
+    # FR-CY-03: the client confirmed no activity; nothing to prepare, so straight to review.
+    Move("no_activity", "Client confirmed no activity", Stage.AWAITING_DOCUMENTS, Stage.IN_REVIEW),
     Move("assign", "Assign", Stage.DOCUMENTS_RECEIVED, Stage.ASSIGNED),
     Move(
         "withdraw_assignment",
@@ -80,9 +83,13 @@ def moves_from(stage: Stage) -> list[Move]:
 def _check_table() -> None:
     """Forward moves go exactly one stage on; backward moves are only the listed exceptions."""
     backward = {"withdraw_assignment", "return"}
+    skips = {"no_activity"}  # system-only, gated on the stored confirmation (FR-CY-03)
     for move in MOVES:
         step = ORDER.index(move.target) - ORDER.index(move.source)
-        if move.action in backward:
+        if move.action in skips:
+            if step <= 1:
+                raise AssertionError(f"{move.action} is listed as a skip but is not one")
+        elif move.action in backward:
             if step >= 0 or not move.needs_note:
                 raise AssertionError(f"{move.action} must go back, with a note")
         elif step != 1:

@@ -8,7 +8,7 @@ them in chunk C21.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
@@ -35,6 +35,7 @@ from app.cycles.stages import MOVES, ORDER, STAGE_LABEL, TASK_LABEL, moves_from
 from app.errors import ApiHTTPException
 from app.fees.controls import filing_check
 from app.fees.ledger import FeeStatus, fees_summary
+from app.followup import record_phone_contact
 from app.mail.problems import LABEL as PROBLEM_LABEL
 from app.mail.problems import is_problem, problems_for
 from app.mail.updates import draft_updates
@@ -52,9 +53,11 @@ from app.models import (
     Email,
     EventKind,
     Filing,
+    NilConfirmation,
     OverduePolicyMode,
     Package,
     PackageVersion,
+    PhoneContact,
     Role,
     Stage,
     StageChange,
@@ -64,7 +67,7 @@ from app.models import (
     TicketType,
     User,
 )
-from app.timeutil import utcnow
+from app.timeutil import today_ist, utcnow
 
 router = APIRouter(tags=["tickets"])
 
@@ -155,6 +158,27 @@ class CycleOut(BaseModel):
     proof: ProofOut | None = None
     fees: FilingFeesOut | None = None  # owner and Administrators only, until it is filed
     extensions: list[ExtensionOut]  # government extensions that moved its dates, newest first
+    # FR-CY-03: the client's own confirmation that the period had no activity, for the reviewer.
+    nil_confirmation: NilConfirmationOut | None = None
+
+
+class NilConfirmationOut(BaseModel):
+    confirmed_at: datetime
+    note: str | None  # in the client's own words
+
+
+class PhoneContactOut(BaseModel):
+    id: int
+    by: str
+    note: str
+    promised_on: date | None
+    created_at: datetime
+    reminder: str | None  # None until the date: "reminded" or "not needed" (it had moved on)
+
+
+class PhoneContactIn(BaseModel):
+    note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=1000)]
+    promised_on: date | None = None
 
 
 class HistoryOut(BaseModel):
@@ -198,6 +222,7 @@ class TicketOut(BaseModel):
     can_edit: bool  # the owner or the Administrator; an assignee only changes the task's status
     # FR-FE-04: the client's fee status, for its owner and Administrators only (FR-FE-05).
     fee_status: FeeStatus | None = None
+    phone_contacts: list[PhoneContactOut] = []  # FR-IN-05, newest first
 
 
 class TicketRow(BaseModel):
@@ -212,8 +237,9 @@ class TicketRow(BaseModel):
 # Made only through the assignment endpoints, which record who has the work (FR-WF-01).
 ASSIGNMENT_MOVES = frozenset({"assign", "withdraw_assignment"})
 # Moves made elsewhere, so not offered as plain buttons: assigning (the assignment panel) and
-# filing (with its proof, POST /api/uploads/tickets/{ticket}/filing).
-SEPARATE_MOVES = ASSIGNMENT_MOVES | {"file"}
+# filing (with its proof, POST /api/uploads/tickets/{ticket}/filing). "No activity" is the
+# client's to make, from the portal (FR-CY-03).
+SEPARATE_MOVES = ASSIGNMENT_MOVES | {"file", "no_activity"}
 
 
 class TransitionIn(BaseModel):
@@ -365,6 +391,7 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             approve_blocked=blocked,
             can_file=cycle.stage is Stage.READY_TO_FILE and can_edit(principal, client),
             proof=proof_of(db, cycle.id),
+            nil_confirmation=nil_confirmation_of(db, cycle.id),
             fees=filing_fees_out(db, client, cycle)
             if can_edit(principal, client) and cycle.stage in BEFORE_FILED
             else None,
@@ -418,7 +445,62 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
         fee_status=fees_summary(db, [client.id])[client.id].status
         if can_edit(principal, client)
         else None,
+        phone_contacts=phone_contacts_out(db, ticket.id),
     )
+
+
+def nil_confirmation_of(db: Session, cycle_id: int) -> NilConfirmationOut | None:
+    row = db.scalar(select(NilConfirmation).where(NilConfirmation.cycle_id == cycle_id))
+    return NilConfirmationOut(confirmed_at=row.confirmed_at, note=row.note) if row else None
+
+
+def phone_contacts_out(db: Session, ticket_id: int) -> list[PhoneContactOut]:
+    return [
+        PhoneContactOut(
+            id=c.id,
+            by=name,
+            note=c.note,
+            promised_on=c.promised_on,
+            created_at=c.created_at,
+            reminder=None
+            if c.reminded_at is None
+            else ("reminded" if c.reminder_sent else "not needed"),
+        )
+        for c, name in db.execute(
+            select(PhoneContact, User.full_name)
+            .join(User, User.id == PhoneContact.user_id)
+            .where(PhoneContact.ticket_id == ticket_id)
+            .order_by(PhoneContact.id.desc())
+        )
+    ]
+
+
+PROMISE_DAYS = 90
+
+
+@router.post("/api/tickets/{ticket}/phone-contacts", status_code=201)
+def add_phone_contact(
+    ticket: Annotated[str, Path(max_length=20)],
+    body: PhoneContactIn,
+    principal: Principal = Depends(staff_or_admin),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+) -> list[PhoneContactOut]:
+    """FR-IN-05: note a call to the client, with the date they promised; reminded on that date."""
+    found, _ = _load(db, principal, ticket)
+    today = today_ist()
+    if body.promised_on is not None and not (
+        today <= body.promised_on <= today + timedelta(days=PROMISE_DAYS)
+    ):
+        raise ApiHTTPException(
+            422,
+            f"The promised date must be from today to {PROMISE_DAYS} days ahead.",
+            code="bad_promised_date",
+        )
+    record_phone_contact(
+        db, found, principal.user_id, principal.role.value, body.note, body.promised_on
+    )
+    db.commit()
+    return phone_contacts_out(db, found.id)
 
 
 @router.get("/api/stages")

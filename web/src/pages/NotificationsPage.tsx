@@ -13,7 +13,7 @@ import { Link as RouterLink } from "react-router-dom";
 import { api, messageFor } from "../api";
 import { formatIST } from "../time";
 
-type Kind = "documents_received" | "waiting_on_client" | "escalation";
+type Kind = "documents_received" | "waiting_on_client" | "escalation" | "assigned" | "no_activity" | "phone_promise";
 
 interface Note {
   id: number;
@@ -34,6 +34,9 @@ const KIND: Record<Kind, { label: string; color: "success" | "warning" | "error"
   documents_received: { label: "Documents received", color: "success" },
   waiting_on_client: { label: "Waiting on client", color: "warning" },
   escalation: { label: "Escalation", color: "error" },
+  assigned: { label: "Assigned to you", color: "success" },
+  no_activity: { label: "No activity: review", color: "success" },
+  phone_promise: { label: "Promised today", color: "warning" },
 };
 
 function Card({ note, onChanged }: { note: Note; onChanged: () => void }) {

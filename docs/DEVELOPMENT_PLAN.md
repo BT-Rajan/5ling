@@ -557,7 +557,7 @@ Total: 151 tickets.
 
 **Done when:** Rows with errors are listed with reasons; valid rows save only after confirmation.
 
-### C34 - Nil filings and phone follow-up (R2)
+### C34 - Nil filings and phone follow-up (R2) - DONE
 
 **Goal:** Handle no-activity filings and call notes.  
 **Depends on:** C23

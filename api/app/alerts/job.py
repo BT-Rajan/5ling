@@ -32,6 +32,7 @@ from app.audit import audit
 from app.config import Settings
 from app.cycles.service import ticket_code
 from app.files.checklist import items_for
+from app.followup import phone_promises
 from app.mail.outbox import create
 from app.mail.templates import render
 from app.models import (
@@ -80,6 +81,7 @@ class Tally:
     failed: int = 0
     waiting: int = 0  # owners told a cycle is waiting on the client (FR-IN-02)
     escalated: int = 0  # cycles escalated to the Administrators (FR-IN-03)
+    phone_reminders: int = 0  # promised dates come round, still waiting (FR-IN-05)
     skipped_reason: str | None = None  # outside sending hours, or another run in progress
     failures: list[str] = field(default_factory=list)
 
@@ -193,6 +195,7 @@ def run(
         grace, days_before = rule.waiting_grace_days, rule.escalation_days_before
     internal = check_cycles(factory, today=today, grace_days=grace, days_before=days_before)
     tally.waiting, tally.escalated = internal.waiting, internal.escalated
+    tally.phone_reminders = phone_promises(factory, today=today).reminded  # FR-IN-05
     if not settings.alert_hours_start <= now_ist.hour < settings.alert_hours_end:
         tally.skipped_reason = "outside sending hours"
         return tally
