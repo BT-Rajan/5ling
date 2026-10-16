@@ -545,7 +545,7 @@ Total: 151 tickets.
 
 **Done when:** All M acceptance conditions pass; 2 weeks of pilot with no severity 1 defect; written sign-off.
 
-### C33 - Client import (R2)
+### C33 - Client import (R2) - DONE
 
 **Goal:** Bulk load clients safely.  
 **Depends on:** C08

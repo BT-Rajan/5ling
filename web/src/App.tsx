@@ -10,6 +10,7 @@ import { AccountSecurityPage } from "./pages/AccountSecurityPage";
 import { AuditPage } from "./pages/AuditPage";
 import { AssignmentPage } from "./consultant/MyWork";
 import { ClientPage, ClientsHome, NewClientPage } from "./pages/ClientsPage";
+import { ImportClientsPage } from "./pages/ImportClientsPage";
 import { ChangePasswordPage } from "./pages/ChangePasswordPage";
 import { EmptyPage } from "./pages/EmptyPage";
 import { HomePage } from "./pages/HomePage";
@@ -77,6 +78,7 @@ export function App() {
         <Route path="reports" element={<OnlyFor roles={["administrator", "staff"]}><ReportsPage /></OnlyFor>} />
         <Route path="clients" element={<OnlyFor roles={["administrator", "staff"]}><ClientsHome /></OnlyFor>} />
         <Route path="clients/new" element={<OnlyFor roles={["administrator", "staff"]}><NewClientPage /></OnlyFor>} />
+        <Route path="clients/import" element={<OnlyFor roles={["administrator", "staff"]}><ImportClientsPage /></OnlyFor>} />
         <Route path="tickets/:ticketId" element={<OnlyFor roles={["administrator", "staff"]}><TicketPage /></OnlyFor>} />
         <Route path="clients/:clientId" element={<OnlyFor roles={["administrator", "staff"]}><ClientPage /></OnlyFor>} />
         <Route path="team" element={<Navigate to="/setup/team" replace />} />

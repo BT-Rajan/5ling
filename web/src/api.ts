@@ -37,10 +37,10 @@ export function setUnauthorizedHandler(handler: ((error: ApiError) => void) | nu
 
 export async function api<T>(
   path: string,
-  init: Omit<RequestInit, "signal" | "credentials" | "body"> & { timeoutMs?: number; json?: unknown } = {},
+  init: Omit<RequestInit, "signal" | "credentials" | "body"> & { timeoutMs?: number; json?: unknown; csv?: Blob } = {},
 ): Promise<T> {
   if (!path.startsWith("/api/")) throw new Error("api() only calls /api/ paths on this site");
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, json, ...rest } = init;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, headers, json, csv, ...rest } = init;
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();
@@ -51,9 +51,11 @@ export async function api<T>(
     const method = (rest.method ?? "GET").toUpperCase();
     if (UNSAFE.has(method) && csrfToken && !merged.has("X-CSRF-Token")) merged.set("X-CSRF-Token", csrfToken);
     if (json !== undefined) merged.set("Content-Type", "application/json");
+    if (csv !== undefined) merged.set("Content-Type", "text/csv");
     const response = await fetch(path, {
       ...rest,
       ...(json !== undefined ? { body: JSON.stringify(json) } : {}),
+      ...(csv !== undefined ? { body: csv } : {}),
       headers: merged,
       credentials: "same-origin",
       signal: controller.signal,

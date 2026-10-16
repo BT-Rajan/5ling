@@ -96,6 +96,8 @@ The export holds PANs and contact details. Keep it on the server only (`chmod 60
 4. **Human sample.** A Partner or the practice manager opens 10 of the migrated clients, picked from the id map, and compares them with the old system: open filings, owner and fee. Record who checked, when and the result in the sign-off pack.
 5. Keep the check output and the id map for the pack. Delete the source CSV: `shred -u clients.csv`.
 
+For a few clients at a time after go-live, Staff and Administrators can use **Clients → Import** in the app. It uses the same columns and checks; rows with problems are listed and left out, and the rest are saved only after the person confirms.
+
 **Open work at cut-over.** Migrated clients get their cycles from the joining date onward, like any new client. Work already in progress in the old system for an earlier period (a return being prepared now) is entered as an ad hoc task on the client, or finished in the old system. Agree which with the Partners before cut-over. Old documents stay in the old system's archive; they are not migrated.
 
 ## 3. Pilot (LL-134, BRD section 14)

@@ -423,6 +423,21 @@ def create_client(
     principal: Principal = Depends(staff_or_admin),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ) -> ClientOut:
+    client = save_client(db, principal, body)
+    db.commit()
+    # FR-CY-01: the year's cycles appear with the client (the daily run catches up if not).
+    run_quietly(
+        request.app.state.session_factory,
+        JobTrigger.CLIENT_CREATED,
+        client_pks=[client.id],
+        requested_by_id=principal.user_id,
+    )
+    return _client_out(db, client)
+
+
+def save_client(db: Session, principal: Principal, body: ClientIn) -> Client:
+    """Add the client with its contacts and consent, audited; the caller commits (FR-CL-01).
+    Refused (ApiHTTPException) for a bad owner or package, or a PAN or GSTIN already in use."""
     owner = _owner(db, principal, body.owner_id)
     package, version = current_package_version(db, body.package_id)
     _duplicate(db, principal, body.pan, body.gstin)
@@ -489,15 +504,7 @@ def create_client(
             "contacts": len(body.contacts),
         },
     )
-    db.commit()
-    # FR-CY-01: the year's cycles appear with the client (the daily run catches up if not).
-    run_quietly(
-        request.app.state.session_factory,
-        JobTrigger.CLIENT_CREATED,
-        client_pks=[client.id],
-        requested_by_id=principal.user_id,
-    )
-    return _client_out(db, client)
+    return client
 
 
 @router.get("/{client_id}")

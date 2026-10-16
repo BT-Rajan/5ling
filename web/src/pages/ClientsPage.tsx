@@ -154,7 +154,10 @@ export function ClientsHome() {
     <>
       <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 2 }}>
         <Typography variant="h1" component="h1" sx={{ display: { xs: "none", md: "block" } }}>Clients</Typography>
-        <Button variant="contained" component={RouterLink} to="/clients/new" sx={{ ml: "auto" }}>Add client</Button>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+          <Button variant="outlined" component={RouterLink} to="/clients/import">Import</Button>
+          <Button variant="contained" component={RouterLink} to="/clients/new">Add client</Button>
+        </Stack>
       </Stack>
       <Box sx={{ display: "grid", gap: 2, mb: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: isAdmin ? "2fr 1fr 1fr 1fr" : "2fr 1fr 1fr" } }}>
         <TextField label="Search" type="search" value={query} onChange={(e) => { filter(setQuery)(e.target.value); }} helperText="Name, PAN, GSTIN or client ID" />

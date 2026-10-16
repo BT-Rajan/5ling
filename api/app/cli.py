@@ -286,7 +286,7 @@ def migrate_clients(
     settings = get_settings()
     setup_logging(settings.log_level)
     with Api(settings, admin_email) as api, api.factory() as db:
-        report = migrate.check(db, api, migrate.read(source))
+        report = migrate.check(db, migrate.read(source))
         if commit:
             migrate.commit(db, api, report)
             target = Path(out) if out else source.with_suffix(".map.csv")

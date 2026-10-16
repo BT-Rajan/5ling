@@ -44,7 +44,7 @@ def run(url: str, csv_text: str, tmp_path: Path, *, commit: bool = False) -> mig
     source = tmp_path / "clients.csv"
     source.write_text(csv_text, encoding="utf-8")
     with api(url) as a, a.factory() as db:
-        report = migrate.check(db, a, migrate.read(source))
+        report = migrate.check(db, migrate.read(source))
         if commit:
             migrate.commit(db, a, report)
             migrate.write_map(report, tmp_path / "map.csv")

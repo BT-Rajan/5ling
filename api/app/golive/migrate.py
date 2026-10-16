@@ -20,52 +20,26 @@ PAN, GSTIN, email and phone never appear in the report; rows are named by line a
 from __future__ import annotations
 
 import csv
-import io
 import math
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import client_import
+from app.client_import import COLUMNS, ImportFileError, Row, existing
 from app.golive.inproc import Api, ApiError
-from app.identifiers import tidy
-from app.models import Client, Contact, Package, Role, User
-from app.routers.clients import ClientIn
+from app.models import Client, Contact, Package, User
 
-COLUMNS = (
-    "source_id",
-    "kind",
-    "legal_name",
-    "pan",
-    "gstin",
-    "owner_email",
-    "package",
-    "contact_name",
-    "contact_email",
-    "contact_phone",
-    "whatsapp",
-    "sms",
-)
-REQUIRED = ("source_id", "kind", "legal_name", "owner_email", "package", "contact_name")
+__all__ = ["COLUMNS", "Report", "check", "commit", "read", "verify", "write_map"]
+
+REQUIRED = ("source_id", "owner_email", *client_import.REQUIRED)
 MAX_BYTES = 20 * 1024 * 1024
 MAX_ROWS = 20_000
 SAMPLE_PERCENT = 5
-_YES = {"y", "yes", "true", "1"}
-_NO = {"", "n", "no", "false", "0"}
-
-
-@dataclass
-class Row:
-    line: int
-    source_id: str
-    body: ClientIn | None = None
-    owner_email: str = ""
-    package: str = ""
-    problems: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -105,136 +79,18 @@ def read(path: Path) -> list[dict[str, str]]:
     """The file's rows as dicts keyed by the known column names (lower case)."""
     if path.stat().st_size > MAX_BYTES:
         raise SystemExit(f"{path} is larger than {MAX_BYTES // (1024 * 1024)} MB; split it.")
-    text = path.read_bytes().decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text, newline=""))
-    header = [(h or "").strip().lower() for h in reader.fieldnames or []]
-    missing = [c for c in REQUIRED if c not in header]
-    if missing:
-        raise SystemExit(f"The header row lacks: {', '.join(missing)}.")
-    unknown = [h for h in header if h not in COLUMNS]
-    if unknown:
-        raise SystemExit(f"Unknown columns: {', '.join(unknown)}. Expected: {', '.join(COLUMNS)}.")
-    reader.fieldnames = header
-    rows = []
-    for raw in reader:
-        if None in raw:
-            raise SystemExit(f"Line {reader.line_num} has more cells than the header.")
-        rows.append({k: (v or "").strip() for k, v in raw.items()})
-        if len(rows) > MAX_ROWS:
-            raise SystemExit(f"More than {MAX_ROWS} rows; split the file.")
-    return rows
-
-
-def _flag(value: str, name: str, problems: list[str]) -> bool:
-    if value.lower() in _YES:
-        return True
-    if value.lower() not in _NO:
-        problems.append(f"{name} must be yes or no.")
-    return False
-
-
-def check(db: Session, api: Api, raw_rows: list[dict[str, str]]) -> Report:
-    owners = {
-        u.email: u.id
-        for u in db.scalars(
-            select(User).where(
-                User.is_active.is_(True), User.role.in_((Role.STAFF, Role.ADMINISTRATOR))
-            )
+    try:
+        return client_import.parse(
+            path.read_bytes(), max_bytes=MAX_BYTES, max_rows=MAX_ROWS, required=REQUIRED
         )
-    }
-    packages = {
-        p["name"].lower(): p["id"]
-        for p in api.get("/api/admin/packages")
-        if p["is_active"] and p["current_version"] is not None
-    }
-    rows: list[Row] = []
-    for n, raw in enumerate(raw_rows, start=2):  # line 1 is the header
-        row = Row(line=n, source_id=raw.get("source_id", "")[:64])
-        problems = row.problems
-        if not row.source_id:
-            problems.append("source_id is empty.")
-        row.owner_email = raw.get("owner_email", "").lower()
-        row.package = raw.get("package", "")
-        owner_id = owners.get(row.owner_email)
-        if owner_id is None:
-            problems.append("owner_email is not an active Staff member or Administrator.")
-        package_id = packages.get(row.package.lower())
-        if package_id is None:
-            problems.append(f"package '{row.package[:60]}' is not a published, active package.")
-        contact = {
-            "name": raw.get("contact_name", ""),
-            "email": raw.get("contact_email", ""),
-            "phone": raw.get("contact_phone") or None,
-            "is_primary": True,
-            "whatsapp": _flag(raw.get("whatsapp", ""), "whatsapp", problems),
-            "sms": _flag(raw.get("sms", ""), "sms", problems),
-        }
-        try:
-            row.body = ClientIn.model_validate(
-                {
-                    "kind": raw.get("kind", "").lower(),
-                    "legal_name": raw.get("legal_name", ""),
-                    "pan": raw.get("pan") or None,
-                    "gstin": raw.get("gstin") or None,
-                    "owner_id": owner_id or 1,
-                    "package_id": package_id or 1,
-                    "contacts": [contact],
-                }
-            )
-        except ValidationError as exc:
-            for error in exc.errors():
-                where = ".".join(str(p) for p in error["loc"] if p not in ("contacts", 0))
-                where = {
-                    "name": "contact_name",
-                    "email": "contact_email",
-                    "phone": "contact_phone",
-                }.get(where, where)
-                message = _hide(str(error["msg"]).removeprefix("Value error, "), raw)
-                problems.append(f"{where}: {message}" if where else message)
-        rows.append(row)
-
-    _duplicates(db, rows)
-    return Report(rows=rows)
+    except ImportFileError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
-def _hide(message: str, raw: dict[str, str]) -> str:
-    """Validation messages may quote what was typed; personal identifiers never reach the report."""
-    for name in ("pan", "gstin", "contact_email", "contact_phone"):
-        value = raw.get(name, "")
-        for form in {value, tidy(value)} if value else ():
-            message = message.replace(form, "[hidden]")
-    return message
-
-
-def _duplicates(db: Session, rows: list[Row]) -> None:
-    seen: dict[str, int] = {}
-    for row in rows:
-        if row.body is None:
-            continue
-        for kind, value in (("PAN", row.body.pan), ("GSTIN", row.body.gstin)):
-            if value is None:
-                continue
-            if value in seen:
-                row.problems.append(f"the same {kind} as line {seen[value]}.")
-            else:
-                seen[value] = row.line
-    # A row already in Ledgerline is fine (a repeated run) only if both identifiers point at the
-    # same client; one that matches two different clients is a conflict.
-    for row in rows:
-        found = _existing(db, row)
-        if len(found) > 1:
-            row.problems.append("its PAN and GSTIN belong to two different clients already.")
-
-
-def _existing(db: Session, row: Row) -> set[int]:
-    if row.body is None or (row.body.pan is None and row.body.gstin is None):
-        return set()
-    conditions = []
-    if row.body.pan:
-        conditions.append(Client.pan == row.body.pan)
-    if row.body.gstin:
-        conditions.append(Client.gstin == row.body.gstin)
-    return set(db.scalars(select(Client.client_id).where(or_(*conditions))))
+def check(db: Session, raw_rows: list[dict[str, str]]) -> Report:
+    """Every row checked as the client form would (see app/client_import). A row already in
+    Ledgerline is fine here: it is left alone on commit, so a stopped run can be repeated."""
+    return Report(rows=client_import.check(db, raw_rows, require_source_id=True))
 
 
 def commit(db: Session, api: Api, report: Report) -> None:
@@ -244,7 +100,7 @@ def commit(db: Session, api: Api, report: Report) -> None:
         if row.body is None:  # checked rows always have one; never save a half-read row
             raise RuntimeError(f"line {row.line} was not checked")
         db.rollback()  # a fresh snapshot: see rows committed through the API since
-        found = _existing(db, row)
+        found = existing(db, row)
         if found:
             report.already.append((row.source_id, found.pop()))
             continue
@@ -271,7 +127,7 @@ def verify(db: Session, report: Report, percent: int = SAMPLE_PERCENT) -> None:
     """The count check and the sample check (BRD section 15)."""
     db.rollback()
     rows = [r for r in report.rows if r.body is not None and not r.problems]
-    found = {r.line: _existing(db, r) for r in rows}
+    found = {r.line: existing(db, r) for r in rows}
     present = [r for r in rows if len(found[r.line]) == 1]
     report.checks.append(
         (

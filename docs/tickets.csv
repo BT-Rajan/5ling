@@ -139,8 +139,8 @@ LL-132,C32,R1,"Migration, pilot and go-live",Migration scripts per Q5 with count
 LL-133,C32,R1,"Migration, pilot and go-live",Load Q4 filing types and due-date rules,OPS,S,Q4,Done
 LL-134,C32,R1,"Migration, pilot and go-live",Pilot with 20 clients; defect triage,OPS,M,BRD s14,Done
 LL-135,C32,R1,"Migration, pilot and go-live",Sign-off pack with test evidence,OPS,S,BRD s15,Done
-LL-136,C33,R2,Client import,Spreadsheet upload and validation report,API,M,FR-CL-05,Todo
-LL-137,C33,R2,Client import,Confirm-and-save step; import screen,WEB,M,FR-CL-05,Todo
+LL-136,C33,R2,Client import,Spreadsheet upload and validation report,API,M,FR-CL-05,Done
+LL-137,C33,R2,Client import,Confirm-and-save step; import screen,WEB,M,FR-CL-05,Done
 LL-138,C34,R2,Nil filings and phone follow-up,Client confirms no activity; cycle skips to review,API,M,FR-CY-03,Todo
 LL-139,C34,R2,Nil filings and phone follow-up,Phone-contact note with promised date and reminder,API,M,FR-IN-05,Todo
 LL-140,C35,R2,Client messages and completion,Portal reply stored against the cycle; owner notified,API,M,FR-AL-07,Todo

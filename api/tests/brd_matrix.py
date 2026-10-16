@@ -96,6 +96,9 @@ CAPABILITIES: tuple[Capability, ...] = (
         routes=(
             ("GET", "/api/clients/options"),
             ("POST", "/api/clients"),
+            # Importing from a spreadsheet: check, then save after confirming (FR-CL-05, C33).
+            ("POST", "/api/clients/import/check"),
+            ("POST", "/api/clients/import/save"),
             ("GET", "/api/clients/{client_id}"),
             # Showing the full PAN, recorded in the audit log (NFR-SE-06, C30).
             ("POST", "/api/clients/{client_id}/pan"),
