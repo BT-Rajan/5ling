@@ -73,6 +73,7 @@ from app.models.ledger import (
     OverduePolicyMode,
     PaymentMode,
 )
+from app.models.messaging import ChannelMessage, MessageStatus
 from app.models.meta import AppMeta
 from app.models.mfa import ChallengePurpose, LoginChallenge, RecoveryCode
 from app.models.notification import Notification, NotificationKind
@@ -101,6 +102,7 @@ __all__ = [
     "ChallengePurpose",
     "ChangeField",
     "Channel",
+    "ChannelMessage",
     "CheckTrigger",
     "ChecklistItem",
     "Client",
@@ -147,6 +149,7 @@ __all__ = [
     "LinkOrigin",
     "LoginAttempt",
     "LoginChallenge",
+    "MessageStatus",
     "NilConfirmation",
     "Notification",
     "NotificationKind",

@@ -44,6 +44,7 @@ from app.models import (
     LAST_CLIENT_ID,
     Assignment,
     CalendarVersion,
+    ChannelMessage,
     Client,
     ClientMessage,
     Cycle,
@@ -183,6 +184,16 @@ class ClientMessageOut(BaseModel):
     sent_at: datetime
 
 
+class ChannelMessageOut(BaseModel):
+    id: int
+    channel: str
+    status: str
+    text: str
+    created_at: datetime
+    finished_at: datetime | None
+    error: str | None
+
+
 class PhoneContactIn(BaseModel):
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=1000)]
     promised_on: date | None = None
@@ -231,6 +242,8 @@ class TicketOut(BaseModel):
     fee_status: FeeStatus | None = None
     phone_contacts: list[PhoneContactOut] = []  # FR-IN-05, newest first
     messages: list[ClientMessageOut] = []  # FR-AL-07: written by the client on the portal
+    # INT-02: WhatsApp and SMS copies of the alerts, newest first, for the owner to see failures.
+    channel_messages: list[ChannelMessageOut] = []
 
 
 class TicketRow(BaseModel):
@@ -463,6 +476,25 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
             )
         ]
         if cycle is not None
+        else [],
+        channel_messages=[
+            ChannelMessageOut(
+                id=m.id,
+                channel=m.channel.value,
+                status=m.status.value,
+                text=m.body_text,
+                created_at=m.created_at,
+                finished_at=m.finished_at,
+                error=m.last_error,
+            )
+            for m in db.scalars(
+                select(ChannelMessage)
+                .where(ChannelMessage.cycle_id == cycle.id)
+                .order_by(ChannelMessage.id.desc())
+                .limit(50)
+            )
+        ]
+        if cycle is not None and can_edit(principal, client)
         else [],
     )
 

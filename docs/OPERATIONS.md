@@ -83,3 +83,21 @@ By hand, before go-live and after large changes (record who, when and the result
 | 200% zoom, no lost content |  |  |  |  |  |
 
 The usability part of NFR-US-01 (a new coordinator finishes the daily work list after an hour of training) is tested with a real coordinator during the pilot (C32).
+
+## 5. WhatsApp or SMS (C36; BRD INT-02, FR-AL-08, C-2, open question Q2)
+
+Email is always sent: it is the minimum channel. WhatsApp or SMS goes as well, and only when all of these hold:
+
+- the client's primary contact has agreed to that channel, by their latest consent record on the client page;
+- the contact has a mobile number;
+- the message's template is approved.
+
+WhatsApp is used if they agreed to both. Consent is checked again just before sending, so a client who opts out in the meantime is never messaged. If a message fails, the email has already gone (the fallback), and the client's owner gets a notification so they can call. Temporary failures are tried three times, on the next runs of the alerts job. Every message and its outcome is listed on the ticket, under "WhatsApp and SMS".
+
+It is **off** until the firm picks a provider (Q2). To switch it on:
+
+1. Have the provider approve the two templates in `api/app/messaging/templates.py` (`first_alert`, `reminder`), word for word. For SMS, register them on DLT too. They carry no link or PAN; the private link is only in the email.
+2. Add the provider: one class with a `send` method in `api/app/messaging/provider.py`, and its name in `LL_MESSAGING_PROVIDER` and `provider_from_settings`. Its credentials go in the environment file.
+3. Set `LL_MESSAGING_PROVIDER` and `LL_MESSAGING_APPROVED_TEMPLATES=first_alert,reminder`. Only listed templates are ever sent.
+
+To try it before a provider is chosen, set `LL_MESSAGING_PROVIDER=log`. Each message is then recorded and logged, showing only the last four digits of the number, and nothing is sent.

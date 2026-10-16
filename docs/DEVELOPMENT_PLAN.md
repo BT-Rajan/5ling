@@ -582,7 +582,7 @@ Total: 151 tickets.
 
 **Done when:** Client message notifies the owner; completion email is a manual draft per CR-03.
 
-### C36 - WhatsApp or SMS (R2)
+### C36 - WhatsApp or SMS (R2) - DONE
 
 **Goal:** Second channel with opt-out respected.  
 **Depends on:** C18

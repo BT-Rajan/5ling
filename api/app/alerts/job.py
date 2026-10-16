@@ -36,6 +36,8 @@ from app.files.checklist import items_for
 from app.followup import phone_promises
 from app.mail.outbox import create
 from app.mail.templates import render
+from app.messaging.provider import MessagingProvider
+from app.messaging.service import dispatch, queue_for_alert
 from app.models import (
     AlertKind,
     Client,
@@ -84,6 +86,7 @@ class Tally:
     escalated: int = 0  # cycles escalated to the Administrators (FR-IN-03)
     phone_reminders: int = 0  # promised dates come round, still waiting (FR-IN-05)
     fee_reminders: int = 0  # overdue invoices reminded about (FR-FE-07)
+    messages: int = 0  # WhatsApp or SMS copies sent (INT-02)
     skipped_reason: str | None = None  # outside sending hours, or another run in progress
     failures: list[str] = field(default_factory=list)
 
@@ -161,6 +164,24 @@ def _alert_one(db: Session, settings: Settings, cycle_id: int, today: date) -> C
         ticket_id=ticket.id,
         queue_now=True,
     )
+    # INT-02, FR-AL-08: the same alert by WhatsApp or SMS too, if the client agreed to it.
+    queue_for_alert(
+        db,
+        settings,
+        client=client,
+        contact=contact,
+        cycle_id=cycle.id,
+        email_id=email.id,
+        template="first_alert" if kind is AlertKind.FIRST else "reminder",
+        values={
+            "firm_name": settings.firm_name,
+            "client_name": client.legal_name,
+            "filing": filing.code,
+            "period": cycle.period_label,
+            "due_date": cycle.due_date,
+            "ticket_id": ticket_code(ticket.number),
+        },
+    )
     alert = CycleAlert(
         cycle_id=cycle.id,
         kind=kind,
@@ -185,7 +206,11 @@ def _alert_one(db: Session, settings: Settings, cycle_id: int, today: date) -> C
 
 
 def run(
-    factory: sessionmaker[Session], settings: Settings, *, now: datetime | None = None
+    factory: sessionmaker[Session],
+    settings: Settings,
+    *,
+    now: datetime | None = None,
+    messenger: MessagingProvider | None = None,
 ) -> Tally:
     """One pass over every cycle that may be owed an alert today."""
     now_ist = ensure_utc(now or utcnow()).astimezone(IST)
@@ -239,6 +264,9 @@ def run(
             tally.fee_reminders = fees.sent  # FR-FE-07
             tally.failed += fees.failed
             tally.failures += fees.failures
+            second = dispatch(factory, settings, messenger)  # INT-02
+            tally.messages = second.sent
+            tally.failures += second.failures
         finally:
             lock_db.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": _LOCK})
     facts = {"checked": tally.checked, "sent": tally.sent, "failed": tally.failed}

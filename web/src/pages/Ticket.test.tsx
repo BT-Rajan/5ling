@@ -518,3 +518,26 @@ describe("Client messages on the ticket (C35)", () => {
     expect(entries[1]).toHaveTextContent("Documents received → Assigned");
   });
 });
+
+describe("WhatsApp and SMS on the ticket (C36)", () => {
+  it("shows each copy's outcome, failures plainly", async () => {
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () =>
+          jsonResponse({
+            ...ticket("preparing", []),
+            channel_messages: [
+              { id: 2, channel: "sms", status: "failed", text: "x", created_at: "2026-05-09T05:00:00Z", finished_at: "2026-05-09T05:01:00Z", error: "number not on SMS" },
+              { id: 1, channel: "whatsapp", status: "sent", text: "x", created_at: "2026-05-07T05:00:00Z", finished_at: "2026-05-07T05:01:00Z", error: null },
+            ],
+          }),
+      },
+    });
+    const list = await screen.findByRole("list", { name: "WhatsApp and SMS messages" });
+    expect(within(list).getByText("SMS: failed: the email went instead")).toBeInTheDocument();
+    expect(within(list).getByText(/number not on SMS/)).toBeInTheDocument();
+    expect(within(list).getByText("WhatsApp: sent")).toBeInTheDocument();
+  });
+});

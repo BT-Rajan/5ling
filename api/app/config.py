@@ -91,7 +91,16 @@ class Settings(BaseSettings):
     # Signs delivery reports posted to /api/email/events. Unset: that endpoint is switched off.
     email_webhook_secret: SecretStr | None = None
 
-    @field_validator("allowed_origins", "allowed_hosts", mode="before")
+    # WhatsApp or SMS (BRD INT-02, FR-AL-08, C-2). Email is always sent; this is a second channel
+    # for clients who agreed to it. "none" switches it off; "log" records each message without
+    # sending (testing). The provider is chosen in BRD Q2. Only templates the provider has
+    # approved may be used: list their keys (see app/messaging/templates.py).
+    messaging_provider: Literal["none", "log"] = "none"
+    messaging_approved_templates: Annotated[list[str], NoDecode] = []
+
+    @field_validator(
+        "allowed_origins", "allowed_hosts", "messaging_approved_templates", mode="before"
+    )
     @classmethod
     def _csv(cls, value: object) -> object:
         return _split_csv(value)

@@ -96,6 +96,31 @@ interface Ticket {
   fee_status?: FeeStatus | null; // the owner and Administrators only (FR-FE-05)
   phone_contacts?: PhoneContact[];
   messages?: { id: number; body: string; sent_at: string }[]; // FR-AL-07, from the portal
+  channel_messages?: { id: number; channel: "whatsapp" | "sms"; status: "queued" | "sent" | "failed" | "skipped"; text: string; created_at: string; finished_at: string | null; error: string | null }[];
+}
+
+const CHANNEL = { whatsapp: "WhatsApp", sms: "SMS" } as const;
+const CHANNEL_STATUS = { queued: "waiting to send", sent: "sent", failed: "failed: the email went instead", skipped: "not sent: the client opted out" } as const;
+
+/** INT-02: the WhatsApp or SMS copies of the alerts; a failure means the email was all they got. */
+function SecondChannel({ items }: { items: NonNullable<Ticket["channel_messages"]> }) {
+  if (items.length === 0) return null;
+  return (
+    <Paper component="section" aria-labelledby="second-channel-heading" variant="outlined" sx={{ p: 2, borderRadius: 3, mb: 3 }}>
+      <Typography id="second-channel-heading" variant="h6" component="h2" sx={{ mb: 1 }}>WhatsApp and SMS</Typography>
+      <List aria-label="WhatsApp and SMS messages" disablePadding>
+        {items.map((m) => (
+          <ListItemText
+            key={m.id}
+            sx={{ py: 1 }}
+            primary={`${CHANNEL[m.channel]}: ${CHANNEL_STATUS[m.status]}`}
+            secondary={[formatIST(m.created_at), m.error].filter(Boolean).join(" · ")}
+            slotProps={{ primary: { color: m.status === "failed" ? "error" : undefined } }}
+          />
+        ))}
+      </List>
+    </Paper>
+  );
 }
 
 interface PhoneContact {
@@ -584,6 +609,7 @@ export function TicketPage() {
       )}
       {ticket.can_edit && <ClientUpdates key={updatesRound} source={`/api/tickets/${ticket.code}/updates`} />}
       {ticket.can_edit && <ClientEmails code={ticket.code} refresh={updatesRound} />}
+      <SecondChannel items={ticket.channel_messages ?? []} />
       <PhoneCalls key={ticket.code} code={ticket.code} initial={ticket.phone_contacts ?? []} />
       {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={changed} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>

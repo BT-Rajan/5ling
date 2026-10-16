@@ -34,6 +34,7 @@ class NotificationKind(enum.StrEnum):
     NO_ACTIVITY = "no_activity"  # FR-CY-03: the client confirmed a nil period; ready to review
     PHONE_PROMISE = "phone_promise"  # FR-IN-05: a client's promised date has come
     CLIENT_MESSAGE = "client_message"  # FR-AL-07: the client wrote from the portal
+    CHANNEL_FAILED = "channel_failed"  # INT-02: a WhatsApp or SMS message failed (email went)
 
 
 class Notification(Base):
