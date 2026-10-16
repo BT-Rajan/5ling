@@ -97,6 +97,8 @@ CAPABILITIES: tuple[Capability, ...] = (
             ("GET", "/api/clients/options"),
             ("POST", "/api/clients"),
             ("GET", "/api/clients/{client_id}"),
+            # Showing the full PAN, recorded in the audit log (NFR-SE-06, C30).
+            ("POST", "/api/clients/{client_id}/pan"),
             ("PUT", "/api/clients/{client_id}/contacts/{contact_id}/consent"),
             # Asking for a client-specific fee (FR-FE-01); an Administrator decides.
             ("POST", "/api/clients/{client_id}/fee-overrides"),

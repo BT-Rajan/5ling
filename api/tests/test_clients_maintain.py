@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 
 from tests.audit_helpers import events
-from tests.helpers import Signed, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass, make_user, sign_in_directly
 from tests.test_clients import FIRM_GSTIN, _ok, admin, client_body, create, publish_package
 
 __all__ = ["admin"]  # the fixture, re-used from test_clients
@@ -41,6 +41,7 @@ def test_reassigning_moves_access_on_the_very_next_request(
     assert first.get(url).status_code == 200
     assert second.get(url).status_code == 403
 
+    break_glass(web, admin, cid)  # not the Administrator's own client (C29)
     moved = web.patch(
         url,
         json={"owner_id": second_id, "reason": "First Owner is on leave"},
@@ -225,6 +226,7 @@ def test_only_the_administrator_reopens_a_closed_client(
         url, json={"status": "active", "reason": "Back again"}, headers=signed.headers
     )
     assert reopen.json()["error"]["code"] == "reopen_forbidden"
+    break_glass(web, admin, cid)
     _ok(web.patch(url, json={"status": "active", "reason": "Back again"}, headers=admin.headers))
 
 

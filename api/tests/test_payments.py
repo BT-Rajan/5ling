@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from tests.audit_helpers import events
 from tests.conftest import make_settings
-from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass, db_session, make_user, sign_in_directly
 from tests.test_clients import _ok, admin, publish_package
 from tests.test_fees import at, factory, new_client
 
@@ -58,6 +58,8 @@ def invoiced(
     pid = publish_package(web, admin)
     cid = new_client(web, admin, pid, 1, owner_id=owner_id)
     assert run(factory, make_settings(), now=at(today_ist())).raised == 1
+    if owner_id != admin.user_id:
+        break_glass(web, admin, cid)  # the Administrator reads someone else's client (C29)
     fees = _ok(web.get(f"/api/clients/{cid}/fees"))
     return cid, int(fees["invoices"][0]["id"])
 

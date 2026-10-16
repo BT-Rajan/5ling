@@ -15,7 +15,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
-from tests.helpers import Signed, db_session, give_filing_proof, make_user, sign_in_directly
+from tests.helpers import (
+    Signed,
+    break_glass,
+    db_session,
+    give_filing_proof,
+    make_user,
+    sign_in_directly,
+)
 from tests.test_alerts import at
 from tests.test_checklist import CHECKLIST, publish_with_checklist
 from tests.test_clients import _ok, admin, client_body, create
@@ -110,6 +117,7 @@ def test_work_list_counts_equal_report_counts_for_each_owner_and_date(
     closed = _ok(create(web, admin, client_body(pid, owner_id=staff_id, pan="ABCPG1234H")), 201)[
         "client_id"
     ]
+    break_glass(web, admin, closed)  # a Staff client (C29)
     _ok(
         web.patch(
             f"/api/clients/{closed}",

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from tests.audit_helpers import events
 from tests.conftest import make_settings
-from tests.helpers import Signed, db_session, make_user, sign_in_directly
+from tests.helpers import Signed, break_glass, db_session, make_user, sign_in_directly
 from tests.test_alerts import factory
 from tests.test_clients import (
     COMPANY_GSTIN,
@@ -411,6 +411,7 @@ def test_an_administrators_fee_applies_at_once_and_rejection_needs_a_reason(
     sita = TestClient(web.app)
     sita_s = sign_in_directly(migrated_db, sita, sid)
     cid = new_client(web, admin, pid, 1, owner_id=sid)
+    break_glass(web, admin, cid)  # not the Administrator's own client (C29)
     same = web.post(
         f"/api/clients/{cid}/fee-overrides",
         json={"amount": "1000", "reason": "No change at all"},
