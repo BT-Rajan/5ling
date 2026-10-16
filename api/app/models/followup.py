@@ -59,3 +59,20 @@ class PhoneContact(Base):
     # Set once, when the promised date has been dealt with: reminded, or no longer needed.
     reminded_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
     reminder_sent: Mapped[bool | None] = mapped_column(nullable=True)
+
+
+class ClientMessage(Base):
+    """A message the client wrote on the portal, kept against the cycle (FR-AL-07). Never changed
+    or deleted; read by staff on the ticket."""
+
+    __tablename__ = "client_messages"
+    __table_args__ = (Index("ix_client_messages_cycle_id_id", "cycle_id", "id"), _TABLE)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    cycle_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("cycles.id"), nullable=False)
+    client_pk: Mapped[int] = mapped_column(BigInteger, ForeignKey("clients.id"), nullable=False)
+    portal_link_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("portal_links.id"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(String(2000), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

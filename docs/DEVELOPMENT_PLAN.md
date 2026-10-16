@@ -569,7 +569,7 @@ Total: 151 tickets.
 
 **Done when:** Client confirmation is shown to the reviewer; a promised date raises a reminder.
 
-### C35 - Client messages and completion (R2)
+### C35 - Client messages and completion (R2) - DONE
 
 **Goal:** Two-way messages and a way to deliver the acknowledgement.  
 **Depends on:** C23, C15

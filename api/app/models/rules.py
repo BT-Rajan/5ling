@@ -33,6 +33,7 @@ RULE_LIMITS = {
     "portal_link_hours": (72, 1, 720),  # FR-AL-02: how long a client's link lasts
     "idle_timeout_minutes": (20, 5, 240),  # NFR-SE-03: sign Staff and Administrators out
     "break_glass_minutes": (240, 15, 1440),  # FR-AC-05: how long a break-glass grant lasts
+    "fee_reminder_interval_days": (7, 1, 60),  # FR-FE-07: days between fee reminders
 }
 
 
@@ -54,6 +55,7 @@ class RuleSettings(Base):
     portal_link_hours: Mapped[int] = mapped_column(Integer, nullable=False)
     idle_timeout_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
     break_glass_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    fee_reminder_interval_days: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_by_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("users.id"), nullable=True
     )

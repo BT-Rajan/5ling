@@ -501,3 +501,20 @@ describe("Nil filings and phone calls (C34)", () => {
     expect(posts[0]?.body).toEqual({ note: "Will send registers", promised_on: "2099-05-09" });
   });
 });
+
+describe("Client messages on the ticket (C35)", () => {
+  it("puts the client's messages in the history, as text", async () => {
+    const history = [{ from_stage: "documents_received", to_stage: "assigned", action: "assign", note: null, changed_by: "Asha Rao", changed_at: "2026-05-01T05:00:00Z" }];
+    renderApp("/tickets/TKT-000001", {
+      user: staff,
+      handlers: {
+        ...quiet,
+        "GET /api/tickets/TKT-000001": () => jsonResponse({ ...ticket("preparing", [], history), messages: [{ id: 3, body: "<b>Sent</b> by courier", sent_at: "2026-05-02T05:00:00Z" }] }),
+      },
+    });
+    const list = await screen.findByRole("list", { name: "Ticket history" });
+    const entries = within(list).getAllByText(/./, { selector: ".MuiListItemText-primary" });
+    expect(entries[0]).toHaveTextContent("Message from the client: “<b>Sent</b> by courier”");
+    expect(entries[1]).toHaveTextContent("Documents received → Assigned");
+  });
+});

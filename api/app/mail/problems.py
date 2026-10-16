@@ -15,7 +15,12 @@ from sqlalchemy.orm import Session
 
 from app.models import Email, EmailKind, EmailStatus
 
-CLIENT_KINDS = (EmailKind.CLIENT_ALERT, EmailKind.CLIENT_UPDATE, EmailKind.PORTAL_LINK)
+CLIENT_KINDS = (
+    EmailKind.CLIENT_ALERT,
+    EmailKind.CLIENT_UPDATE,
+    EmailKind.PORTAL_LINK,
+    EmailKind.FEE_REMINDER,
+)
 
 LABEL = {
     "failed": "Email to the client failed: call them",

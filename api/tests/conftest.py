@@ -147,8 +147,8 @@ def migrated_db(db_url: str) -> str:
                 text(
                     "INSERT INTO rule_settings (id, waiting_grace_days, reminder_interval_days,"
                     " escalation_days_before, portal_link_hours, idle_timeout_minutes,"
-                    " break_glass_minutes, updated_at)"
-                    " VALUES (1, 3, 2, 2, 72, 20, 240, UTC_TIMESTAMP(6))"
+                    " break_glass_minutes, fee_reminder_interval_days, updated_at)"
+                    " VALUES (1, 3, 2, 2, 72, 20, 240, 7, UTC_TIMESTAMP(6))"
                 )
             )
             # Seeded by migration 0024, set to warn by 0025 (BRD Q3).

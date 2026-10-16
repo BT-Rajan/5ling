@@ -9,26 +9,42 @@ the refusal is recorded in the audit log.
 from __future__ import annotations
 
 import hmac
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request, Response
 from pydantic import BaseModel, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.audit import audit
 from app.auth.deps import get_db
 from app.config import Settings
+from app.cycles.service import ticket_code
 from app.errors import ApiHTTPException
 from app.files.checklist import ItemView, items_for, upload_for_item
 from app.files.documents import Infected, forget_file
+from app.files.store import StoreError
 from app.files.types import ALLOWED_TEXT, FileRefused
 from app.followup import FollowUpRefused, confirm_no_activity
-from app.models import Client, Cycle, NilConfirmation, PortalLink, ScanStatus, UploadedVia
-from app.notify.service import COLLECTING, documents_arrived
-from app.portal.links import LinkProblem, cookie_name, csrf_for, load_session
+from app.models import (
+    Client,
+    ClientMessage,
+    Cycle,
+    CycleFiling,
+    DocumentVersion,
+    Filing,
+    NilConfirmation,
+    NotificationKind,
+    PortalLink,
+    ScanStatus,
+    Stage,
+    Ticket,
+    UploadedVia,
+)
+from app.notify.service import COLLECTING, documents_arrived, notify
+from app.portal.links import LinkProblem, cookie_name, csrf_for, load_session, portal_finished
 from app.timeutil import utcnow
 
 router = APIRouter(tags=["client portal"])
@@ -58,6 +74,31 @@ class ChecklistOut(BaseModel):
     # FR-CY-03: the client may say the period had no activity, while documents are still awaited.
     can_confirm_no_activity: bool = False
     no_activity_confirmed_at: datetime | None = None
+    # FR-WF-06: once filed, the client may download the acknowledgement; uploads are closed.
+    finished: bool = False
+    acknowledgement: AcknowledgementOut | None = None
+    # FR-AL-07: the client's own messages about this filing, oldest first.
+    messages: list[MessageOut] = []
+    can_message: bool = False
+
+
+class AcknowledgementOut(BaseModel):
+    reference: str
+    filename: str
+    filed_at: datetime
+
+
+class MessageOut(BaseModel):
+    id: int
+    body: str
+    sent_at: datetime
+
+
+class MessageIn(BaseModel):
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+MESSAGES_PER_DAY = 20
 
 
 class NoActivityIn(BaseModel):
@@ -89,7 +130,34 @@ def checklist_out(
         else None
     )
     received = any(v.status != "pending" for v in views)
+    filed = (
+        db.execute(
+            select(CycleFiling.reference, DocumentVersion.filename, CycleFiling.filed_at)
+            .join(DocumentVersion, DocumentVersion.id == CycleFiling.acknowledgement_version_id)
+            .where(CycleFiling.cycle_id == cycle.id)
+        ).first()
+        if cycle is not None and db is not None
+        else None
+    )
+    messages = (
+        [
+            MessageOut(id=m.id, body=m.body, sent_at=m.created_at)
+            for m in db.scalars(
+                select(ClientMessage)
+                .where(ClientMessage.cycle_id == cycle.id)
+                .order_by(ClientMessage.id)
+            )
+        ]
+        if cycle is not None and db is not None
+        else []
+    )
     return ChecklistOut(
+        finished=cycle is not None and portal_finished(cycle),
+        acknowledgement=AcknowledgementOut(reference=filed[0], filename=filed[1], filed_at=filed[2])
+        if filed
+        else None,
+        messages=messages,
+        can_message=cycle is not None and cycle.stage is not Stage.CLOSED,
         can_confirm_no_activity=cycle is not None
         and confirmed is None
         and cycle.stage in COLLECTING
@@ -140,9 +208,7 @@ def portal_no_activity(
     """FR-CY-03: the client confirms nothing happened this period; the cycle goes to review."""
     settings = _settings(request)
     link, _, cycle, token = _session(request, db)
-    sent = request.headers.get("x-csrf-token", "")
-    if not hmac.compare_digest(sent.encode(), csrf_for(settings, token).encode()):
-        raise ApiHTTPException(403, "This request could not be verified.", code="csrf_rejected")
+    _verify(request, settings, token)
     if any(v.status != "pending" for v in items_for(db, cycle.id)):
         raise ApiHTTPException(
             409,
@@ -160,6 +226,111 @@ def portal_no_activity(
     return checklist_out(settings, items_for(db, cycle.id), cycle, db)
 
 
+@router.post("/api/portal/messages", status_code=201)
+def portal_message(
+    body: MessageIn,
+    request: Request,
+    db: Session = Depends(get_db),  # noqa: B008
+) -> ChecklistOut:
+    """FR-AL-07: the client writes to the firm; kept against the cycle, and the owner is told."""
+    settings = _settings(request)
+    link, client, cycle, token = _session(request, db)
+    _verify(request, settings, token)
+    if cycle.stage is Stage.CLOSED:
+        raise ApiHTTPException(
+            409, "This filing is closed. Please email us instead.", code="closed"
+        )
+    since = utcnow() - timedelta(days=1)
+    recent = db.scalar(
+        select(func.count())
+        .select_from(ClientMessage)
+        .where(ClientMessage.cycle_id == cycle.id, ClientMessage.created_at >= since)
+    )
+    if (recent or 0) >= MESSAGES_PER_DAY:
+        raise ApiHTTPException(
+            429, "That is a lot of messages for one day. Please call us instead.", code="too_many"
+        )
+    message = ClientMessage(
+        cycle_id=cycle.id,
+        client_pk=client.id,
+        portal_link_id=link.id,
+        body=body.body,
+        created_at=utcnow(),
+    )
+    db.add(message)
+    db.flush()
+    ticket = db.get(Ticket, cycle.ticket_id)
+    filing = db.get(Filing, cycle.filing_id)
+    code = ticket_code(ticket.number) if ticket else ""
+    what = f"{client.legal_name}, {filing.code if filing else ''} {cycle.period_label}"
+    notify(
+        db,
+        kind=NotificationKind.CLIENT_MESSAGE,
+        dedupe_key=f"message:{message.id}",
+        client_pk=client.id,
+        cycle_id=cycle.id,
+        user_id=client.owner_id,
+        title=f"Message from the client: {what}",
+        body=f"On {code}:\n" + body.body[:1500],
+    )
+    # The audit keeps that a message came, not what it says (it may hold personal details).
+    audit(
+        db,
+        "portal.message_received",
+        actor_role="client",
+        target=("ticket", code),
+        details={"portal_link": link.id, "length": len(body.body)},
+    )
+    link.last_seen_at = utcnow()
+    db.commit()
+    return checklist_out(settings, items_for(db, cycle.id), cycle, db)
+
+
+@router.get("/api/portal/acknowledgement")
+def portal_acknowledgement(request: Request, db: Session = Depends(get_db)) -> Response:  # noqa: B008
+    """FR-WF-06: the filed acknowledgement, for this link's client and cycle only."""
+    link, _, cycle, _ = _session(request, db)
+    version = db.scalar(
+        select(DocumentVersion)
+        .join(CycleFiling, CycleFiling.acknowledgement_version_id == DocumentVersion.id)
+        .where(CycleFiling.cycle_id == cycle.id)
+    )
+    if version is None or version.scan_status is not ScanStatus.CLEAN:
+        raise ApiHTTPException(
+            404, "There is no acknowledgement for this filing yet.", code="not_found"
+        )
+    try:
+        data = request.app.state.store.get(version.storage_key)
+    except StoreError:
+        raise ApiHTTPException(500, "The file could not be read.", code="file_unreadable") from None
+    audit(
+        db,
+        "document.downloaded",
+        actor_role="client",
+        target=("document_version", version.id),
+        details={"via": "portal", "portal_link": link.id},
+    )
+    link.last_seen_at = utcnow()
+    db.commit()
+    return Response(
+        content=data,
+        media_type=version.content_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(version.filename)}",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
+
+
+def _verify(request: Request, settings: Settings, token: str) -> None:
+    """The portal's CSRF check: the token derived from this session (state-changing calls)."""
+    sent = request.headers.get("x-csrf-token", "")
+    if not hmac.compare_digest(sent.encode(), csrf_for(settings, token).encode()):
+        raise ApiHTTPException(403, "This request could not be verified.", code="csrf_rejected")
+
+
 async def raw_body(request: Request) -> bytes:
     return await request.body()
 
@@ -175,9 +346,11 @@ def portal_upload(
     """Upload one file against one checklist item. Refused files say why (FR-AL-04)."""
     settings = _settings(request)
     link, client, cycle, token = _session(request, db)
-    sent = request.headers.get("x-csrf-token", "")
-    if not hmac.compare_digest(sent.encode(), csrf_for(settings, token).encode()):
-        raise ApiHTTPException(403, "This request could not be verified.", code="csrf_rejected")
+    _verify(request, settings, token)
+    if portal_finished(cycle):
+        raise ApiHTTPException(
+            409, "This filing is done, so nothing more can be uploaded.", code="finished"
+        )
     store = request.app.state.store
     try:
         got = upload_for_item(

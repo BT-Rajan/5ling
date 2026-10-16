@@ -19,6 +19,7 @@ const FIELDS = [
   ["portal_link_hours", "How long a client's private link lasts", "hours"],
   ["idle_timeout_minutes", "Sign Staff and Administrators out after this long without activity", "minutes"],
   ["break_glass_minutes", "How long a client stays open after an Administrator gives a reason", "minutes"],
+  ["fee_reminder_interval_days", "Days between fee reminders to a client with an overdue invoice", "days"],
 ] as const;
 
 type Field = (typeof FIELDS)[number][0];

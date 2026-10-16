@@ -95,6 +95,7 @@ interface Ticket {
   can_edit: boolean;
   fee_status?: FeeStatus | null; // the owner and Administrators only (FR-FE-05)
   phone_contacts?: PhoneContact[];
+  messages?: { id: number; body: string; sent_at: string }[]; // FR-AL-07, from the portal
 }
 
 interface PhoneContact {
@@ -104,6 +105,23 @@ interface PhoneContact {
   promised_on: string | null;
   created_at: string;
   reminder: "reminded" | "not needed" | null;
+}
+
+/** Stage moves and the client's messages (FR-AL-07), newest first. */
+function historyEntries(ticket: Ticket): { key: string; at: string; primary: string; secondary: string }[] {
+  const moves = ticket.history.map((h, i) => ({
+    key: `move-${String(i)}`,
+    at: h.changed_at,
+    primary: h.from_stage ? `${LABEL[h.from_stage]} → ${LABEL[h.to_stage]}` : `Created as ${LABEL[h.to_stage]}`,
+    secondary: [formatIST(h.changed_at), h.changed_by ?? "System", h.note ? `“${h.note}”` : null].filter(Boolean).join(" · "),
+  }));
+  const messages = (ticket.messages ?? []).map((m) => ({
+    key: `message-${String(m.id)}`,
+    at: m.sent_at,
+    primary: `Message from the client: “${m.body}”`,
+    secondary: `${formatIST(m.sent_at)} · ${ticket.client.legal_name}, on the portal`,
+  }));
+  return [...moves, ...messages].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 }
 
 /** FR-IN-05: note a call to the client and the date they promised; a reminder comes that day. */
@@ -570,12 +588,13 @@ export function TicketPage() {
       {ticket.task && <TaskPanel key={`${ticket.code}-${ticket.task.status}-${String(ticket.task.assignee?.id ?? 0)}`} ticket={ticket} onChanged={changed} />}
       <Typography variant="h5" component="h2" sx={{ mb: 1 }}>History</Typography>
       <List aria-label="Ticket history" disablePadding>
-        {ticket.history.map((h, i) => (
+        {historyEntries(ticket).map((h) => (
           <ListItemText
-            key={i}
+            key={h.key}
             sx={{ py: 1 }}
-            primary={h.from_stage ? `${LABEL[h.from_stage]} → ${LABEL[h.to_stage]}` : `Created as ${LABEL[h.to_stage]}`}
-            secondary={[formatIST(h.changed_at), h.changed_by ?? "System", h.note ? `“${h.note}”` : null].filter(Boolean).join(" · ")}
+            primary={h.primary}
+            secondary={h.secondary}
+            slotProps={{ primary: { sx: { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } } }}
           />
         ))}
       </List>

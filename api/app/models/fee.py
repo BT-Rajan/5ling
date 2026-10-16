@@ -179,3 +179,17 @@ class Invoice(Base):
         BigInteger, ForeignKey("users.id"), nullable=True
     )  # None: the scheduler
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)
+
+
+class FeeReminder(Base):
+    """One reminder email for one overdue invoice (FR-FE-07). Never changed or deleted."""
+
+    __tablename__ = "fee_reminders"
+    __table_args__ = (UniqueConstraint("invoice_id", "sent_on"), _TABLE)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    invoice_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("invoices.id"), nullable=False)
+    email_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("emails.id"), nullable=False)
+    sent_on: Mapped[date] = mapped_column(Date, nullable=False)  # India date
+    balance_paise: Mapped[int] = mapped_column(BigInteger, nullable=False)  # owed when sent
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False, default=utcnow)

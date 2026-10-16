@@ -150,3 +150,44 @@ describe("No activity this period (FR-CY-03)", () => {
     expect(screen.queryByRole("button", { name: /No activity this period/ })).not.toBeInTheDocument();
   });
 });
+
+describe("Messages and completion (C35)", () => {
+  it("lets the client write to the firm and shows what they sent", async () => {
+    const posts: Call[] = [];
+    mockApi({
+      handlers: {
+        "POST /api/portal/open": () => jsonResponse(portal),
+        "GET /api/portal/checklist": () => jsonResponse({ ...checklist([item(1, "Sales register")], 1), messages: [], can_message: true }),
+        "POST /api/portal/messages": (c) => {
+          posts.push(c);
+          return jsonResponse({ ...checklist([item(1, "Sales register")], 1), messages: [{ id: 1, body: "Sending it Friday", sent_at: "2026-10-14T05:00:00Z" }], can_message: true }, 201);
+        },
+      },
+    });
+    show("#t=abc");
+    const box = await screen.findByRole("region", { name: "Messages to us" });
+    const send = within(box).getByRole("button", { name: "Send message" });
+    expect(send).toBeDisabled();
+    await userEvent.type(within(box).getByLabelText("Your message"), "Sending it Friday");
+    await userEvent.click(send);
+    expect(await within(box).findByText("Sending it Friday")).toBeInTheDocument();
+    expect(posts[0]?.body).toEqual({ body: "Sending it Friday" });
+    expect(posts[0]?.headers.get("X-CSRF-Token")).toBe("portal-csrf");
+  });
+
+  it("shows a finished filing with its acknowledgement to download, and no uploads", async () => {
+    mockApi({
+      handlers: {
+        "POST /api/portal/open": () => jsonResponse(portal),
+        "GET /api/portal/checklist": () =>
+          jsonResponse({ ...checklist([item(1, "Sales register")], 1), finished: true, acknowledgement: { reference: "AA0705260012345", filename: "ack.pdf", filed_at: "2026-10-14T05:00:00Z" }, messages: [], can_message: false }),
+      },
+    });
+    show("#t=abc");
+    const done = await screen.findByRole("region", { name: "Filing complete" });
+    expect(within(done).getByText(/Acknowledgement reference AA0705260012345/)).toBeInTheDocument();
+    expect(within(done).getByRole("link", { name: "Download the acknowledgement" })).toHaveAttribute("href", "/api/portal/acknowledgement");
+    expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Messages to us" })).not.toBeInTheDocument();
+  });
+});

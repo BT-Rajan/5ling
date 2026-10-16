@@ -57,6 +57,7 @@ class EmailKind(enum.StrEnum):
     CLIENT_ALERT = "client_alert"  # the automatic first alert and reminders (FR-AL-01, FR-AL-03)
     CONSULTANT_SIGN_IN = "consultant_sign_in"  # a consultant's sign-in link (NFR-SE-02)
     ASSIGNMENT = "assignment"  # a consultant has been given work (FR-WF-01)
+    FEE_REMINDER = "fee_reminder"  # an overdue invoice, at set intervals (FR-FE-07)
 
 
 class EventSource(enum.StrEnum):

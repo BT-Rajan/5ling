@@ -86,6 +86,33 @@ TEMPLATES: dict[str, Template] = {
             "{{sender_name}}\n{{firm_name}}\n",
         ),
         Template(
+            # FR-WF-06: the filed update, with a private link to fetch the acknowledgement. The
+            # link is made only when a person presses Send (CR-03).
+            "filing_complete",
+            "{{filing}} {{period}}: filed ({{ticket_id}})",
+            "Dear {{client_name}},\n\n"
+            "Your {{filing}} for {{period}} has been filed. {{detail}}\n\n"
+            "You can download the acknowledgement from your private link:\n\n"
+            "{{link}}\n\n"
+            "It opens once, on one device, and works until {{expires}}. Please do not forward "
+            "it.\n\n"
+            "{{note}}\n\n"
+            "Reference: {{ticket_id}}, client ID {{client_id}}.\n\n"
+            "{{sender_name}}\n{{firm_name}}\n",
+        ),
+        Template(
+            # FR-FE-07: an overdue invoice, at the interval the Administrator sets.
+            "fee_reminder",
+            "Fee reminder: {{detail}}",
+            "Dear {{client_name}},\n\n"
+            "This is a reminder that our invoice {{detail}} was due on {{due_date}} and is not "
+            "yet fully paid.\n\n"
+            "If you have paid it in the last few days, thank you, and please ignore this "
+            "reminder. If you have a question about the invoice, reply to this email.\n\n"
+            "Client ID {{client_id}}.\n\n"
+            "{{firm_name}}\n",
+        ),
+        Template(
             "portal_link",
             "{{filing}} {{period}}: your private link ({{ticket_id}})",
             "Dear {{client_name}},\n\n"

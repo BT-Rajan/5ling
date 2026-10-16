@@ -200,6 +200,7 @@ def send(
             sender_name=principal.full_name,
             note=body.note,
             cc_contact_ids=body.cc_contact_ids,
+            settings=_settings(request),
         )
     except UpdateRefused as exc:
         db.rollback()
@@ -226,6 +227,7 @@ KIND_LABEL = {
     EmailKind.CLIENT_ALERT: "Alert",
     EmailKind.CLIENT_UPDATE: "Update",
     EmailKind.PORTAL_LINK: "Private link",
+    EmailKind.FEE_REMINDER: "Fee reminder",
 }
 
 

@@ -46,6 +46,7 @@ class RulesIn(BaseModel):
     portal_link_hours: Annotated[int, _limit("portal_link_hours")]
     idle_timeout_minutes: Annotated[int, _limit("idle_timeout_minutes")]
     break_glass_minutes: Annotated[int, _limit("break_glass_minutes")]
+    fee_reminder_interval_days: Annotated[int, _limit("fee_reminder_interval_days")]
 
 
 class Limit(BaseModel):

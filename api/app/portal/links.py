@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.config import Settings
 from app.cycles.service import ticket_code
@@ -25,6 +25,7 @@ from app.models import (
     ClientStatus,
     Contact,
     Cycle,
+    CycleFiling,
     Email,
     EmailKind,
     Filing,
@@ -92,7 +93,26 @@ def mask_address(address: str) -> str:
 
 
 def _closed(client: Client, cycle: Cycle) -> bool:
-    return client.status is ClientStatus.CLOSED or cycle.stage is Stage.CLOSED
+    """A closed client's links never open. A closed cycle's links do only if it was filed, so the
+    client can still fetch the acknowledgement for the link's time (FR-WF-06); every portal
+    action that changes something refuses once the work is finished (`portal_finished`)."""
+    if client.status is ClientStatus.CLOSED:
+        return True
+    if cycle.stage is not Stage.CLOSED:
+        return False
+    db = object_session(cycle)
+    return (
+        db is None
+        or db.scalar(select(CycleFiling.id).where(CycleFiling.cycle_id == cycle.id)) is None
+    )
+
+
+FINISHED = (Stage.FILED, Stage.ACKNOWLEDGED, Stage.CLOSED)
+
+
+def portal_finished(cycle: Cycle) -> bool:
+    """Filed or later: the client may read (and download the acknowledgement) but not upload."""
+    return cycle.stage in FINISHED
 
 
 def primary_address(db: Session, client: Client) -> str | None:

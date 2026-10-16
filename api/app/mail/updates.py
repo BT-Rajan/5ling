@@ -22,6 +22,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config import Settings
 from app.cycles.service import ticket_code
 from app.cycles.stages import CLIENT_STATUS_LABEL, STAGE_LABEL, TASK_LABEL
 from app.mail.outbox import clean_addresses, create, queue
@@ -31,17 +32,20 @@ from app.models import (
     ClientStatus,
     Contact,
     Cycle,
+    CycleFiling,
     Email,
     EmailKind,
     EmailStatus,
     EventKind,
     Filing,
+    LinkOrigin,
     Stage,
     StateEvent,
     TaskStatus,
     Ticket,
 )
-from app.timeutil import utcnow
+from app.portal.links import issue, url_for
+from app.timeutil import ensure_utc, format_ist, utcnow
 
 
 class UpdateRefused(ValueError):
@@ -66,7 +70,9 @@ def content_for(
     firm_name: str,
     sender_name: str | None = None,
     note: str | None = None,
+    link: tuple[str, str] | None = None,
 ) -> Rendered:
+    """The update's text. `link`: the private link and when it expires, for the filed update."""
     client = db.get(Client, event.client_pk)
     if client is None:  # a foreign key prevents it
         raise RuntimeError("state event refers to a missing client")
@@ -93,7 +99,44 @@ def content_for(
     if cycle is None or filing is None:
         raise RuntimeError("stage event refers to a missing cycle")
     values |= {"filing": filing.code, "period": cycle.period_label, "due_date": cycle.due_date}
+    if is_completion(event):
+        # FR-WF-06: the client is told it is filed and can fetch the acknowledgement. The link is
+        # made when a person presses Send, so drafts and previews show where it will go.
+        reference = db.scalar(select(CycleFiling.reference).where(CycleFiling.cycle_id == cycle.id))
+        values |= {
+            "detail": f"The acknowledgement reference is {reference}." if reference else "",
+            "link": link[0] if link else "[your private link is added when this is sent]",
+            "expires": link[1] if link else "[the time is set when it is sent]",
+        }
+        return render("filing_complete", values)
     return render("stage_change", values)
+
+
+def is_completion(event: StateEvent) -> bool:
+    return event.kind is EventKind.CYCLE_STAGE and event.to_state == Stage.FILED.value
+
+
+def completion_link(
+    db: Session, settings: Settings, event: StateEvent, created_by_id: int
+) -> tuple[str, str] | None:
+    """A fresh private link for the filed update (FR-WF-06), or None for any other update."""
+    if not is_completion(event) or event.ticket_id is None:
+        return None
+    cycle = db.scalar(select(Cycle).where(Cycle.ticket_id == event.ticket_id))
+    client = db.get(Client, event.client_pk)
+    if cycle is None or client is None:
+        return None
+    token, row = issue(
+        db,
+        settings,
+        client=client,
+        cycle=cycle,
+        origin=LinkOrigin.STAFF,
+        created_by_id=created_by_id,
+    )
+    return url_for(settings, token), format_ist(
+        ensure_utc(row.expires_at), "%a %d %b %Y, %H:%M IST"
+    )
 
 
 def primary_contact(db: Session, client_pk: int) -> Contact | None:
@@ -145,6 +188,7 @@ def prepare(
     sender_name: str,
     note: str | None,
     cc_contact_ids: Iterable[int] = (),
+    link: tuple[str, str] | None = None,
 ) -> Prepared:
     """The email as it would be sent now: re-rendered, to the current primary contact."""
     if email.kind is not EmailKind.CLIENT_UPDATE or email.state_event_id is None:
@@ -166,7 +210,9 @@ def prepare(
     if unknown:
         raise UpdateRefused("bad_contact", "Copy only this client's other contacts.", 422)
     note = (note or "").strip() or None
-    content = content_for(db, event, firm_name=firm_name, sender_name=sender_name, note=note)
+    content = content_for(
+        db, event, firm_name=firm_name, sender_name=sender_name, note=note, link=link
+    )
     to = clean_addresses([primary.email])
     cc = [a for a in clean_addresses(c.email for c in others if c.id in wanted) if a not in to]
     return Prepared(email=email, content=content, to=to, cc=cc, others=others)
@@ -181,8 +227,12 @@ def send_update(
     sender_name: str,
     note: str | None,
     cc_contact_ids: Iterable[int] = (),
+    settings: Settings | None = None,
 ) -> Prepared:
-    """Queue one draft (CR-03). The caller has checked access, and audits and commits."""
+    """Queue one draft (CR-03). The caller has checked access, and audits and commits.
+
+    With `settings`, the filed update gets a new private link (FR-WF-06), made only now, as the
+    person sends it; a second press finds it already sent, so the link is made once."""
     email = db.scalar(
         select(Email)
         .where(Email.id == email_id)
@@ -193,6 +243,12 @@ def send_update(
         raise UpdateRefused("not_found", "No such email.", 404)
     if email.status is not EmailStatus.DRAFT:
         raise UpdateRefused("already_sent", "This update has already been sent.")
+    event = db.get(StateEvent, email.state_event_id) if email.state_event_id else None
+    link = (
+        completion_link(db, settings, event, sender_id)
+        if settings is not None and event is not None
+        else None
+    )
     ready = prepare(
         db,
         email,
@@ -200,6 +256,7 @@ def send_update(
         sender_name=sender_name,
         note=note,
         cc_contact_ids=cc_contact_ids,
+        link=link,
     )
     email.to_addresses = ready.to
     email.cc_addresses = ready.cc

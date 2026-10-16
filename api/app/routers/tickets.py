@@ -45,6 +45,7 @@ from app.models import (
     Assignment,
     CalendarVersion,
     Client,
+    ClientMessage,
     Cycle,
     CycleFiling,
     DocumentVersion,
@@ -176,6 +177,12 @@ class PhoneContactOut(BaseModel):
     reminder: str | None  # None until the date: "reminded" or "not needed" (it had moved on)
 
 
+class ClientMessageOut(BaseModel):
+    id: int
+    body: str  # in the client's own words: shown as text, never as markup
+    sent_at: datetime
+
+
 class PhoneContactIn(BaseModel):
     note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=1000)]
     promised_on: date | None = None
@@ -223,6 +230,7 @@ class TicketOut(BaseModel):
     # FR-FE-04: the client's fee status, for its owner and Administrators only (FR-FE-05).
     fee_status: FeeStatus | None = None
     phone_contacts: list[PhoneContactOut] = []  # FR-IN-05, newest first
+    messages: list[ClientMessageOut] = []  # FR-AL-07: written by the client on the portal
 
 
 class TicketRow(BaseModel):
@@ -446,6 +454,16 @@ def _ticket_out(db: Session, ticket: Ticket, client: Client, principal: Principa
         if can_edit(principal, client)
         else None,
         phone_contacts=phone_contacts_out(db, ticket.id),
+        messages=[
+            ClientMessageOut(id=m.id, body=m.body, sent_at=m.created_at)
+            for m in db.scalars(
+                select(ClientMessage)
+                .where(ClientMessage.cycle_id == cycle.id)
+                .order_by(ClientMessage.id)
+            )
+        ]
+        if cycle is not None
+        else [],
     )
 
 

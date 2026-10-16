@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.audit import audit
 from app.config import Settings
 from app.cycles.service import ticket_code
+from app.fees.reminders import send_fee_reminders
 from app.files.checklist import items_for
 from app.followup import phone_promises
 from app.mail.outbox import create
@@ -82,6 +83,7 @@ class Tally:
     waiting: int = 0  # owners told a cycle is waiting on the client (FR-IN-02)
     escalated: int = 0  # cycles escalated to the Administrators (FR-IN-03)
     phone_reminders: int = 0  # promised dates come round, still waiting (FR-IN-05)
+    fee_reminders: int = 0  # overdue invoices reminded about (FR-FE-07)
     skipped_reason: str | None = None  # outside sending hours, or another run in progress
     failures: list[str] = field(default_factory=list)
 
@@ -233,6 +235,10 @@ def run(
                         tally.failed += 1
                         tally.failures.append(f"cycle {cycle_id}: {type(exc).__name__}")
                         log.exception("client alert failed", extra={"ctx": {"cycle": cycle_id}})
+            fees = send_fee_reminders(factory, today=today, firm_name=settings.firm_name)
+            tally.fee_reminders = fees.sent  # FR-FE-07
+            tally.failed += fees.failed
+            tally.failures += fees.failures
         finally:
             lock_db.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": _LOCK})
     facts = {"checked": tally.checked, "sent": tally.sent, "failed": tally.failed}

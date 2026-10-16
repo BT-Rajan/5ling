@@ -29,6 +29,7 @@ DEFAULTS = {
     "portal_link_hours": 72,
     "idle_timeout_minutes": 20,
     "break_glass_minutes": 240,
+    "fee_reminder_interval_days": 7,
 }
 
 
